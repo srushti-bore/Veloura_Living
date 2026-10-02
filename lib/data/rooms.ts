@@ -1,0 +1,1 @@
+export { ROOMS } from './mockData';

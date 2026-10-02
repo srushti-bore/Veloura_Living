@@ -1,0 +1,83 @@
+:root {
+  /* Brand Master Luxury Palette per Veloura_Living_FINAL_Design.md */
+  --color-espresso: #2A1A12;
+  --color-deep-walnut: #4A2C1A;
+  --color-walnut: #765236;
+  --color-caramel: #A9794F;
+  --color-sand: #D8B486;
+  --color-cream: #F4E8D7;
+  --color-ivory: #FAF7F2;
+  --color-taupe: #B9AA99;
+  --color-charcoal: #211915;
+
+  /* Legacy & Semantic Mapping */
+  --color-primary-brown: #8B5A2B;
+  --color-deep-brown: #4A2C1A;
+  --color-warm-cream: #F4E8D7;
+  --color-soft-beige: #EADBC8;
+
+  /* Neutral System */
+  --color-neutral-0: #FFFFFF;
+  --color-neutral-50: #FAF7F2;
+  --color-neutral-100: #F4E8D7;
+  --color-neutral-200: #EADBC8;
+  --color-neutral-300: #D8B486;
+  --color-neutral-400: #B9AA99;
+  --color-neutral-500: #765236;
+  --color-neutral-600: #514A43;
+  --color-neutral-700: #4A2C1A;
+  --color-neutral-800: #2A1A12;
+  --color-neutral-900: #211915;
+
+  /* Semantic Colors */
+  --color-success: #557A5A;
+  --color-warning: #A47A45;
+  --color-error: #A6544D;
+  --color-info: #657785;
+
+  /* Surface Tokens */
+  --surface-page: var(--color-ivory);
+  --surface-primary: #FFFFFF;
+  --surface-warm: var(--color-cream);
+  --surface-soft: var(--color-sand);
+  --surface-dark: var(--color-espresso);
+  --surface-muted: var(--color-neutral-100);
+
+  /* Text Tokens */
+  --text-primary: var(--color-charcoal);
+  --text-secondary: var(--color-taupe);
+  --text-muted: var(--color-neutral-400);
+  --text-inverse: #FFFFFF;
+  --text-brand: var(--color-deep-walnut);
+  --text-accent: var(--color-caramel);
+
+  /* Typography */
+  --font-display: var(--font-cormorant), var(--font-playfair), 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+  --font-body: var(--font-dmsans), var(--font-manrope), 'DM Sans', 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Font Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Border Radii */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-pill: 9999px;
+
+  /* Shadow Elevations */
+  --shadow-sm: 0 1px 3px rgba(33, 25, 21, 0.04), 0 1px 2px rgba(33, 25, 21, 0.02);
+  --shadow-md: 0 4px 12px -2px rgba(33, 25, 21, 0.06), 0 2px 4px -1px rgba(33, 25, 21, 0.03);
+  --shadow-lg: 0 12px 28px -4px rgba(33, 25, 21, 0.08), 0 4px 8px -2px rgba(33, 25, 21, 0.03);
+  --shadow-xl: 0 20px 40px -8px rgba(33, 25, 21, 0.12), 0 6px 12px -3px rgba(33, 25, 21, 0.04);
+  --shadow-glass: 0 8px 32px 0 rgba(74, 44, 26, 0.08);
+
+  /* Container Widths */
+  --container-max: 1440px;
+  --container-narrow: 1080px;
+}

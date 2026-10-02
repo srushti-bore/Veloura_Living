@@ -1,0 +1,375 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  html {
+    scroll-behavior: auto; /* Handled by Lenis for smooth momentum */
+    font-family: var(--font-body);
+    background-color: var(--surface-page);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    overflow-x: hidden;
+    min-height: 100vh;
+    background-color: #FAF7F2;
+    color: #211915;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+    line-height: 1.12;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Custom scrollbar matching warm aesthetics */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #FAF7F2;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #D8B486;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #A9794F;
+  }
+}
+
+/* Master Primary Button — Subtle Warm Brown/Caramel Shimmer Effect (Section 32) */
+.btn-primary-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #2A1A12;
+  color: #FAF7F2;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.btn-primary-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(244, 232, 215, 0.24) 35%,
+    rgba(216, 180, 134, 0.42) 55%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  transition: none;
+}
+
+.btn-primary-shimmer:hover {
+  background-color: #1F130D;
+  transform: scale(1.01);
+}
+
+.btn-primary-shimmer:hover::after {
+  left: 200%;
+  transition: left 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-primary-shimmer:active {
+  transform: scale(0.98);
+}
+
+/* Secondary Button Micro-Interactions */
+.btn-secondary-refined {
+  background-color: rgba(255, 255, 255, 0.92);
+  color: #2A1A12;
+  border: 1px solid #D8B486;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-secondary-refined:hover {
+  background-color: #FFFFFF;
+  border-color: #A9794F;
+  color: #1F130D;
+  transform: scale(1.01);
+}
+
+.btn-secondary-refined:active {
+  transform: scale(0.98);
+}
+
+/* Navigation Link Underline Indicator (Section 6 & 33) */
+.nav-link-indicator {
+  position: relative;
+}
+
+.nav-link-indicator::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 100%;
+  height: 1.5px;
+  background-color: #A9794F;
+  border-radius: 1px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-link-indicator:hover::after,
+.nav-link-indicator.active::after {
+  transform: scaleX(1);
+}
+
+/* Solidified Architectural Glassmorphism Header — High Density Ivory/Warm Cream (Section 6) */
+.header-glass-scrolled {
+  background-color: rgba(250, 247, 242, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(74, 44, 26, 0.08);
+  box-shadow: 0 4px 20px -2px rgba(33, 25, 21, 0.05), 0 1px 3px rgba(33, 25, 21, 0.03);
+}
+
+.header-top-state {
+  background-color: rgba(250, 247, 242, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(74, 44, 26, 0.06);
+}
+
+/* Hotspot pulsing keyframes (Section 19) */
+@keyframes hotspot-pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(169, 121, 79, 0.55);
+  }
+  70% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 16px rgba(169, 121, 79, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(169, 121, 79, 0);
+  }
+}
+
+.hotspot-pulse-anim {
+  animation: hotspot-pulse 2.5s infinite cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+/* Slide in animation */
+@keyframes slideLeft {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slideLeft {
+  animation: slideLeft 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.97); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-scaleUp {
+  animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Badge Spring Pop */
+@keyframes badgePop {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.animate-badge-pop {
+  animation: badgePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Tactile Wishlist Scale */
+@keyframes heartBurst {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+.animate-heart-burst {
+  animation: heartBurst 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Luxury Toast Slide in & out */
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Floating ambient glow */
+@keyframes ambientGlow {
+  0%, 100% {
+    box-shadow: 0 0 24px -6px rgba(169, 121, 79, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px 4px rgba(169, 121, 79, 0.38);
+  }
+}
+
+.ambient-glow-anim {
+  animation: ambientGlow 4s infinite ease-in-out;
+}
+
+/* Luxury Interactive Glass Card */
+.luxury-glass-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(74, 44, 26, 0.08);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.luxury-glass-card:hover {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(169, 121, 79, 0.3);
+  box-shadow: 0 12px 28px -6px rgba(74, 44, 26, 0.08);
+  transform: translateY(-1.5px);
+}
+
+/* Micro-Interaction Utility System & Layout Overlap Prevention */
+.interactive-card {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease, border-color 0.35s ease;
+  will-change: transform, box-shadow;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -6px rgba(74, 44, 26, 0.08);
+}
+
+.interactive-pill {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.interactive-pill:active {
+  transform: scale(0.96);
+}
+
+.interactive-arrow {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-block;
+}
+
+.group:hover .interactive-arrow {
+  transform: translateX(4px);
+}
+
+/* Stable Image Wrapper with Restrained Hover Zoom (1.02 max per Section 20) */
+.image-zoom-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.image-zoom-target {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.group:hover .image-zoom-target {
+  transform: scale(1.02);
+}
+
+.interactive-scale-subtle {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.group:hover .interactive-scale-subtle {
+  transform: scale(1.02);
+}
+
+.interactive-swatch {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, ring-width 0.2s ease;
+}
+
+.interactive-swatch:hover {
+  transform: scale(1.12);
+}
+
+.interactive-swatch:active {
+  transform: scale(0.92);
+}
+
+/* Scene-to-Scene Choreography Stage Styles (Section 8, 9, 10, 11) */
+.scene-pinned-viewport {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.scene-layer-depth-0 {
+  z-index: 0;
+}
+
+.scene-layer-depth-1 {
+  z-index: 10;
+}
+
+.scene-layer-depth-2 {
+  z-index: 20;
+}
+
+.scene-layer-depth-3 {
+  z-index: 30;
+}
+
+.scene-layer-depth-4 {
+  z-index: 40;
+}
+
+.scene-layer-depth-5 {
+  z-index: 50;
+}
+
+/* Reduced Motion Override */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
