@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '@/hooks/useStore';
+import { useAuth } from '@/providers/AuthProvider';
 import {
   ShoppingBag,
   Heart,
@@ -12,7 +13,9 @@ import {
   ChevronDown,
   User,
   ShieldCheck,
-  Compass
+  Compass,
+  LogOut,
+  Sliders
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -27,9 +30,20 @@ export const Header: React.FC = () => {
     setFilters
   } = useStore();
 
+  const {
+    user,
+    profile,
+    isAuthenticated,
+    isAdmin,
+    isManager,
+    openAuthModal,
+    logout
+  } = useAuth();
+
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isRoomsDropdownOpen, setIsRoomsDropdownOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchInputValue, setSearchInputValue] = useState('');
   const [cartAnimate, setCartAnimate] = useState(false);
@@ -298,14 +312,87 @@ export const Header: React.FC = () => {
               )}
             </button>
 
-            {/* Account / Orders */}
-            <button
-              onClick={() => navigate('/account')}
-              className="hidden sm:flex p-2 text-[#514A43] hover:text-[#211E1B] rounded-full hover:bg-[#F7F4EF] transition-colors cursor-pointer active:scale-95"
-              aria-label="User Account"
-            >
-              <User className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+            {/* Account / Authentication Menu */}
+            <div className="relative">
+              {isAuthenticated ? (
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="hidden sm:flex items-center gap-1.5 p-1.5 pr-2.5 bg-cream/70 hover:bg-cream text-espresso rounded-full border border-walnut/15 text-xs font-medium transition-all active:scale-95 cursor-pointer"
+                  aria-label="User Account"
+                >
+                  <div className="w-6 h-6 rounded-full bg-espresso text-sand text-[11px] font-bold flex items-center justify-center">
+                    {profile?.first_name ? profile.first_name[0].toUpperCase() : (user?.email[0].toUpperCase() || 'U')}
+                  </div>
+                  <span className="max-w-[80px] truncate text-[11px] font-medium">
+                    {profile?.first_name || user?.email.split('@')[0]}
+                  </span>
+                  {isAdmin && <span className="text-[10px] text-caramel font-bold">👑</span>}
+                </button>
+              ) : (
+                <button
+                  onClick={() => openAuthModal('signin')}
+                  className="hidden sm:flex p-2 text-[#514A43] hover:text-[#211E1B] rounded-full hover:bg-[#F7F4EF] transition-colors cursor-pointer active:scale-95"
+                  aria-label="Sign In"
+                  title="Sign In / Register"
+                >
+                  <User className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
+              )}
+
+              {/* User Dropdown Popover */}
+              {isUserMenuOpen && isAuthenticated && (
+                <div 
+                  className="absolute right-0 mt-2 w-56 bg-ivory rounded-xl shadow-xl border border-walnut/15 py-2 z-50 animate-fadeIn text-espresso"
+                  onClick={() => setIsUserMenuOpen(false)}
+                >
+                  <div className="px-4 py-2 border-b border-walnut/10">
+                    <p className="text-xs font-bold text-espresso truncate">
+                      {profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}` : user?.email}
+                    </p>
+                    <p className="text-[10px] text-taupe truncate">{user?.email}</p>
+                    <div className="mt-1 flex items-center gap-1">
+                      {user?.roles.map((r) => (
+                        <span key={r} className="px-1.5 py-0.5 rounded bg-sand/30 text-[9px] font-bold tracking-wider text-deep-walnut uppercase">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="py-1">
+                    <button
+                      onClick={() => navigate('/account')}
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-cream/60 flex items-center gap-2 transition-colors"
+                    >
+                      <User className="w-3.5 h-3.5 text-taupe" /> My Concierge Profile
+                    </button>
+                    <button
+                      onClick={() => navigate('/account')}
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-cream/60 flex items-center gap-2 transition-colors"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5 text-taupe" /> Orders & White-Glove Tracking
+                    </button>
+                    {(isAdmin || isManager) && (
+                      <button
+                        onClick={() => navigate('/admin')}
+                        className="w-full text-left px-4 py-2 text-xs hover:bg-cream/60 text-caramel font-semibold flex items-center gap-2 transition-colors border-t border-b border-walnut/10 my-1"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-caramel" /> Admin Operations
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="pt-1 border-t border-walnut/10">
+                    <button
+                      onClick={() => logout()}
+                      className="w-full text-left px-4 py-2 text-xs text-red-700 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                    >
+                      <LogOut className="w-3.5 h-3.5 text-red-500" /> Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Cart Button */}
             <button

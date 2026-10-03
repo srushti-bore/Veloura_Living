@@ -242,7 +242,7 @@ export function useVelouraStore() {
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [isAIThinking, setIsAIThinking] = useState(false);
 
-  const sendAIMessage = (promptText: string) => {
+  const sendAIMessage = async (promptText: string) => {
     const userMsg: AIMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
@@ -253,6 +253,62 @@ export function useVelouraStore() {
     setAiMessages(prev => [...prev, userMsg]);
     setIsAIThinking(true);
 
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: promptText,
+          conversationHistory: aiMessages.map(m => ({ sender: m.sender, text: m.text }))
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.data) {
+          const aiReply: AIMessage = {
+            id: `ai-${Date.now()}`,
+            sender: 'assistant',
+            text: data.data.message,
+            timestamp: 'Just now',
+            recommendedProducts: data.data.recommendedProducts && data.data.recommendedProducts.length > 0
+              ? data.data.recommendedProducts.map((p: any) => ({
+                  id: p.id,
+                  name: p.name,
+                  slug: p.slug,
+                  price: p.price,
+                  salePrice: p.salePrice,
+                  rating: 5.0,
+                  reviewsCount: 18,
+                  images: [p.image || '/images/products/veloura_solis_boucle_chair.jpg'],
+                  room: p.category?.toLowerCase() || 'living-room',
+                  category: p.category || 'Living',
+                  materials: p.materials || ['Solid Walnut'],
+                  dimensions: 'Standard Dimensions',
+                  leadTime: '3-5 business days',
+                  isFeatured: true,
+                  stock: 10,
+                  shortDescription: p.name,
+                  fullDescription: p.name,
+                  sku: p.slug || 'SKU-001',
+                  careGuide: 'Wipe with soft cloth',
+                  availability: p.availability || 'in_stock'
+                }))
+              : PRODUCTS.slice(0, 3),
+            roomTip: data.data.roomTip,
+            paletteSuggestion: data.data.paletteSuggestion || ['#4A2C1A', '#A9794F', '#D8B486', '#FAF7F2']
+          };
+
+          setAiMessages(prev => [...prev, aiReply]);
+          setIsAIThinking(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('AI API fallback to local model:', e);
+    }
+
+    // Local Fallback Heuristics
     setTimeout(() => {
       const lower = promptText.toLowerCase();
       let responseText = "";
@@ -303,8 +359,9 @@ export function useVelouraStore() {
 
       setAiMessages(prev => [...prev, aiReply]);
       setIsAIThinking(false);
-    }, 900);
+    }, 600);
   };
+
 
   const [previewProduct, setPreviewProduct] = useState<Product | null>(null);
   const [filters, setFilters] = useState<FilterState>(INITIAL_FILTERS);

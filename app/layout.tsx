@@ -3,12 +3,14 @@ import type { Metadata } from 'next';
 import React from 'react';
 import { Cormorant_Garamond, DM_Sans, Playfair_Display, Manrope } from 'next/font/google';
 import { AppProvider } from '../providers/AppProvider';
+import { AuthProvider } from '../providers/AuthProvider';
 import { SmoothScrollProvider } from '../providers/SmoothScrollProvider';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { CartDrawer } from '../components/commerce/CartDrawer';
 import { AIShoppingAssistantDrawer } from '../components/ai/AIShoppingAssistantDrawer';
 import { HotspotPreviewModal } from '../components/products/HotspotPreviewModal';
+import { AuthModal } from '../components/auth/AuthModal';
 import { LuxuryToastContainer } from '../components/common/LuxuryToast';
 import { LuxuryCursor } from '../components/common/LuxuryCursor';
 import { AmbientSoundscape } from '../components/audio/AmbientSoundscape';
@@ -63,25 +65,28 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className="bg-[#FAF7F2] text-[#211915] font-sans antialiased selection:bg-[#F4E8D7] selection:text-[#4A2C1A]">
-        <AppProvider>
-          <SmoothScrollProvider>
-            <div className="flex flex-col min-h-screen bg-[#FCFAF7] text-[#211E1B]">
-              <Header />
-              <main className="flex-1">{children}</main>
-              <Footer />
+        <AuthProvider>
+          <AppProvider>
+            <SmoothScrollProvider>
+              <div className="flex flex-col min-h-screen bg-[#FCFAF7] text-[#211E1B]">
+                <Header />
+                <main className="flex-1">{children}</main>
+                <Footer />
 
-              {/* Global Modals & Drawers */}
-              <CartDrawer />
-              <AIShoppingAssistantDrawer />
-              <HotspotPreviewModal />
+                {/* Global Modals & Drawers */}
+                <CartDrawer />
+                <AIShoppingAssistantDrawer />
+                <HotspotPreviewModal />
+                <AuthModal />
 
-              {/* Global Micro-Interaction Enhancements */}
-              <LuxuryToastContainer />
-              <LuxuryCursor />
-              <AmbientSoundscape />
-            </div>
-          </SmoothScrollProvider>
-        </AppProvider>
+                {/* Global Micro-Interaction Enhancements */}
+                <LuxuryToastContainer />
+                <LuxuryCursor />
+                <AmbientSoundscape />
+              </div>
+            </SmoothScrollProvider>
+          </AppProvider>
+        </AuthProvider>
       </body>
     </html>
   );

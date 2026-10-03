@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useStore } from '@/hooks/useStore';
+import { useAuth } from '@/providers/AuthProvider';
 import { ProductCard } from '@/components/products/ProductCard';
 import {
   Package,
@@ -14,14 +15,109 @@ import {
   ShieldCheck,
   Download,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Plus,
+  Trash2,
+  Lock,
+  LogOut,
+  Key
 } from 'lucide-react';
 
 export const AccountPage: React.FC = () => {
-  const { orders, wishlist, allProducts, navigate, addToCart } = useStore();
+  const { orders, wishlist, allProducts, navigate } = useStore();
+  const {
+    user,
+    profile,
+    addresses,
+    isAuthenticated,
+    isAdmin,
+    isManager,
+    openAuthModal,
+    logout,
+    addAddress,
+    removeAddress
+  } = useAuth();
+
   const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'addresses' | 'ai-consultations'>('orders');
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [newFullName, setNewFullName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newAddressLine1, setNewAddressLine1] = useState('');
+  const [newAddressLine2, setNewAddressLine2] = useState('');
+  const [newCity, setNewCity] = useState('');
+  const [newState, setNewState] = useState('');
+  const [newPostalCode, setNewPostalCode] = useState('');
 
   const wishlistedProducts = allProducts.filter((p) => wishlist.includes(p.id));
+
+  const handleCreateAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFullName || !newPhone || !newAddressLine1 || !newCity || !newState || !newPostalCode) {
+      return;
+    }
+    await addAddress({
+      fullName: newFullName,
+      phone: newPhone,
+      addressLine1: newAddressLine1,
+      addressLine2: newAddressLine2,
+      city: newCity,
+      state: newState,
+      postalCode: newPostalCode,
+      country: 'India',
+      isDefaultShipping: addresses.length === 0,
+    });
+    setIsAddingAddress(false);
+    setNewFullName('');
+    setNewPhone('');
+    setNewAddressLine1('');
+    setNewAddressLine2('');
+    setNewCity('');
+    setNewState('');
+    setNewPostalCode('');
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#FCFAF7] py-16 px-4">
+        <div className="max-w-md mx-auto bg-white rounded-3xl p-8 border border-[#4A2C1A]/10 shadow-soft-sm text-center space-y-6">
+          <div className="w-16 h-16 rounded-full bg-[#F5E6D3] text-[#4A2C1A] flex items-center justify-center mx-auto shadow-sm">
+            <Lock className="w-7 h-7" />
+          </div>
+          <div>
+            <h1 className="font-serif text-2xl text-[#211E1B] font-bold">
+              Concierge Access Required
+            </h1>
+            <p className="text-xs text-[#746B61] mt-2 leading-relaxed">
+              Sign in to manage your white-glove orders, saved spatial palettes, architectural delivery addresses, and patron benefits.
+            </p>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={() => openAuthModal('signin')}
+              className="w-full py-3 bg-[#2A1A12] hover:bg-[#4A2C1A] text-[#FAF7F2] rounded-xl text-xs font-semibold tracking-wider uppercase transition-all shadow-md active:scale-95"
+            >
+              Sign In to Your Account
+            </button>
+            <button
+              onClick={() => openAuthModal('signup')}
+              className="w-full py-3 bg-[#F4E8D7] hover:bg-[#EADBC8] text-[#4A2C1A] rounded-xl text-xs font-semibold tracking-wider uppercase transition-all"
+            >
+              Create New Concierge Profile
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const initials = profile?.first_name 
+    ? `${profile.first_name[0]}${profile.last_name ? profile.last_name[0] : ''}`.toUpperCase()
+    : user?.email.substring(0, 2).toUpperCase();
+
+  const fullName = profile?.first_name 
+    ? `${profile.first_name} ${profile.last_name || ''}`.trim()
+    : user?.email.split('@')[0];
 
   return (
     <div className="min-h-screen bg-[#FCFAF7] py-10">
@@ -29,153 +125,173 @@ export const AccountPage: React.FC = () => {
         {/* Profile Card Header */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-[#4A2C1A] text-[#F5E6D3] font-display font-bold text-2xl flex items-center justify-center shadow-md">
-              AS
+            <div className="w-16 h-16 rounded-full bg-[#4A2C1A] text-[#F5E6D3] font-serif font-bold text-2xl flex items-center justify-center shadow-md">
+              {initials}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-display font-bold text-2xl text-[#211E1B]">
-                  Aarav Singhania
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="font-serif font-bold text-2xl text-[#211E1B]">
+                  {fullName}
                 </h1>
-                <span className="bg-[#F5E6D3] text-[#4A2C1A] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-[#8B5A2B]/20">
-                  Veloura Patron Member
-                </span>
+                {user?.roles.map((r) => (
+                  <span
+                    key={r}
+                    className="bg-[#F5E6D3] text-[#4A2C1A] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-[#8B5A2B]/20"
+                  >
+                    {r === 'ADMIN' ? '👑 Admin Patron' : r === 'MANAGER' ? '🛎️ Operations Floor' : 'Veloura Patron Member'}
+                  </span>
+                ))}
               </div>
               <p className="text-xs text-[#746B61] mt-0.5">
-                aarav.singhania@veloura.live • Member since 2026
+                {user?.email} • Verified Account
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {(isAdmin || isManager) && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="btn-secondary-refined active:scale-95 text-[#4A2C1A] text-xs font-semibold px-4 py-2.5 rounded-xl cursor-pointer"
+              >
+                Store Operations Portal →
+              </button>
+            )}
             <button
-              onClick={() => navigate('/admin')}
-              className="btn-secondary-refined active:scale-95 text-[#4A2C1A] text-xs font-semibold px-4 py-2.5 rounded-xl cursor-pointer"
+              onClick={() => logout()}
+              className="p-2.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              title="Sign Out"
             >
-              Open Store Operations Portal →
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 border-b border-[#EEE9E1] pb-2 overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-[#EEE9E1] pb-1 overflow-x-auto">
           {[
-            { id: 'orders', label: `Orders & White-Glove Tracking (${orders.length})`, icon: Package },
-            { id: 'wishlist', label: `Saved Wishlist (${wishlistedProducts.length})`, icon: Heart },
-            { id: 'addresses', label: 'Delivery Destinations', icon: MapPin },
-            { id: 'ai-consultations', label: 'AI Spatial Consultations', icon: Sparkles }
+            { id: 'orders', label: 'White-Glove Orders', count: orders.length, icon: Package },
+            { id: 'wishlist', label: 'Space Palette', count: wishlist.length, icon: Heart },
+            { id: 'addresses', label: 'Delivery Destinations', count: addresses.length, icon: MapPin },
+            { id: 'ai-consultations', label: 'AI Spatial Archives', count: 2, icon: Sparkles },
           ].map((tab) => {
             const Icon = tab.icon;
-            const isSelected = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer interactive-pill ${
-                  isSelected
-                    ? 'bg-[#4A2C1A] text-white shadow-sm'
-                    : 'bg-white text-[#514A43] hover:bg-[#F5E6D3] hover:text-[#4A2C1A] border border-[#EEE9E1]'
+                className={`flex items-center gap-2 px-5 py-3 text-xs font-semibold uppercase tracking-wider rounded-t-xl transition-all border-b-2 cursor-pointer whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-[#8B5A2B] text-[#4A2C1A] bg-white shadow-soft-sm'
+                    : 'border-transparent text-[#746B61] hover:text-[#211E1B]'
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
+                {tab.count !== undefined && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full ${
+                      activeTab === tab.id ? 'bg-[#4A2C1A] text-white' : 'bg-[#EEE9E1] text-[#746B61]'
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* Tab 1: Orders & Real-Time Tracking Timeline */}
+        {/* Tab 1: Orders */}
         {activeTab === 'orders' && (
           <div className="space-y-6 animate-fadeIn">
             {orders.map((order) => (
               <div
                 key={order.id}
-                className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6 interactive-card hover:border-[#8B5A2B]/30"
+                className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6"
               >
-                {/* Order Top Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#EEE9E1]">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#EEE9E1]">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#8B5A2B]">
-                      Order Reference: {order.orderNumber}
-                    </span>
-                    <h3 className="font-display font-bold text-xl text-[#211E1B] mt-0.5">
-                      Placed on {order.createdAt}
-                    </h3>
+                    <div className="flex items-center gap-3">
+                      <span className="font-serif font-bold text-lg text-[#211E1B]">
+                        Order #{order.orderNumber}
+                      </span>
+                      <span className="bg-[#EBF3ED] text-[#2D5A34] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                        {order.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#746B61] mt-1">
+                      Placed on {order.createdAt} • Estimated White-Glove Delivery: {order.estimatedDeliveryDate}
+                    </p>
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <span className="bg-[#557A5A]/10 text-[#557A5A] text-xs font-bold px-3 py-1 rounded-full border border-[#557A5A]/20">
-                      Status: {order.status}
+                  <div className="text-right">
+                    <div className="font-serif font-bold text-xl text-[#4A2C1A]">
+                      ₹{order.total.toLocaleString('en-IN')}
+                    </div>
+                    <span className="text-[11px] text-[#557A5A] font-semibold flex items-center sm:justify-end gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" /> 10-Year Timber Warranty Active
                     </span>
-                    <button
-                      onClick={() => alert(`Downloading Official Tax Invoice for ${order.orderNumber}...`)}
-                      className="btn-secondary-refined active:scale-95 text-[#4A2C1A] text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Invoice PDF</span>
-                    </button>
                   </div>
                 </div>
 
-                {/* Items in this Order */}
+                {/* Items */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {order.items.map((item, idx) => (
                     <div
                       key={idx}
-                      className="p-3.5 rounded-2xl bg-[#FCFAF7] border border-[#EEE9E1] flex gap-3 items-center hover:border-[#8B5A2B]/30 transition-colors"
+                      className="flex items-center gap-4 p-3 rounded-2xl bg-[#FCFAF7] border border-[#EEE9E1]"
                     >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-16 h-16 object-cover rounded-xl bg-white flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0 text-xs">
-                        <h4 className="font-display font-semibold text-sm text-[#211E1B] truncate">
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shrink-0 border border-[#EEE9E1]">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-serif font-bold text-sm text-[#211E1B] truncate">
                           {item.name}
                         </h4>
-                        <div className="text-[#746B61] text-[11px] mt-0.5">
-                          {item.selectedColor} • {item.selectedMaterial} (Qty: {item.quantity})
-                        </div>
-                        <div className="text-xs font-bold text-[#4A2C1A] mt-1">
-                          ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                        <p className="text-[11px] text-[#746B61]">
+                          Finish: {item.selectedColor} • Spec: {item.selectedMaterial}
+                        </p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs font-semibold text-[#4A2C1A]">
+                            ₹{item.price.toLocaleString('en-IN')} × {item.quantity}
+                          </span>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Tracking Progress Timeline */}
+                {/* Delivery Timeline Track */}
                 <div className="pt-4 border-t border-[#EEE9E1]">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#746B61] flex items-center gap-1.5">
-                      <Truck className="w-4 h-4 text-[#8B5A2B]" />
-                      <span>White-Glove In-Home Delivery Status</span>
-                    </h4>
-                    <span className="text-xs text-[#557A5A] font-semibold">
-                      Estimated In-Home Setup: {order.estimatedDeliveryDate}
-                    </span>
-                  </div>
-
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#746B61] mb-4">
+                    White-Glove Progress Tracking ({order.trackingNumber})
+                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     {order.timeline.map((step, sIdx) => (
                       <div
                         key={sIdx}
-                        className={`p-3.5 rounded-xl border text-xs space-y-1 relative transition-all ${
+                        className={`p-3 rounded-xl border text-xs space-y-1 ${
                           step.completed
-                            ? 'bg-[#557A5A]/5 border-[#557A5A]/30 text-[#211E1B]'
-                            : 'bg-[#FCFAF7] border-[#EEE9E1] text-[#9C9287]'
+                            ? 'bg-[#FCFAF7] border-[#8B5A2B]/30 text-[#211E1B]'
+                            : 'bg-white border-[#EEE9E1] text-[#9C9287]'
                         }`}
                       >
                         <div className="flex items-center gap-1.5 font-bold">
                           {step.completed ? (
-                            <CheckCircle2 className="w-4 h-4 text-[#557A5A]" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-[#557A5A]" />
                           ) : (
-                            <Clock className="w-4 h-4 text-[#9C9287]" />
+                            <Clock className="w-3.5 h-3.5 text-[#9C9287]" />
                           )}
                           <span>{step.status}</span>
                         </div>
-                        <div className="text-[10px] text-[#746B61]">{step.description}</div>
-                        <div className="text-[9px] text-[#9C9287] font-mono pt-1">{step.date}</div>
+                        <p className="text-[10px] text-[#746B61]">{step.date}</p>
+                        <p className="text-[11px]">{step.description}</p>
                       </div>
                     ))}
                   </div>
@@ -193,7 +309,7 @@ export const AccountPage: React.FC = () => {
                 <div className="w-16 h-16 rounded-full bg-[#F5E6D3] text-[#8B5A2B] flex items-center justify-center mx-auto">
                   <Heart className="w-8 h-8 opacity-60" />
                 </div>
-                <h3 className="font-display font-bold text-xl text-[#211E1B]">
+                <h3 className="font-serif font-bold text-xl text-[#211E1B]">
                   Your considered pieces will live here.
                 </h3>
                 <p className="text-xs text-[#746B61]">
@@ -218,22 +334,137 @@ export const AccountPage: React.FC = () => {
 
         {/* Tab 3: Delivery Destinations */}
         {activeTab === 'addresses' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 animate-fadeIn">
-            <div className="bg-white rounded-3xl p-6 border-2 border-[#8B5A2B] shadow-soft-sm space-y-3 relative interactive-card">
-              <span className="bg-[#8B5A2B] text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-                Primary Residence
-              </span>
-              <h3 className="font-display font-bold text-lg text-[#211E1B]">
-                Skyline Penthouse 34A
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <h3 className="font-serif font-bold text-xl text-[#211E1B]">
+                Registered Delivery Destinations ({addresses.length})
               </h3>
-              <p className="text-xs text-[#746B61] leading-relaxed">
-                Worli Sea Face, Tower B, 34th Floor<br />
-                Mumbai, Maharashtra — 400018<br />
-                Phone: +91 98201 54321
-              </p>
-              <div className="text-[11px] text-[#557A5A] font-semibold pt-2 border-t border-[#EEE9E1]">
-                ✓ Serviceable with Freight Elevator Access
-              </div>
+              <button
+                onClick={() => setIsAddingAddress(!isAddingAddress)}
+                className="py-2 px-4 bg-[#2A1A12] text-[#FAF7F2] rounded-xl text-xs font-semibold flex items-center gap-1.5 hover:bg-[#4A2C1A] transition-colors shadow-sm cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Destination</span>
+              </button>
+            </div>
+
+            {isAddingAddress && (
+              <form onSubmit={handleCreateAddress} className="bg-white rounded-3xl p-6 border border-[#8B5A2B]/30 shadow-soft-sm space-y-4">
+                <h4 className="font-serif font-bold text-base text-[#211E1B]">New Delivery Destination</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-charcoal/80 mb-1 font-medium">Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={newFullName}
+                      onChange={(e) => setNewFullName(e.target.value)}
+                      placeholder="Aarav Mehta"
+                      className="w-full px-3 py-2 bg-[#FCFAF7] border border-[#DED7CD] rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-charcoal/80 mb-1 font-medium">Phone</label>
+                    <input
+                      type="tel"
+                      required
+                      value={newPhone}
+                      onChange={(e) => setNewPhone(e.target.value)}
+                      placeholder="+91 98200 00000"
+                      className="w-full px-3 py-2 bg-[#FCFAF7] border border-[#DED7CD] rounded-lg text-sm"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs uppercase tracking-wider text-charcoal/80 mb-1 font-medium">Address Line 1</label>
+                    <input
+                      type="text"
+                      required
+                      value={newAddressLine1}
+                      onChange={(e) => setNewAddressLine1(e.target.value)}
+                      placeholder="Penthouse 42B, The Imperial Towers"
+                      className="w-full px-3 py-2 bg-[#FCFAF7] border border-[#DED7CD] rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-charcoal/80 mb-1 font-medium">City</label>
+                    <input
+                      type="text"
+                      required
+                      value={newCity}
+                      onChange={(e) => setNewCity(e.target.value)}
+                      placeholder="Mumbai"
+                      className="w-full px-3 py-2 bg-[#FCFAF7] border border-[#DED7CD] rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-charcoal/80 mb-1 font-medium">State</label>
+                    <input
+                      type="text"
+                      required
+                      value={newState}
+                      onChange={(e) => setNewState(e.target.value)}
+                      placeholder="Maharashtra"
+                      className="w-full px-3 py-2 bg-[#FCFAF7] border border-[#DED7CD] rounded-lg text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-charcoal/80 mb-1 font-medium">Postal Code (PIN)</label>
+                    <input
+                      type="text"
+                      required
+                      value={newPostalCode}
+                      onChange={(e) => setNewPostalCode(e.target.value)}
+                      placeholder="400034"
+                      className="w-full px-3 py-2 bg-[#FCFAF7] border border-[#DED7CD] rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="submit"
+                    className="py-2.5 px-5 bg-[#4A2C1A] text-white rounded-lg text-xs font-semibold hover:bg-[#2A1A12] transition-colors"
+                  >
+                    Save Address
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingAddress(false)}
+                    className="py-2.5 px-5 border border-walnut/20 text-espresso rounded-lg text-xs hover:bg-cream/40 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {addresses.map((addr) => (
+                <div key={addr.id} className="bg-white rounded-3xl p-6 border-2 border-[#8B5A2B] shadow-soft-sm space-y-3 relative interactive-card">
+                  <div className="flex items-center justify-between">
+                    <span className="bg-[#8B5A2B] text-white text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                      {addr.is_default_shipping ? 'Primary Residence' : 'Secondary Residence'}
+                    </span>
+                    <button
+                      onClick={() => removeAddress(addr.id)}
+                      className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                      title="Remove address"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <h3 className="font-serif font-bold text-lg text-[#211E1B]">
+                    {addr.full_name}
+                  </h3>
+                  <p className="text-xs text-[#746B61] leading-relaxed">
+                    {addr.address_line1} {addr.address_line2 ? `, ${addr.address_line2}` : ''}<br />
+                    {addr.city}, {addr.state} — {addr.postal_code}<br />
+                    Phone: {addr.phone}
+                  </p>
+                  <div className="text-[11px] text-[#557A5A] font-semibold pt-2 border-t border-[#EEE9E1]">
+                    ✓ White-Glove Freight Serviceable
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -241,7 +472,7 @@ export const AccountPage: React.FC = () => {
         {/* Tab 4: AI Consultations */}
         {activeTab === 'ai-consultations' && (
           <div className="bg-white rounded-3xl p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-4 animate-fadeIn">
-            <h3 className="font-display font-bold text-xl text-[#211E1B]">
+            <h3 className="font-serif font-bold text-xl text-[#211E1B]">
               Saved Spatial Architecture Sessions
             </h3>
             <p className="text-xs text-[#746B61]">

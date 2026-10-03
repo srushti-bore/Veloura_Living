@@ -2,6 +2,9 @@ export * from './product';
 export * from './room';
 export * from './cart';
 export * from './order';
+export * from './database';
+export * from './api';
+export * from './auth';
 
 import { Product } from './product';
 
