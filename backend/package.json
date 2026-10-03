@@ -1,0 +1,25 @@
+{
+  "name": "veloura-living-backend",
+  "version": "1.0.0",
+  "description": "Veloura Living — Production REST API Backend & Business Logic Services",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts"
+  },
+  "keywords": [
+    "veloura",
+    "luxury-furniture",
+    "ecommerce-backend",
+    "supabase",
+    "rbac",
+    "payments"
+  ],
+  "author": "Veloura Living Engineering",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
