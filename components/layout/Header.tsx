@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '@/hooks/useStore';
 import { useAuth } from '@/providers/AuthProvider';
+import { useNotifications } from '@/providers/NotificationProvider';
+import { CurrencySelector } from '@/components/common/CurrencySelector';
 import {
   ShoppingBag,
   Heart,
@@ -15,7 +17,8 @@ import {
   ShieldCheck,
   Compass,
   LogOut,
-  Sliders
+  Sliders,
+  Bell,
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -39,6 +42,8 @@ export const Header: React.FC = () => {
     openAuthModal,
     logout
   } = useAuth();
+
+  const { unreadCount, toggleDrawer: toggleNotificationDrawer } = useNotifications();
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -99,14 +104,17 @@ export const Header: React.FC = () => {
           <span className="mx-auto md:mx-0 font-medium tracking-wide">
             Complimentary In-Home Assembly on Orders Above ₹2,999 | Code: <strong className="text-white underline decoration-[#8B5A2B] decoration-2">VELOURA15</strong>
           </span>
-          <button
-            onClick={() => navigate('/admin')}
-            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#F5E6D3] hover:text-white bg-[#8B5A2B]/40 hover:bg-[#8B5A2B] px-2.5 py-0.5 rounded-full transition-all cursor-pointer"
-            title="Open Admin Operations Cockpit"
-          >
-            <ShieldCheck className="w-3 h-3 text-[#EADBC8]" />
-            <span>Admin Console</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <CurrencySelector />
+            <button
+              onClick={() => navigate('/admin')}
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-[#F5E6D3] hover:text-white bg-[#8B5A2B]/40 hover:bg-[#8B5A2B] px-2.5 py-0.5 rounded-full transition-all cursor-pointer"
+              title="Open Admin Operations Cockpit"
+            >
+              <ShieldCheck className="w-3 h-3 text-[#EADBC8]" />
+              <span>Admin Console</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -314,6 +322,21 @@ export const Header: React.FC = () => {
                   }`}
                 >
                   {wishlist.length}
+                </span>
+              )}
+            </button>
+
+            {/* Notification Center Bell */}
+            <button
+              onClick={toggleNotificationDrawer}
+              className="relative p-2 text-[#514A43] hover:text-[#211E1B] rounded-full hover:bg-[#F7F4EF] transition-colors cursor-pointer active:scale-95"
+              aria-label="Atelier Notifications"
+              title="Atelier Communications"
+            >
+              <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-[#A9794F] text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse shadow-sm">
+                  {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </button>

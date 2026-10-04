@@ -4,11 +4,14 @@ import React from 'react';
 import { Instrument_Serif, Instrument_Sans, Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import { AppProvider } from '../providers/AppProvider';
 import { AuthProvider } from '../providers/AuthProvider';
+import { CurrencyProvider } from '../providers/CurrencyProvider';
+import { NotificationProvider } from '../providers/NotificationProvider';
 import { SmoothScrollProvider } from '../providers/SmoothScrollProvider';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { CartDrawer } from '../components/commerce/CartDrawer';
 import { AIShoppingAssistantDrawer } from '../components/ai/AIShoppingAssistantDrawer';
+import { NotificationCenterDrawer } from '../components/notifications/NotificationCenterDrawer';
 import { HotspotPreviewModal } from '../components/products/HotspotPreviewModal';
 import { AuthModal } from '../components/auth/AuthModal';
 import { LuxuryToastContainer } from '../components/common/LuxuryToast';
@@ -67,26 +70,31 @@ export default function RootLayout({
       </head>
       <body className="bg-[#FBF8F3] text-[#4A2C1A] font-sans antialiased selection:bg-[#F7F0E7] selection:text-[#3B2418]">
         <AuthProvider>
-          <AppProvider>
-            <SmoothScrollProvider>
-              <div className="flex flex-col min-h-screen bg-[#FBF8F3] text-[#4A2C1A]">
-                <Header />
-                <main className="flex-1">{children}</main>
-                <Footer />
+          <CurrencyProvider>
+            <NotificationProvider>
+              <AppProvider>
+                <SmoothScrollProvider>
+                  <div className="flex flex-col min-h-screen bg-[#FBF8F3] text-[#4A2C1A]">
+                    <Header />
+                    <main className="flex-1">{children}</main>
+                    <Footer />
 
-                {/* Global Modals & Drawers */}
-                <CartDrawer />
-                <AIShoppingAssistantDrawer />
-                <HotspotPreviewModal />
-                <AuthModal />
+                    {/* Global Modals & Drawers */}
+                    <CartDrawer />
+                    <AIShoppingAssistantDrawer />
+                    <NotificationCenterDrawer />
+                    <HotspotPreviewModal />
+                    <AuthModal />
 
-                {/* Global Micro-Interaction Enhancements */}
-                <LuxuryToastContainer />
-                <LuxuryCursor />
-                <AmbientSoundscape />
-              </div>
-            </SmoothScrollProvider>
-          </AppProvider>
+                    {/* Global Micro-Interaction Enhancements */}
+                    <LuxuryToastContainer />
+                    <LuxuryCursor />
+                    <AmbientSoundscape />
+                  </div>
+                </SmoothScrollProvider>
+              </AppProvider>
+            </NotificationProvider>
+          </CurrencyProvider>
         </AuthProvider>
       </body>
     </html>

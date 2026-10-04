@@ -66,3 +66,8 @@ export function errorResponse(
   };
   return NextResponse.json(payload, { status: statusCode });
 }
+
+export const sendSuccess = successResponse;
+export const sendError = (message: string, code = 'BAD_REQUEST', statusCode = 400, details?: Record<string, string[] | string>) =>
+  errorResponse(message, statusCode, code, details);
+

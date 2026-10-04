@@ -9,7 +9,11 @@
     "build": "next build",
     "start": "next start -p 3000",
     "test": "npx -y tsx tests/run-all-tests.ts",
-    "test:swagger": "npx -y tsx tests/swagger-live-api-test.ts"
+    "test:swagger": "npx -y tsx tests/swagger-live-api-test.ts",
+    "test:phase11": "npx -y tsx tests/phase-11-payments-test.ts",
+    "test:phase12": "npx -y tsx tests/phase-12-notifications-test.ts",
+    "test:api": "npx -y tsx tests/comprehensive-live-api-test.ts",
+    "test:api:direct": "npx -y tsx tests/live-api-validation.ts"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.3.3",

@@ -42,6 +42,12 @@ export async function POST(request: NextRequest) {
           rawResponse: paymentEntity,
         });
       }
+    } else if (eventType === 'refund.processed') {
+      const refundEntity = event.payload?.refund?.entity;
+      console.log('[Webhook] Razorpay Refund Processed:', refundEntity?.id, refundEntity?.amount);
+    } else if (eventType === 'refund.failed') {
+      const refundEntity = event.payload?.refund?.entity;
+      console.warn('[Webhook] Razorpay Refund Failed:', refundEntity?.id, refundEntity?.reason);
     }
 
     return NextResponse.json({ status: 'ok', received: true }, { status: 200 });

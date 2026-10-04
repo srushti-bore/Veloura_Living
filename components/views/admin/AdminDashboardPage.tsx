@@ -232,6 +232,31 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  // Automated Razorpay Gateway Refund Trigger (RET-007)
+  const handleProcessGatewayRefund = async (orderId: string, returnId: string, amount: number) => {
+    try {
+      const res = await fetch('/api/refunds/process-gateway', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          returnId,
+          amountInINR: amount,
+          speed: 'optimum',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showNotification(data.data?.message || 'Automated Razorpay refund successfully disbursed!');
+        loadAdminData();
+      } else {
+        showNotification(data.error?.message || 'Failed to disburse refund');
+      }
+    } catch (e: any) {
+      showNotification(e.message || 'Error executing automated refund');
+    }
+  };
+
   // Stock Quick Adjuster
   const handleUpdateStock = (prodId: string, newStock: number) => {
     setProductsList((prev) =>
@@ -972,16 +997,29 @@ export const AdminDashboardPage: React.FC = () => {
                         </button>
                       )}
                       {ret.status === 'RETURN_RECEIVED' && (
-                        <button
-                          onClick={() => handleUpdateReturnStatus(ret.id, 'REFUNDED')}
-                          className="bg-emerald-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-800"
-                        >
-                          Issue Authoritative Refund Transaction ✓
-                        </button>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => {
+                              const order = liveOrders.find((o) => o.id === ret.order_id);
+                              handleProcessGatewayRefund(ret.order_id, ret.id, order?.grand_total || 78000);
+                            }}
+                            className="bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-emerald-800 flex items-center gap-1.5 shadow-sm cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>⚡ Execute Razorpay Instant Refund</span>
+                          </button>
+                          <button
+                            onClick={() => handleUpdateReturnStatus(ret.id, 'REFUNDED')}
+                            className="bg-stone-700 text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-stone-800 cursor-pointer"
+                          >
+                            Manual Mark Refunded
+                          </button>
+                        </div>
                       )}
                       {ret.status === 'REFUNDED' && (
-                        <span className="bg-emerald-100 text-emerald-800 text-xs px-3 py-1 rounded-full font-bold">
-                          Refund Processed & Closed ✓
+                        <span className="bg-emerald-100 text-emerald-800 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Refund Disbursed & Settled ✓
                         </span>
                       )}
                     </div>

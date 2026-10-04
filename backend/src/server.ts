@@ -17,12 +17,17 @@ import { calculateAuthoritativeCheckout, getCoupons, validateCoupon } from './da
 import { initOrderStore, createOrder, getOrderById, getAllOrders, getOrdersByUserId, updateOrderStatus } from './data/orderStore';
 import { initPostPurchaseStore, getReviews, createReview, getReturns, createReturnRequest, updateReturnStatus, getRefunds, createRefundRecord, cancelOrderAuthoritative } from './data/postPurchaseStore';
 import { initCmsStore, getCmsBanners, createCmsBanner } from './data/cmsStore';
+import { initNotificationStore, getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, clearAllNotifications } from './data/notificationStore';
+import { notificationService } from './services/notificationService';
 import { hashPassword, verifyPassword } from './auth/password';
 import { signToken, verifyToken } from './auth/jwt';
 import { parseAuthToken } from './auth/session';
 import { hasAnyRole } from './auth/rbac';
 import { generateGstInvoiceForOrder } from './services/invoiceService';
 import { formatSuccessResponse, formatErrorResponse } from './api/response';
+import { currencyEngine } from './services/currencyEngine';
+import { razorpayService } from './services/razorpayService';
+import { codSafetyService } from './services/codService';
 
 // Initialize in-memory storage singletons
 initAuthStore();
@@ -30,6 +35,7 @@ initCatalogStore();
 initOrderStore();
 initPostPurchaseStore();
 initCmsStore();
+initNotificationStore();
 
 const PORT = process.env.PORT || 5000;
 
@@ -275,6 +281,53 @@ const server = http.createServer(async (req, res) => {
     }
 
     // 5. Checkout & Pricing
+    if (pathname === '/api/currency/rates' && method === 'GET') {
+      return sendJson(res, 200, formatSuccessResponse(currencyEngine.getRatesSummary()));
+    }
+
+    if (pathname === '/api/currency/convert' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { amountInINR, targetCurrency = 'INR' } = body;
+      const converted = currencyEngine.convertFromINR(Number(amountInINR || 0), targetCurrency);
+      const formatted = currencyEngine.formatPrice(Number(amountInINR || 0), targetCurrency);
+      const config = currencyEngine.getCurrency(targetCurrency);
+      return sendJson(res, 200, formatSuccessResponse({
+        amountInINR,
+        targetCurrency: config.code,
+        convertedAmount: converted,
+        formattedPrice: formatted,
+        rate: config.rateFromINR,
+      }));
+    }
+
+    if (pathname === '/api/orders/cod-otp/send' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { phoneOrEmail, amountInINR, postalCode } = body;
+      if (!phoneOrEmail) return sendJson(res, 400, formatErrorResponse('phoneOrEmail is required'));
+      if (amountInINR !== undefined) {
+        const eligibility = codSafetyService.checkEligibility(Number(amountInINR), postalCode);
+        if (!eligibility.eligible) {
+          return sendJson(res, 400, formatErrorResponse(eligibility.reason || 'Not eligible for COD'));
+        }
+      }
+      const otpRes = codSafetyService.generateOtp(phoneOrEmail);
+      return sendJson(res, 200, formatSuccessResponse({
+        verificationId: otpRes.verificationId,
+        expiresAt: otpRes.expiresAt,
+        message: `6-digit verification code sent to ${phoneOrEmail}`,
+        debugCode: otpRes.otp,
+      }));
+    }
+
+    if (pathname === '/api/orders/cod-otp/verify' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { verificationId, otp } = body;
+      if (!verificationId || !otp) return sendJson(res, 400, formatErrorResponse('verificationId and otp required'));
+      const verRes = codSafetyService.verifyOtp(verificationId, otp);
+      if (!verRes.verified) return sendJson(res, 400, formatErrorResponse(verRes.message));
+      return sendJson(res, 200, formatSuccessResponse({ verified: true, message: verRes.message }));
+    }
+
     if (pathname === '/api/coupons/validate' && method === 'POST') {
       const body = await parseRequestBody(req);
       const { code, subtotal = 0 } = body;
@@ -284,11 +337,13 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/checkout/summary' && method === 'POST') {
       const body = await parseRequestBody(req);
-      const { shippingMethod = 'standard', couponCode } = body;
+      const { shippingMethod = 'standard', couponCode, paymentMethod, targetCurrency } = body;
       const summary = calculateAuthoritativeCheckout({
         ownerKey,
         shippingMethod,
         couponCode,
+        paymentMethod,
+        targetCurrency,
       });
       return sendJson(res, 200, formatSuccessResponse(summary));
     }
@@ -312,6 +367,8 @@ const server = http.createServer(async (req, res) => {
         shippingMethod: body.shippingMethod || 'standard',
         paymentMethod: body.paymentMethod || 'UPI',
         couponCode: body.couponCode,
+        currency: body.currency || 'INR',
+        codVerificationId: body.codVerificationId,
         customerNotes: body.customerNotes,
       });
 
@@ -389,9 +446,38 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 201, formatSuccessResponse(ret));
     }
 
+    if (pathname === '/api/refunds/process-gateway' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { orderId, returnId, amountInINR, paymentId, speed = 'optimum', reason } = body;
+      if (!orderId || !amountInINR) return sendJson(res, 400, formatErrorResponse('orderId and amountInINR required'));
+
+      const gatewayResult = await razorpayService.processDirectRefund({
+        paymentId: paymentId || 'pay_system_generated',
+        amountInINR: Number(amountInINR),
+        speed,
+        reason,
+      });
+
+      const refundRecord = createRefundRecord({
+        returnId,
+        orderId,
+        paymentId: paymentId || 'pay_system_generated',
+        amount: Number(amountInINR),
+        reason: reason || 'Automated Refund',
+      });
+      refundRecord.gateway_refund_id = gatewayResult.refundId;
+
+      return sendJson(res, 200, formatSuccessResponse({
+        refund: refundRecord,
+        gatewayResponse: gatewayResult,
+        message: `Refund of ₹${amountInINR} processed via Razorpay.`,
+      }));
+    }
+
     if (pathname === '/api/refunds' && method === 'GET') {
       return sendJson(res, 200, formatSuccessResponse(getRefunds({})));
     }
+
 
     // 9. CMS & Banners
     if (pathname === '/api/cms/banners' && method === 'GET') {
@@ -410,6 +496,55 @@ const server = http.createServer(async (req, res) => {
         paletteSuggestion: ['#4A2C1A', '#A9794F', '#D8B486', '#FAF7F2'],
         recommendedProducts: products.slice(0, 3),
       }));
+    }
+
+    // 11. Notifications (Multi-Channel & In-App Center)
+    if (pathname === '/api/notifications' && method === 'GET') {
+      const ownerKey = session?.id || session?.email || 'default_session';
+      const result = getNotifications(ownerKey, {
+        limit: Number(parsedUrl.query.limit) || 30,
+        unreadOnly: parsedUrl.query.unreadOnly === 'true',
+        type: parsedUrl.query.type as any,
+      });
+      return sendJson(res, 200, formatSuccessResponse(result));
+    }
+
+    if (pathname === '/api/notifications/mark-read' && method === 'POST') {
+      const ownerKey = session?.id || session?.email || 'default_session';
+      const body = await parseRequestBody(req);
+      if (body.all || !body.id) {
+        const count = markAllNotificationsAsRead(ownerKey);
+        return sendJson(res, 200, formatSuccessResponse({ markedAll: true, count }));
+      }
+      const notif = markNotificationAsRead(body.id, ownerKey);
+      if (!notif) return sendJson(res, 404, formatErrorResponse(`Notification ${body.id} not found`));
+      return sendJson(res, 200, formatSuccessResponse({ notification: notif }));
+    }
+
+    if (pathname === '/api/notifications' && method === 'DELETE') {
+      const ownerKey = session?.id || session?.email || 'default_session';
+      const id = parsedUrl.query.id as string;
+      if (id) {
+        const deleted = deleteNotification(id, ownerKey);
+        if (!deleted) return sendJson(res, 404, formatErrorResponse(`Notification ${id} not found`));
+        return sendJson(res, 200, formatSuccessResponse({ deleted: true, id }));
+      }
+      const cleared = clearAllNotifications(ownerKey);
+      return sendJson(res, 200, formatSuccessResponse({ clearedCount: cleared }));
+    }
+
+    if (pathname === '/api/notifications/test-dispatch' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const result = await notificationService.dispatchNotification({
+        recipientEmail: body.recipientEmail || 'concierge@velouraliving.com',
+        recipientPhone: body.recipientPhone || '+91 98200 12345',
+        channels: body.channels || ['IN_APP', 'EMAIL', 'WHATSAPP', 'SMS'],
+        type: body.type || 'ORDER_STATUS',
+        title: body.title || 'Diagnostic Notification',
+        message: body.message || 'Diagnostic alert from standalone server',
+        actionUrl: body.actionUrl || '/shop',
+      });
+      return sendJson(res, 200, formatSuccessResponse(result));
     }
 
     // 404 Route Not Found Fallback

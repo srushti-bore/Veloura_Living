@@ -23,7 +23,9 @@ export type PaymentStatusEnum =
   | 'REFUNDED' 
   | 'PARTIALLY_REFUNDED';
 
-export type PaymentMethodEnum = 'CARD' | 'UPI' | 'NET_BANKING' | 'WALLET' | 'COD' | 'EMI';
+export type CurrencyCode = 'INR' | 'USD' | 'EUR' | 'GBP' | 'AED' | 'SGD' | string;
+export type PaymentMethodEnum = 'CARD' | 'UPI' | 'NET_BANKING' | 'WALLET' | 'COD' | 'EMI' | 'INTERNATIONAL_CARD';
+export type RefundSpeedEnum = 'normal' | 'optimum';
 export type ShipmentStatusEnum = 
   | 'PENDING' 
   | 'PICKED_UP' 
@@ -218,10 +220,16 @@ export interface DbOrder {
   billing_address_id?: string;
   status: OrderStatusEnum;
   payment_status: PaymentStatusEnum;
+  payment_method?: PaymentMethodEnum;
+  currency?: CurrencyCode;
+  exchange_rate?: number;
   subtotal: number;
   discount_total: number;
   tax_total: number;
   shipping_total: number;
+  cod_handling_fee?: number;
+  cod_verified?: boolean;
+  cod_otp?: string;
   grand_total: number;
   coupon_id?: string;
   customer_notes?: string;
@@ -326,6 +334,9 @@ export interface DbRefund {
   amount: number;
   currency: string;
   gateway_refund_id?: string;
+  gateway_arn?: string;
+  speed?: RefundSpeedEnum;
+  failure_reason?: string;
   reason: string;
   status: PaymentStatusEnum;
   processed_at: string;
@@ -344,14 +355,31 @@ export interface DbCmsBanner {
   created_at: string;
 }
 
+export type NotificationChannelEnum = 'EMAIL' | 'SMS' | 'WHATSAPP' | 'IN_APP';
+
+export type NotificationTypeEnum =
+  | 'ORDER_STATUS'
+  | 'PAYMENT_CONFIRMATION'
+  | 'REFUND_PROCESSED'
+  | 'LOGISTICS_OUT_FOR_DELIVERY'
+  | 'VIP_CONCIERGE'
+  | 'SECURITY_ALERT'
+  | 'PRICE_DROP';
+
 export interface DbNotification {
   id: string;
-  user_id: string;
+  user_id?: string;
+  owner_key?: string;
+  channel?: NotificationChannelEnum;
   type: string;
   title: string;
   message: string;
   is_read: boolean;
+  read_at?: string;
+  action_url?: string;
   link_url?: string;
+  data?: Record<string, any>;
+  delivery_status?: 'QUEUED' | 'SENT' | 'DELIVERED' | 'FAILED';
   created_at: string;
 }
 

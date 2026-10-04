@@ -31,8 +31,12 @@ export interface Order {
   };
   trackingNumber: string;
   estimatedDeliveryDate: string;
-  paymentMethod: 'credit_card' | 'upi_razorpay' | 'netbanking' | 'emi';
+  paymentMethod: 'credit_card' | 'upi_razorpay' | 'netbanking' | 'emi' | 'cod' | 'international_card';
   paymentStatus: 'Paid' | 'Pending';
+  currency?: string;
+  exchangeRate?: number;
+  codHandlingFee?: number;
+  codVerified?: boolean;
   timeline: {
     status: string;
     date: string;

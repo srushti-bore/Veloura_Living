@@ -3,10 +3,12 @@
  * Reference: docs/Veloura_Living_SRS.md (Section 12, 23, 32, Phase 5)
  */
 
-import { DbCoupon } from '@/types';
+import { DbCoupon, PaymentMethodEnum } from '../types';
 import { SEED_COUPONS } from './dbSeedData';
 import { getCart, AuthoritativeCart } from './shoppingStore';
 import { findUserById } from './authStore';
+import { currencyEngine } from '../services/currencyEngine';
+import { codSafetyService } from '../services/codService';
 
 export interface CheckoutSummaryResult {
   cart: AuthoritativeCart;
@@ -31,8 +33,15 @@ export interface CheckoutSummaryResult {
     description: string;
     is_complimentary: boolean;
   };
+  cod?: {
+    eligible: boolean;
+    fee: number;
+    reason?: string;
+  };
   grand_total: number;
   currency: string;
+  converted_total?: number;
+  formatted_total?: string;
   is_valid: boolean;
   errors: string[];
 }
@@ -143,8 +152,10 @@ export function calculateAuthoritativeCheckout(params: {
   shippingAddressId?: string;
   shippingMethod?: 'standard' | 'express' | 'fragile';
   couponCode?: string;
+  paymentMethod?: PaymentMethodEnum;
+  targetCurrency?: string;
 }): CheckoutSummaryResult {
-  const { ownerKey, shippingAddressId, shippingMethod = 'standard', couponCode } = params;
+  const { ownerKey, shippingAddressId, shippingMethod = 'standard', couponCode, paymentMethod, targetCurrency = 'INR' } = params;
   const cart = getCart(ownerKey);
 
   const errors: string[] = [];
@@ -219,8 +230,29 @@ export function calculateAuthoritativeCheckout(params: {
     }
   }
 
-  // 5. Final Authoritative Grand Total
-  const grandTotal = taxableAmount + taxAmount + shippingCost;
+  // 5. COD Handling Fee & Eligibility Calculation
+  let codInfo: CheckoutSummaryResult['cod'] = undefined;
+  let codFee = 0;
+
+  if (paymentMethod === 'COD') {
+    const eligibility = codSafetyService.checkEligibility(taxableAmount);
+    codFee = eligibility.handlingFee;
+    codInfo = {
+      eligible: eligibility.eligible,
+      fee: eligibility.handlingFee,
+      reason: eligibility.reason,
+    };
+    if (!eligibility.eligible && eligibility.reason) {
+      errors.push(eligibility.reason);
+    }
+  }
+
+  // 6. Final Authoritative Grand Total
+  const grandTotal = taxableAmount + taxAmount + shippingCost + codFee;
+
+  // 7. Multi-Currency Conversion
+  const convertedTotal = currencyEngine.convertFromINR(grandTotal, targetCurrency);
+  const formattedTotal = currencyEngine.formatPrice(grandTotal, targetCurrency);
 
   return {
     cart,
@@ -238,9 +270,13 @@ export function calculateAuthoritativeCheckout(params: {
       description: shippingDescription,
       is_complimentary: isComplimentary,
     },
+    cod: codInfo,
     grand_total: grandTotal,
-    currency: 'INR',
+    currency: targetCurrency,
+    converted_total: convertedTotal,
+    formatted_total: formattedTotal,
     is_valid: errors.length === 0,
     errors,
   };
 }
+

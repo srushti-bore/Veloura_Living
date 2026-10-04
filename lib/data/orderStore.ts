@@ -13,11 +13,15 @@ import {
   PaymentStatusEnum,
   PaymentMethodEnum,
   ShipmentStatusEnum,
+  CurrencyCode,
 } from '@/types';
 import { getCart, clearCart, AuthoritativeCart } from './shoppingStore';
 import { calculateAuthoritativeCheckout } from './pricingStore';
+import { notificationService } from '@/lib/services/notificationService';
 import { updateVariantStock, getVariantBySku } from './catalogStore';
 import { findUserById } from './authStore';
+import { codSafetyService } from '@/lib/services/codService';
+import { currencyEngine } from '@/lib/services/currencyEngine';
 
 export interface DetailedOrder extends DbOrder {
   items: DbOrderItem[];
@@ -178,11 +182,13 @@ export function createOrder(params: {
   shippingMethod?: 'standard' | 'express' | 'fragile';
   paymentMethod: PaymentMethodEnum;
   couponCode?: string;
+  currency?: CurrencyCode;
+  codVerificationId?: string;
   customerNotes?: string;
   idempotencyKey?: string;
 }): { order: DetailedOrder; isDuplicate: boolean; error?: string } {
   initOrderStore();
-  const { ownerKey, userId, customerInfo, shippingMethod = 'standard', paymentMethod, couponCode, customerNotes, idempotencyKey } = params;
+  const { ownerKey, userId, customerInfo, shippingMethod = 'standard', paymentMethod, couponCode, currency = 'INR', codVerificationId, customerNotes, idempotencyKey } = params;
 
   // 1. Idempotency Check (Prevent duplicate charges on network retries)
   if (idempotencyKey && idempotencyRegistry.has(idempotencyKey)) {
@@ -198,6 +204,8 @@ export function createOrder(params: {
     ownerKey,
     shippingMethod,
     couponCode,
+    paymentMethod,
+    targetCurrency: currency,
   });
 
   if (!checkoutSummary.is_valid || checkoutSummary.cart.items.length === 0) {
@@ -256,10 +264,15 @@ export function createOrder(params: {
     user_id: userId,
     status: 'PLACED',
     payment_status: paymentMethod === 'COD' ? 'PENDING' : 'INITIATED',
+    payment_method: paymentMethod,
+    currency,
+    exchange_rate: currencyEngine.getCurrency(currency).rateFromINR,
     subtotal: checkoutSummary.subtotal,
     discount_total: checkoutSummary.discount.amount,
     tax_total: checkoutSummary.tax.amount,
     shipping_total: checkoutSummary.shipping.amount,
+    cod_handling_fee: checkoutSummary.cod?.fee || 0,
+    cod_verified: paymentMethod === 'COD' ? true : undefined,
     grand_total: checkoutSummary.grand_total,
     customer_notes: customerNotes,
     idempotency_key: idempotencyKey,
@@ -280,12 +293,13 @@ export function createOrder(params: {
       order_id: orderId,
       payment_method: paymentMethod,
       amount: checkoutSummary.grand_total,
-      currency: 'INR',
+      currency: currency || 'INR',
       status: paymentMethod === 'COD' ? 'PENDING' : 'INITIATED',
       created_at: now,
       updated_at: now,
       transactions: [],
     },
+
     shipment: {
       id: shipmentId,
       order_id: orderId,
@@ -313,6 +327,13 @@ export function createOrder(params: {
 
   // 5. Clear cart after authoritative order placement
   clearCart(ownerKey);
+
+  // 6. Trigger Multi-Channel Notifications (Email, SMS, WhatsApp & In-App)
+  try {
+    notificationService.notifyOrderPlaced(newOrder);
+  } catch (e) {
+    // Non-blocking notification dispatch
+  }
 
   return { order: newOrder, isDuplicate: false };
 }
@@ -411,6 +432,19 @@ export function updateOrderStatus(orderId: string, newStatus: OrderStatusEnum): 
     }
   }
 
+  // Trigger real-time multi-channel notification alerts
+  try {
+    if (newStatus === 'SHIPPED') {
+      notificationService.notifyOrderShipped(order);
+    } else if (newStatus === 'OUT_FOR_DELIVERY') {
+      notificationService.notifyOrderOutForDelivery(order);
+    } else if (newStatus === 'DELIVERED') {
+      notificationService.notifyOrderDelivered(order);
+    }
+  } catch (e) {
+    // Non-blocking notification dispatch
+  }
+
   return order;
 }
 
@@ -469,3 +503,6 @@ export function recordPaymentTransaction(params: {
 
   return order;
 }
+
+export { createOrder as createOrderAuthoritative };
+

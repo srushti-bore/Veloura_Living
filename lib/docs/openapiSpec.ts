@@ -379,6 +379,93 @@ export const openapiSpec = {
         }
       }
     },
+    "/api/currency/rates": {
+      get: {
+        tags: ["Payments Gateway"],
+        summary: "Get Real-Time Multi-Currency FX Rates (CON-003)",
+        description: "Returns active currency exchange rates for INR base against USD, EUR, GBP, AED, and SGD.",
+        responses: {
+          200: { description: "Current rates matrix and last updated timestamp" }
+        }
+      }
+    },
+    "/api/currency/convert": {
+      post: {
+        tags: ["Payments Gateway"],
+        summary: "Convert Amount Between Currencies",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              example: { amountInINR: 100000, targetCurrency: "USD" }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Converted amount, rate, and formatted string" }
+        }
+      }
+    },
+    "/api/orders/cod-otp/send": {
+      post: {
+        tags: ["Orders & Fulfillment"],
+        summary: "Dispatch 6-Digit COD Verification OTP (PAY-009)",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              example: { phoneOrEmail: "+91 98201 54321", amountInINR: 78000, postalCode: "400018" }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Verification ID and OTP expiry timestamp" },
+          400: { description: "Cart ineligible for COD or invalid phone number" }
+        }
+      }
+    },
+    "/api/orders/cod-otp/verify": {
+      post: {
+        tags: ["Orders & Fulfillment"],
+        summary: "Verify Submitted COD 6-Digit OTP",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              example: { verificationId: "cod_ver_abc123", otp: "748291" }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Phone contact verified for Cash on Delivery" },
+          400: { description: "Invalid or expired OTP" }
+        }
+      }
+    },
+    "/api/refunds/process-gateway": {
+      post: {
+        tags: ["Post-Purchase & Reviews"],
+        summary: "Execute Automated Razorpay Gateway Refund (RET-007)",
+        security: [{ BearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              example: {
+                orderId: "ord-seed-001",
+                amountInINR: 78000,
+                speed: "optimum",
+                reason: "Customer verified return inspection complete"
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Direct gateway refund processed and linked to ARN" },
+          400: { description: "Invalid order or payment ID" }
+        }
+      }
+    },
     "/api/reviews": {
       get: {
         tags: ["Post-Purchase & Reviews"],
@@ -482,6 +569,75 @@ export const openapiSpec = {
         security: [{ BearerAuth: [] }],
         responses: {
           200: { description: "GMV, orders count, conversion rates, and stock alerts" }
+        }
+      }
+    },
+    "/api/notifications": {
+      get: {
+        tags: ["Notifications"],
+        summary: "Retrieve Customer In-App Notifications & Unread Count",
+        parameters: [
+          { name: "unreadOnly", in: "query", schema: { type: "boolean" } },
+          { name: "type", in: "query", schema: { type: "string" } }
+        ],
+        responses: {
+          200: { description: "List of in-app notifications and unread count" }
+        }
+      },
+      delete: {
+        tags: ["Notifications"],
+        summary: "Delete Single or Clear All Notifications",
+        parameters: [
+          { name: "id", in: "query", schema: { type: "string" } }
+        ],
+        responses: {
+          200: { description: "Notification deletion confirmation" }
+        }
+      }
+    },
+    "/api/notifications/mark-read": {
+      post: {
+        tags: ["Notifications"],
+        summary: "Mark Single Notification or All as Read",
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  all: { type: "boolean" }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Notification read state updated" }
+        }
+      }
+    },
+    "/api/notifications/test-dispatch": {
+      post: {
+        tags: ["Notifications"],
+        summary: "Diagnostic Multi-Channel Notification Test Dispatcher",
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  channels: { type: "array", items: { type: "string" } },
+                  type: { type: "string" },
+                  title: { type: "string" },
+                  message: { type: "string" }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Multi-channel dispatch telemetry results" }
         }
       }
     }

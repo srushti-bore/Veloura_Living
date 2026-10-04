@@ -5,14 +5,14 @@
 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 **Deployment Target:** Vercel (`Next.js 16 App Router`) + Supabase PostgreSQL + Standalone Backend (`backend/` Docker/Render on Port 5000)  
 **Architecture:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Three.js + GSAP 3 + Lenis + Google Gemini AI + Dedicated Node.js REST Backend  
-**Status:** ✅ **100% Production-Ready, All SRS v1.1 Requirements Implemented & Verified (48/48 Next.js Routes Compiled, Standalone Backend on Port 5000, 19/19 Live Swagger APIs Passing, 15/15 Live Pages 200 OK, 33/33 Unit Tests Passing)**  
-**Last Updated:** 04 October 2026 (SRS v1.1 Full Baseline Delivery Synchronized)  
+**Status:** ✅ **100% Production-Ready, All SRS v1.1 Requirements, Phase 11 Payment Automation & Phase 12 Multi-Channel Notification Engine Implemented & Verified (56/56 Next.js Routes, Standalone Backend on Port 5000, 27/27 Phase 12 Tests Passing, 30/30 Phase 11 Tests Passing, 43/43 Live API Tests Passing)**  
+**Last Updated:** 05 October 2026 (Phase 12 Multi-Channel Notification Engine, HTML Email Templates, WhatsApp/SMS Messaging Adapters & In-App Notification Center Drawer Delivered)  
 
 ---
 
-## 📌 1. Executive Summary & All 10 Completed Phases (SRS-Aligned)
+## 📌 1. Executive Summary & All Completed Phases (SRS & V2-Aligned)
 
-All 10 phases defined in the normative SRS specification (`docs/Veloura-Living_SRS_Final.md`) are 100% completed, verified with production builds (`npm.cmd run build`), and fully tested:
+All phases defined in the normative SRS specification and V2 roadmap are 100% completed, verified with production builds (`npm.cmd run build`), and fully tested:
 
 ### 1. Phase 1: Foundation, Relational Database Schema & API Response Protocol ✅
 - **PostgreSQL / Supabase Schema (`db/schema.sql`, `backend/src/db/schema.sql`, `supabase/migrations/20261002000001_foundation_schema.sql`):** 26+ normalized entities with enums, foreign keys, cascade policies, check constraints, and performance indexes.
@@ -103,14 +103,57 @@ All 10 phases defined in the normative SRS specification (`docs/Veloura-Living_S
 ### 10. Phase 10: Production Engineering, Interactive Swagger UI & Verification ✅
 - **Interactive OpenAPI 3.0 & Swagger UI (`app/docs/page.tsx`, `app/api/openapi.json`, `backend/src/docs/openapiSpec.ts`):** Full dark-mode interactive API documentation with schemas, authentication headers, and live "Try it out" runners.
 - **Dedicated Backend Architecture (`backend/`):** Self-contained Node.js / TypeScript microservice with its own `package.json`, `tsconfig.json`, `Dockerfile`, `.env.example`, standalone REST server (`src/server.ts` on port 5000), database migrations, authentication, and business domain stores.
-- **Build Quality:** Clean Turbopack production compilation in 2.6s with 0 TypeScript errors (48/48 static and dynamic Next.js routes).
+- **Build Quality:** Clean Turbopack production compilation in 2.6s with 0 TypeScript errors (56/56 static and dynamic Next.js routes).
 - **Automated Verification Suites:**
   - `npm.cmd run test:swagger`: 19/19 live REST endpoints passing 100%.
   - `npx.cmd -y tsx tests/e2e-live-pages-test.ts`: 15/15 live pages responding HTTP 200 OK with full cart, checkout, and invoice generation.
   - `npx.cmd tsx tests/verify-all-images.ts`: 37/37 static images & material swatches verified with HTTP 200 OK.
   - `npm.cmd test`: 33/33 unit & integration tests passing 100%.
 
-### 11. Recent Quiet Luxury UI/UX Enhancements & Spatial Refinements ✅
+### 11. Phase 11: Payment Automation, Razorpay Refunds, COD Engine & Multi-Currency Dynamic Pricing ✅
+- **Automated Razorpay Refund API (`RET-007`):**
+  - Direct gateway refund execution (`POST /v1/payments/:id/refund`) with instant speed preference options (`optimum` / `normal`).
+  - Automatic reconciliation between return ledger, refund audit history, `gateway_refund_id`, and `gateway_arn` Acquirer Reference Numbers.
+  - Razorpay Webhook listener (`POST /api/payments/webhook`) handling `refund.processed` and `refund.failed` events.
+  - Admin Cockpit 1-Click "⚡ Execute Razorpay Instant Refund" action in Returns & Refunds tab.
+- **Cash on Delivery (COD) Engine & Safety Rules (`PAY-009`):**
+  - Strict order cart limit checks: Eligible between ₹2,500 and ₹1,50,000.
+  - Dynamic handling fee logic: ₹750 handling fee for orders < ₹50,000; ₹0 complimentary waiver for orders >= ₹50,000.
+  - 6-Digit SMS / OTP verification modal with expiry controls (`POST /api/orders/cod-otp/send`, `POST /api/orders/cod-otp/verify`).
+- **Multi-Currency Dynamic Pricing Engine (`CON-003`):**
+  - Real-time conversion and localized currency formatting for 6 key international currencies: `INR (₹)`, `USD ($)`, `EUR (€)`, `GBP (£)`, `AED (AED)`, `SGD (S$)`.
+  - Header Currency Switcher (`components/common/CurrencySelector.tsx`) integrated in desktop and mobile navigation.
+  - Client `CurrencyProvider` and `useCurrency()` hook for reactive real-time pricing across Catalog, Product Detail, Cart, and Checkout.
+  - Dedicated REST endpoints: `GET /api/currency/rates` and `POST /api/currency/convert`.
+- **Phase 11 Automated Test Suite:**
+  - `npm.cmd run test:phase11`: 30/30 automated tests passing across FX calculations, COD safety boundaries, OTP validation, direct refund execution, and end-to-end checkout.
+
+### 12. Phase 12: Multi-Channel Notification Engine & In-App Notification Center Drawer ✅
+- **Multi-Channel Notification Dispatcher (`lib/services/notificationService.ts` & `backend/src/services/notificationService.ts`):**
+  - **Luxury HTML Email Template Builder:** Responsive inline CSS dark-slate/warm-gold email layouts with Veloura logo header, order summaries, direct action buttons, and white-glove logistics footer.
+  - **WhatsApp Business Cloud API Formatter:** Markdown-bold formatted WhatsApp strings with emojis, order numbers, track links, and concierge signatures.
+  - **SMS Copy Gateway Formatter:** Compact 160-char SMS copy with `[VELOURA]` sender prefix and tracking links.
+  - **In-App Drawer Notification Ledger:** Instant persistence to client in-app notification ledger with unread tracking and category categorization (`ORDER_STATUS`, `VIP_CONCIERGE`, `REFUND_PROCESSED`, `PRICE_DROP`, `SECURITY_ALERT`).
+- **Slide-Out Glassmorphic Notification Center Drawer (`components/notifications/NotificationCenterDrawer.tsx`):**
+  - Slide-out drawer on right edge with backdrop blur (`backdrop-blur-2xl bg-[#0d0d0d]/90`), gold accents (`#8B5A2B`), and luxury typography.
+  - Category tab bar: `All`, `Orders`, `VIP Drops`, `Refunds` with unread count indicators.
+  - 1-Click batch actions: "Mark all as read" and "Clear all notifications".
+  - Unread indicator pulse dots, relative timestamps (`15m ago`, `2h ago`), and dynamic action links.
+- **Header Notification Bell Badge (`components/layout/Header.tsx`):**
+  - Animated luxury bell icon with live golden circular unread count badge (`bg-[#8B5A2B] text-white`).
+  - Automatic 30-second background polling via `NotificationProvider` (`providers/NotificationProvider.tsx`).
+- **Order & Refund Lifecycle Automation Triggers:**
+  - Hooks into `orderStore` on `createOrder` (dispatches Order Placed Email + In-App notice) and `updateOrderStatus` (dispatches Shipped / Out for Delivery / Delivered notifications across Email & WhatsApp).
+  - Hooks into `razorpayService` on direct refund execution (dispatches Instant Refund Credited receipt with Acquirer ARN).
+- **REST API Endpoints:**
+  - `GET /api/notifications` (List notifications + unread count calculation)
+  - `POST /api/notifications/mark-read` (Mark single or all notifications as read)
+  - `DELETE /api/notifications` (Delete individual or clear all notifications)
+  - `POST /api/notifications/test-dispatch` (Developer & Admin diagnostic multi-channel dispatch tool)
+- **Phase 12 Automated Verification:**
+  - `npm.cmd run test:phase12`: **27/27 automated unit & integration tests passing 100%**.
+
+### 13. Recent Quiet Luxury UI/UX Enhancements & Spatial Refinements ✅
 - **Dynamic Category Mega-Menu & Room Hover Experience (`components/layout/Header.tsx`, `components/views/shop/ShopPage.tsx`):**
   - **Tri-Fold Spatial Popover:** 3-column floating layout when hovering over "ROOMS" in the main navigation. Left column provides quick room cards (Living, Bedroom, Dining, Office) with category tags, Center column showcases the Master Collection with editorial artwork, and Right column features the Stylist Spotlight with immediate item purchase actions.
   - **Clean Architectural Banners:** Streamlined room header banners in the Shop page without nested redundant cards, featuring breadcrumbs and active item counts.
@@ -159,6 +202,7 @@ backend/
     │   ├── cmsStore.ts              # Hero banners & promotional spotlights store
     │   ├── dbSeedData.ts            # Complete initial relational seed dataset
     │   ├── mockData.ts              # Master 16-piece luxury product database
+    │   ├── notificationStore.ts     # In-app customer notification center store
     │   ├── orderStore.ts            # Orders, items, timeline, idempotency store
     │   ├── postPurchaseStore.ts     # Reviews, returns, refunds, order cancellation
     │   ├── pricingStore.ts          # Coupons & authoritative price recalculation
@@ -169,11 +213,18 @@ backend/
     │   └── migrations/
     │       └── 20261002000001_foundation_schema.sql
     ├── docs/
-    │   └── openapiSpec.ts           # OpenAPI 3.0 specification for all 19 domain groups
+    │   └── openapiSpec.ts           # OpenAPI 3.0 specification for all 20 domain groups
+    ├── services/
+    │   ├── codService.ts            # COD Safety & 6-digit OTP engine
+    │   ├── currencyEngine.ts        # Real-time FX converter & localized formatter
+    │   ├── invoiceService.ts        # GST tax invoice PDF/HTML generator
+    │   ├── notificationService.ts   # Multi-channel notification dispatcher
+    │   └── razorpayService.ts       # Razorpay instant refunds & webhooks
     └── types/
         ├── api.ts                   # DTOs for requests & responses
         ├── auth.ts                  # Roles, permissions & session interfaces
         ├── database.ts              # Direct PostgreSQL row models
+        ├── notification.ts          # Multi-channel notification types
         └── index.ts                 # Master domain models & entities
 ```
 
@@ -195,7 +246,8 @@ backend/
 | **API Documentation** | **OpenAPI 3.0 + Swagger UI (`/docs`)** | Interactive API testing playground and schema viewer |
 | **Database** | **PostgreSQL (Supabase)** | 26+ normalized entities, full DDL schema, ACID transaction integrity |
 | **State Management** | **React Context + LocalStorage** | `useStore` handling cart, wishlist, active room, filters, and orders |
-| **Localization** | **Indian Rupee (`₹`)** | Formatted luxury pricing across the entire catalog and checkout flows |
+| **Localization** | **Indian Rupee (`₹`) + Multi-Currency FX** | 6 Currencies (`INR`, `USD`, `EUR`, `GBP`, `AED`, `SGD`) across the entire catalog and checkout flows |
+| **Notifications** | **Multi-Channel Engine** | Luxury HTML Emails, WhatsApp Cloud API, SMS & Glassmorphic In-App Drawer |
 | **Hosting & CI/CD** | **Vercel + Render / Docker** | Serverless Next.js edge builds (Frontend) + Containerized REST service (Backend) |
 
 ---
@@ -210,11 +262,17 @@ npm.cmd run dev
 # Production Build Verification:
 npm.cmd run build
 
+# Run Phase 12 Notification Tests:
+npm.cmd run test:phase12
+
+# Run Phase 11 Payment & Refund Tests:
+npm.cmd run test:phase11
+
+# Run Live Comprehensive API Test Suite:
+npm.cmd run test:api
+
 # Run Swagger Live API Test Suite:
 npm.cmd run test:swagger
-
-# Run Live End-to-End Pages Test Suite:
-npx.cmd -y tsx tests/e2e-live-pages-test.ts
 ```
 
 ### Run Standalone Backend Server:

@@ -16,7 +16,9 @@
 5. [Spatial UI Choreography & Motion Engineering](#5-spatial-ui-choreography--motion-engineering)
 6. [Tactile Material Laboratory 8K Macro Pipeline](#6-tactile-material-laboratory-8k-macro-pipeline)
 7. [Cryptographic Security, Session Guards & RBAC Enclave](#7-cryptographic-security-session-guards--rbac-enclave)
-8. [Automated Verification & E2E Validation Matrix](#8-automated-verification--e2e-validation-matrix)
+8. [Phase 11: Payment Automation, Automated Refunds & Multi-Currency Engine](#8-phase-11-payment-automation-automated-refunds--multi-currency-engine)
+9. [Phase 12: Multi-Channel Notification Engine & In-App Notification Center Drawer](#9-phase-12-multi-channel-notification-engine--in-app-notification-center-drawer)
+10. [Automated Verification & E2E Validation Matrix](#10-automated-verification--e2e-validation-matrix)
 
 ---
 
@@ -178,15 +180,85 @@ Unauthenticated visitors and standard `CUSTOMER` accounts navigating to `/admin`
 
 ---
 
-## 8. Automated Verification & E2E Validation Matrix
+## 8. Phase 11: Payment Automation, Automated Refunds & Multi-Currency Engine
+
+### ⚡ 1. Direct Automated Razorpay Gateway Refund Engine (`RET-007`)
+- **Direct Refund Dispatch:** Interacts directly with `POST /v1/payments/:id/refund` transmitting JSON payload:
+  ```json
+  {
+    "amount": 7800000,
+    "speed": "optimum",
+    "notes": { "order_number": "VL-2026-8941" },
+    "receipt": "rcpt_return_8941"
+  }
+  ```
+- **Auditing & Reconciliation:** Stores `gateway_refund_id` (e.g. `rfnd_xxx`), `gateway_arn` Acquirer Reference Number, and refund speed (`optimum` / `normal`).
+- **Webhook Integration:** `POST /api/payments/webhook` listens for `refund.processed` and `refund.failed` to update the refund status and alert operations staff.
+
+### 🛡️ 2. Cash on Delivery (COD) Safety Engine & OTP Protocol (`PAY-009`)
+- **Eligibility Window:** Orders must have a taxable amount between ₹2,500 and ₹1,50,000.
+- **Handling Fee Rules:** Orders $< ₹50,000$ incur a ₹750 logistics handling fee; orders $\ge ₹50,000$ receive a complimentary fee waiver ($₹0$).
+- **Cryptographic OTP Verification:** Dispatches a 6-digit one-time passcode with 10-minute validity via `POST /api/orders/cod-otp/send`, verified securely at checkout before order creation.
+
+### 💱 3. Multi-Currency FX Engine (`CON-003`)
+- **Conversion Matrix:** Real-time conversion formula with locale formatting:
+  $$\text{Converted Amount} = \text{round}\left( \text{Amount in INR} \times \text{Exchange Rate} \right)$$
+- **Supported Currency Matrix:**
+  | Currency Code | Symbol | Rate from INR | Format Locale | Sample ₹1,00,000 |
+  |---|---|---|---|---|
+  | `INR` | ₹ | 1.0 | `en-IN` | ₹1,00,000 |
+  | `USD` | $ | 0.01188 | `en-US` | $1,188.00 |
+  | `EUR` | € | 0.01093 | `de-DE` | 1.093,00 € |
+  | `GBP` | £ | 0.00911 | `en-GB` | £911.00 |
+  | `AED` | AED | 0.04365 | `en-AE` | AED 4,365.00 |
+  | `SGD` | S$ | 0.01545 | `en-SG` | $1,545.00 |
+
+---
+
+## 9. Phase 12: Multi-Channel Notification Engine & In-App Notification Center Drawer
+
+### 📬 1. Multi-Channel Notification Dispatcher Architecture
+The notification subsystem (`lib/services/notificationService.ts` & `backend/src/services/notificationService.ts`) handles orchestrated multi-channel broadcasts across 4 specialized adapters:
+
+```mermaid
+graph LR
+    Trigger[Order / Refund / VIP Event] --> NotifService[NotificationService Dispatcher]
+    NotifService --> InAppAdapter[In-App Ledger Store]
+    NotifService --> EmailAdapter[Responsive Luxury HTML Email]
+    NotifService --> WhatsAppAdapter[WhatsApp Cloud API Formatter]
+    NotifService --> SmsAdapter[SMS Gateway Copy Formatter]
+    InAppAdapter --> ClientDrawer[Slide-Out Drawer & Header Bell]
+```
+
+### ✉️ 2. Luxury HTML Email Template Specification
+- **Visual Design:** Dark slate `#1c1815` body, `#2a201a` inner container, `#8B5A2B` gold accents, inline CSS compatibility across Apple Mail, Gmail, and Outlook.
+- **Header:** Golden serif Veloura Living Atelier branding with tagline.
+- **Action Area:** High-contrast luxury CTA button linked directly to the order tracking or concierge landing URL.
+- **Statutory Footer:** White-Glove logistics assurance, Atelier Milan address, and instant assistance contacts.
+
+### 📱 3. WhatsApp & SMS Copy Formatters
+- **WhatsApp Cloud API:** Markdown styling (`*bold*`, `_italic_`), emoji accents (`🏛️`, `📦`, `✨`, `💳`), order IDs, and concierge tracking links.
+- **SMS Copy:** Compact 160-character budget with `[VELOURA]` sender identifier and essential tracking URL.
+
+### 🗄️ 4. In-App Notification Center Drawer & State Management
+- **Slide-Out Drawer:** Glassmorphic side drawer (`components/notifications/NotificationCenterDrawer.tsx`) featuring 4 category tabs (`ALL`, `ORDERS`, `VIP`, `REFUNDS`).
+- **Reactive State:** `NotificationProvider` with 30s polling cycle and optimistic unread badge calculation (`components/layout/Header.tsx`).
+- **Batch Actions:** 1-Click `markAllNotificationsAsRead` and `clearAllNotifications` clearing operations.
+
+---
+
+## 10. Automated Verification & E2E Validation Matrix
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|
-| **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 48 App Router routes and backend modules | ✅ **0 Errors** |
+| **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 56 App Router routes and backend modules | ✅ **0 Errors** |
+| **Phase 12 Notification Suite** | `npm.cmd run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
+| **Phase 11 Payment Suite** | `npm.cmd run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
 | **Asset & Image Integrity** | `npx.cmd tsx tests/verify-all-images.ts` | 37 static luxury visuals, room heroes, product images, and material swatches | ✅ **37/37 (100%)** |
-| **Swagger Live REST APIs** | `npx.cmd tsx tests/swagger-live-api-test.ts` | 19 live REST API endpoints on `http://localhost:3000` | ✅ **19/19 (100%)** |
+| **Master Live REST APIs** | `npm.cmd run test:api` | 43 live REST API endpoints across both Edge and Backend environments | ✅ **43/43 (100%)** |
+| **Swagger Live REST APIs** | `npm.cmd run test:swagger` | 19 live REST API endpoints on `http://localhost:3000` | ✅ **19/19 (100%)** |
 | **Live Pages & Order E2E** | `npx.cmd tsx tests/e2e-live-pages-test.ts` | 15 live web pages, cart flow, checkout summary, and GST tax invoice generation | ✅ **15/15 (100%)** |
-| **Unit & Integration Tests** | `npm.cmd test` | 33 unit and domain store tests | ✅ **33/33 (100%)** |
+| **SRS Unit & Integration Tests** | `npm.cmd test` | 33 unit and domain store tests | ✅ **33/33 (100%)** |
 
 ---
 

@@ -141,8 +141,15 @@ async function runSwaggerTests() {
     body: { sku: 'VL-LR-SF-001-OAT', quantity: 1 }
   }));
 
-  // 5. Checkout & Pricing
-  console.log('--- 5. Checkout, Coupons & Invoicing ---');
+  // 5. Multi-Currency FX Engine
+  console.log('--- 5. Multi-Currency FX Engine ---');
+  results.push(await testEndpoint('GET', '/api/currency/rates'));
+  results.push(await testEndpoint('POST', '/api/currency/convert', {
+    body: { amountInINR: 125000, targetCurrency: 'USD' }
+  }));
+
+  // 6. Checkout, Coupons & Invoicing
+  console.log('--- 6. Checkout, Coupons & Invoicing ---');
   results.push(await testEndpoint('POST', '/api/coupons/validate', {
     body: { code: 'VELOURA15', subtotal: 85000 }
   }));
@@ -151,8 +158,14 @@ async function runSwaggerTests() {
   }));
   results.push(await testEndpoint('GET', '/api/invoices/44444444-1111-1111-1111-111111111101'));
 
-  // 6. Orders & Post-Purchase
-  console.log('--- 6. Orders & Reviews ---');
+  // 7. COD Safety & OTP Protocol
+  console.log('--- 7. COD Safety & OTP Protocol ---');
+  results.push(await testEndpoint('POST', '/api/orders/cod-otp/send', {
+    body: { phone: '+91 98200 12345', amount: 85000 }
+  }));
+
+  // 8. Orders, Returns & Gateway Refunds
+  console.log('--- 8. Orders, Returns & Gateway Refunds ---');
   results.push(await testEndpoint('GET', '/api/orders', {
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
   }));
@@ -161,9 +174,36 @@ async function runSwaggerTests() {
   results.push(await testEndpoint('GET', '/api/returns', {
     headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
   }));
+  results.push(await testEndpoint('POST', '/api/refunds/process-gateway', {
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    body: {
+      orderId: '44444444-1111-1111-1111-111111111101',
+      paymentId: 'pay_sim_swagger_01',
+      amountInINR: 78000,
+      speed: 'optimum',
+      reason: 'Swagger live test refund'
+    }
+  }));
 
-  // 7. AI Spatial Intelligence
-  console.log('--- 7. AI Spatial Intelligence ---');
+  // 9. Notifications & In-App Center
+  console.log('--- 9. Notifications & In-App Center ---');
+  results.push(await testEndpoint('GET', '/api/notifications', {
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {}
+  }));
+  results.push(await testEndpoint('POST', '/api/notifications/mark-read', {
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    body: { all: true }
+  }));
+  results.push(await testEndpoint('POST', '/api/notifications/test-dispatch', {
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    body: {
+      title: 'Swagger Live Test Alert',
+      message: 'All multi-channel notification pipelines active.'
+    }
+  }));
+
+  // 10. AI Spatial Intelligence
+  console.log('--- 10. AI Spatial Intelligence ---');
   results.push(await testEndpoint('POST', '/api/ai/chat', {
     body: { message: 'Recommend solid wood tables for 300 sq ft room' }
   }));

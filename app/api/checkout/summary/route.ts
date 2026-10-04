@@ -18,13 +18,15 @@ export async function POST(request: NextRequest) {
     const ownerKey = resolveOwnerKey(request, session?.id);
     const body = await request.json().catch(() => ({}));
 
-    const { shippingAddressId, shippingMethod = 'standard', couponCode } = body;
+    const { shippingAddressId, shippingMethod = 'standard', couponCode, paymentMethod, targetCurrency } = body;
 
     const summary = calculateAuthoritativeCheckout({
       ownerKey,
       shippingAddressId,
       shippingMethod,
       couponCode,
+      paymentMethod,
+      targetCurrency,
     });
 
     return successResponse(summary, 200);
