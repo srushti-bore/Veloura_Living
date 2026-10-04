@@ -72,6 +72,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refreshUser();
   }, [refreshUser]);
 
+  // Auto-show login experience after 1 second on initial website visit (if not logged in)
+  useEffect(() => {
+    if (!isLoading && !user) {
+      const hasAutoPrompted = typeof window !== 'undefined' ? sessionStorage.getItem('veloura_auto_auth_prompted') : null;
+      if (!hasAutoPrompted) {
+        const timer = setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('veloura_auto_auth_prompted', 'true');
+          }
+          setIsAuthModalOpen(true);
+          setAuthModalView('signin');
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isLoading, user]);
+
   const openAuthModal = useCallback((view: 'signin' | 'signup' | 'forgot' = 'signin') => {
     setAuthModalView(view);
     setIsAuthModalOpen(true);

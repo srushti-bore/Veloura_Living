@@ -9,9 +9,10 @@ interface Props {
   room: Room;
   onSelectProduct?: (product: Product) => void;
   fullWidth?: boolean;
+  hideBottomRail?: boolean;
 }
 
-export const RoomScene: React.FC<Props> = ({ room, fullWidth = false }) => {
+export const RoomScene: React.FC<Props> = ({ room, fullWidth = false, hideBottomRail = false }) => {
   const { allProducts, addToCart, navigate } = useStore();
   const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
 
@@ -181,59 +182,61 @@ export const RoomScene: React.FC<Props> = ({ room, fullWidth = false }) => {
         </div>
       </div>
 
-      {/* Room Furniture Carousel / Bottom Staging Rail */}
-      <div className="p-4 sm:p-6 bg-[#FCFAF7] border-t border-[#EEE9E1]">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#746B61]">
-            Featured Pieces in this {room.name}
-          </span>
-          <span className="text-xs text-[#9C9287]">
-            Hover or click to cross-reference
-          </span>
-        </div>
+      {/* Room Furniture Carousel / Bottom Staging Rail (Hidden on RoomDetailPage to avoid duplicate cards) */}
+      {!hideBottomRail && (
+        <div className="p-4 sm:p-6 bg-[#FCFAF7] border-t border-[#EEE9E1]">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#746B61]">
+              Featured Pieces in this {room.name}
+            </span>
+            <span className="text-xs text-[#9C9287]">
+              Hover or click to cross-reference
+            </span>
+          </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-          {room.hotspots.map((h) => {
-            const product = getProductForHotspot(h.productId);
-            if (!product) return null;
-            const isSelected = activeHotspotId === h.id;
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            {room.hotspots.map((h) => {
+              const product = getProductForHotspot(h.productId);
+              if (!product) return null;
+              const isSelected = activeHotspotId === h.id;
 
-            return (
-              <button
-                key={h.id}
-                onClick={() => {
-                  setActiveHotspotId(isSelected ? null : h.id);
-                  if (isSelected) {
-                    navigate(`/products/${product.slug}`);
-                  }
-                }}
-                className={`p-3 rounded-2xl text-left transition-all duration-200 border cursor-pointer interactive-card ${
-                  isSelected
-                    ? 'bg-white border-[#8B5A2B] shadow-md ring-2 ring-[#8B5A2B]/20'
-                    : 'bg-white/80 border-[#EEE9E1] hover:border-[#DED7CD] hover:bg-white'
-                }`}
-              >
-                <div className="aspect-[4/3] rounded-lg overflow-hidden bg-[#F7F4EF] mb-2">
-                  <img
-                    src={product.images[0]}
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                  />
-                </div>
-                <div className="text-[10px] font-bold text-[#8B5A2B] uppercase tracking-wider">
-                  {h.type}
-                </div>
-                <div className="text-xs font-semibold text-[#211E1B] truncate">
-                  {product.name}
-                </div>
-                <div className="text-xs font-bold text-[#4A2C1A] mt-1">
-                  ₹{(product.salePrice || product.price).toLocaleString('en-IN')}
-                </div>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={h.id}
+                  onClick={() => {
+                    setActiveHotspotId(isSelected ? null : h.id);
+                    if (isSelected) {
+                      navigate(`/products/${product.slug}`);
+                    }
+                  }}
+                  className={`p-3 rounded-2xl text-left transition-all duration-200 border cursor-pointer interactive-card ${
+                    isSelected
+                      ? 'bg-white border-[#8B5A2B] shadow-md ring-2 ring-[#8B5A2B]/20'
+                      : 'bg-white/80 border-[#EEE9E1] hover:border-[#DED7CD] hover:bg-white'
+                  }`}
+                >
+                  <div className="aspect-square rounded-lg overflow-hidden bg-[#F7F4EF] p-1 mb-2 flex items-center justify-center">
+                    <img
+                      src={product.images[0]}
+                      alt={product.name}
+                      className="w-full h-full object-contain transition-transform duration-300 hover:scale-105"
+                    />
+                  </div>
+                  <div className="text-[10px] font-bold text-[#8B5A2B] uppercase tracking-wider">
+                    {h.type}
+                  </div>
+                  <div className="text-xs font-semibold text-[#211E1B] truncate">
+                    {product.name}
+                  </div>
+                  <div className="text-xs font-bold text-[#4A2C1A] mt-1">
+                    ₹{(product.salePrice || product.price).toLocaleString('en-IN')}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

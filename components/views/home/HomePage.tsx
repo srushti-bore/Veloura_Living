@@ -46,6 +46,9 @@ export const HomePage: React.FC = () => {
   // Signature Bestsellers
   const bestsellers = allProducts.filter((p) => p.bestseller || p.featured).slice(0, 6);
 
+  // Explore Shoe Racks (Urban Ladder Reference Curation)
+  const shoeRacks = allProducts.filter((p) => p.furnitureType?.toLowerCase().includes('shoe') || p.id.startsWith('prod-sr-')).slice(0, 5);
+
   // Bundle Items for "Complete the Room"
   const bundleProducts = allProducts.filter((p) => p.room === 'living-room').slice(0, 3);
   const bundleOriginalPrice = bundleProducts.reduce((sum, p) => sum + p.price, 0);
@@ -371,6 +374,35 @@ export const HomePage: React.FC = () => {
         <div className="bestsellers-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {bestsellers.map((product) => (
             <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      </section>
+
+      {/* 5.5 EXPLORE SHOE RACKS (REFERENCE CURATION & CARD LAYOUT) */}
+      <section className="py-16 max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 border-t border-[#EEE9E1]">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 scroll-reveal-text">
+          <div>
+            <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-[#211E1B]">
+              Explore Shoe Racks
+            </h2>
+            <p className="text-xs sm:text-sm text-[#746B61] mt-1">
+              Solid wood shoe cabinets, entryway benches & breathable louvered storage consoles.
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate('/shop?category=Storage')}
+            className="mt-3 sm:mt-0 text-sm font-bold text-[#C9302C] hover:text-[#A82320] flex items-center gap-1.5 transition-colors cursor-pointer group"
+          >
+            <span>View All</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
+
+        {/* 5 Cards Row matching Urban Ladder Layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5">
+          {shoeRacks.map((product) => (
+            <ProductCard key={product.id} product={product} showRoomTag={false} />
           ))}
         </div>
       </section>

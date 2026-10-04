@@ -1,7 +1,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import React from 'react';
-import { Cormorant_Garamond, DM_Sans, Playfair_Display, Manrope } from 'next/font/google';
+import { Instrument_Serif, Instrument_Sans, Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import { AppProvider } from '../providers/AppProvider';
 import { AuthProvider } from '../providers/AuthProvider';
 import { SmoothScrollProvider } from '../providers/SmoothScrollProvider';
@@ -15,6 +15,21 @@ import { LuxuryToastContainer } from '../components/common/LuxuryToast';
 import { LuxuryCursor } from '../components/common/LuxuryCursor';
 import { AmbientSoundscape } from '../components/audio/AmbientSoundscape';
 
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: ['400'],
+  style: ['normal', 'italic'],
+  variable: '--font-instrument-serif',
+  display: 'swap',
+});
+
+const instrumentSans = Instrument_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-instrument-sans',
+  display: 'swap',
+});
+
 const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
@@ -27,21 +42,6 @@ const dmsans = DM_Sans({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700', '800'],
   variable: '--font-dmsans',
-  display: 'swap',
-});
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  style: ['normal', 'italic'],
-  variable: '--font-playfair',
-  display: 'swap',
-});
-
-const manrope = Manrope({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600', '700', '800'],
-  variable: '--font-manrope',
   display: 'swap',
 });
 
@@ -59,16 +59,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${cormorant.variable} ${dmsans.variable} ${playfair.variable} ${manrope.variable}`}>
+    <html lang="en" className={`${instrumentSerif.variable} ${instrumentSans.variable} ${cormorant.variable} ${dmsans.variable}`}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
       </head>
-      <body className="bg-[#FAF7F2] text-[#211915] font-sans antialiased selection:bg-[#F4E8D7] selection:text-[#4A2C1A]">
+      <body className="bg-[#FBF8F3] text-[#4A2C1A] font-sans antialiased selection:bg-[#F7F0E7] selection:text-[#3B2418]">
         <AuthProvider>
           <AppProvider>
             <SmoothScrollProvider>
-              <div className="flex flex-col min-h-screen bg-[#FCFAF7] text-[#211E1B]">
+              <div className="flex flex-col min-h-screen bg-[#FBF8F3] text-[#4A2C1A]">
                 <Header />
                 <main className="flex-1">{children}</main>
                 <Footer />

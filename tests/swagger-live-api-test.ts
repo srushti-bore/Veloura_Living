@@ -44,14 +44,20 @@ async function testEndpoint(
     const durationMs = Math.round(performance.now() - start);
     const passed = expectedStatus.includes(res.status);
     let details = '';
-
     try {
-      const json = await res.json();
-      if (!passed) {
-        details = json.error || JSON.stringify(json);
+      const text = await res.text();
+      try {
+        const json = JSON.parse(text);
+        if (!passed) {
+          details = json.error || JSON.stringify(json);
+        }
+      } catch {
+        if (!passed) {
+          details = text;
+        }
       }
     } catch {
-      details = await res.text();
+      details = '';
     }
 
     return {
@@ -132,7 +138,7 @@ async function runSwaggerTests() {
   console.log('--- 4. Shopping Cart & Inventory ---');
   results.push(await testEndpoint('GET', '/api/cart'));
   results.push(await testEndpoint('POST', '/api/cart', {
-    body: { sku: 'VL-LR-SEC-001-OAT', quantity: 1 }
+    body: { sku: 'VL-LR-SF-001-OAT', quantity: 1 }
   }));
 
   // 5. Checkout & Pricing

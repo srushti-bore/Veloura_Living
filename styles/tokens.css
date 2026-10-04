@@ -1,59 +1,72 @@
 :root {
-  /* Brand Master Luxury Palette per Veloura_Living_FINAL_Design.md */
-  --color-espresso: #2A1A12;
+  /* =========================================================================
+     🏛️ Veloura Living — Refined Brand Master Palette & Typography
+     Reference: prompt/veloura-living-typography-color-refinement.md
+     ========================================================================= */
+
+  /* Primary Refined Brand Palette */
+  --color-deep-brown: #3B2418;       /* Primary CTA buttons, strong contrast, important controls */
+  --color-dark-brown: #4A2C1A;       /* Primary text, strong headings, important UI text */
+  --color-warm-brown: #7A4E2D;       /* Accents, active states, hover states, secondary emphasis */
+  --color-veloura-brown: #8B5A2B;    /* Veloura brand accent (selective) */
+  --color-warm-terracotta: #9A633D;  /* Minimal accent */
+  --color-warm-ivory: #FBF8F3;       /* Main page surfaces & clean premium areas */
+  --color-cream: #F7F0E7;            /* Warm sections, cards and secondary surfaces */
+  --color-soft-beige: #E8D8C5;       /* Subtle backgrounds, borders and decorative elements */
+  --color-border: #D8C4AD;           /* Dividers, input borders, subtle separators */
+  --color-muted-text: #735E4E;       /* Supporting descriptions, secondary info, metadata */
+
+  /* Backward Compatibility & Semantic Alias Aliases */
+  --color-espresso: #3B2418;
   --color-deep-walnut: #4A2C1A;
-  --color-walnut: #765236;
-  --color-caramel: #A9794F;
-  --color-sand: #D8B486;
-  --color-cream: #F4E8D7;
-  --color-ivory: #FAF7F2;
-  --color-taupe: #B9AA99;
-  --color-charcoal: #211915;
+  --color-walnut: #7A4E2D;
+  --color-caramel: #8B5A2B;
+  --color-sand: #E8D8C5;
+  --color-ivory: #FBF8F3;
+  --color-taupe: #735E4E;
+  --color-charcoal: #3B2418;
 
-  /* Legacy & Semantic Mapping */
   --color-primary-brown: #8B5A2B;
-  --color-deep-brown: #4A2C1A;
-  --color-warm-cream: #F4E8D7;
-  --color-soft-beige: #EADBC8;
+  --color-warm-cream: #F7F0E7;
 
-  /* Neutral System */
+  /* Neutral System (Tuned for Warmth) */
   --color-neutral-0: #FFFFFF;
-  --color-neutral-50: #FAF7F2;
-  --color-neutral-100: #F4E8D7;
-  --color-neutral-200: #EADBC8;
-  --color-neutral-300: #D8B486;
+  --color-neutral-50: #FBF8F3;
+  --color-neutral-100: #F7F0E7;
+  --color-neutral-200: #E8D8C5;
+  --color-neutral-300: #D8C4AD;
   --color-neutral-400: #B9AA99;
-  --color-neutral-500: #765236;
-  --color-neutral-600: #514A43;
+  --color-neutral-500: #7A4E2D;
+  --color-neutral-600: #735E4E;
   --color-neutral-700: #4A2C1A;
-  --color-neutral-800: #2A1A12;
-  --color-neutral-900: #211915;
+  --color-neutral-800: #3B2418;
+  --color-neutral-900: #2A1A12;
 
-  /* Semantic Colors */
+  /* Semantic State Colors */
   --color-success: #557A5A;
   --color-warning: #A47A45;
   --color-error: #A6544D;
   --color-info: #657785;
 
   /* Surface Tokens */
-  --surface-page: var(--color-ivory);
+  --surface-page: var(--color-warm-ivory);
   --surface-primary: #FFFFFF;
   --surface-warm: var(--color-cream);
-  --surface-soft: var(--color-sand);
-  --surface-dark: var(--color-espresso);
-  --surface-muted: var(--color-neutral-100);
+  --surface-soft: var(--color-soft-beige);
+  --surface-dark: var(--color-deep-brown);
+  --surface-muted: var(--color-cream);
 
   /* Text Tokens */
-  --text-primary: var(--color-charcoal);
-  --text-secondary: var(--color-taupe);
-  --text-muted: var(--color-neutral-400);
-  --text-inverse: #FFFFFF;
-  --text-brand: var(--color-deep-walnut);
-  --text-accent: var(--color-caramel);
+  --text-primary: var(--color-dark-brown);
+  --text-secondary: var(--color-muted-text);
+  --text-muted: var(--color-muted-text);
+  --text-inverse: var(--color-warm-ivory);
+  --text-brand: var(--color-dark-brown);
+  --text-accent: var(--color-warm-brown);
 
-  /* Typography */
-  --font-display: var(--font-cormorant), var(--font-playfair), 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
-  --font-body: var(--font-dmsans), var(--font-manrope), 'DM Sans', 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Typography System — Instrument Serif (Display) + Instrument Sans (Functional) */
+  --font-display: var(--font-instrument-serif), var(--font-cormorant), 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
+  --font-body: var(--font-instrument-sans), var(--font-dmsans), 'Instrument Sans', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Font Weights */
   --font-weight-regular: 400;
@@ -70,11 +83,11 @@
   --radius-2xl: 24px;
   --radius-pill: 9999px;
 
-  /* Shadow Elevations */
-  --shadow-sm: 0 1px 3px rgba(33, 25, 21, 0.04), 0 1px 2px rgba(33, 25, 21, 0.02);
-  --shadow-md: 0 4px 12px -2px rgba(33, 25, 21, 0.06), 0 2px 4px -1px rgba(33, 25, 21, 0.03);
-  --shadow-lg: 0 12px 28px -4px rgba(33, 25, 21, 0.08), 0 4px 8px -2px rgba(33, 25, 21, 0.03);
-  --shadow-xl: 0 20px 40px -8px rgba(33, 25, 21, 0.12), 0 6px 12px -3px rgba(33, 25, 21, 0.04);
+  /* Shadow Elevations (Warm Ambient Diffusion) */
+  --shadow-sm: 0 1px 3px rgba(59, 36, 24, 0.04), 0 1px 2px rgba(59, 36, 24, 0.02);
+  --shadow-md: 0 4px 12px -2px rgba(59, 36, 24, 0.06), 0 2px 4px -1px rgba(59, 36, 24, 0.03);
+  --shadow-lg: 0 12px 28px -4px rgba(59, 36, 24, 0.08), 0 4px 8px -2px rgba(59, 36, 24, 0.03);
+  --shadow-xl: 0 20px 40px -8px rgba(59, 36, 24, 0.12), 0 6px 12px -3px rgba(59, 36, 24, 0.04);
   --shadow-glass: 0 8px 32px 0 rgba(74, 44, 26, 0.08);
 
   /* Container Widths */

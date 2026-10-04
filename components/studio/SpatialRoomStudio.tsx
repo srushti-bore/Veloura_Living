@@ -50,7 +50,7 @@ export const SpatialRoomStudio: React.FC = () => {
       xPercent: 55,
       yPercent: 48,
       rotation: 0,
-      image: '/images/rooms/veloura_ultra_luxury_living_hero.jpg',
+      image: '/images/products/veloura_serpentine_modular_sofa.jpg',
       material: 'Belgian Bouclé & Kiln-Dried Oak',
     },
     {
@@ -65,7 +65,7 @@ export const SpatialRoomStudio: React.FC = () => {
       xPercent: 52,
       yPercent: 68,
       rotation: 0,
-      image: '/images/rooms/veloura_ultra_luxury_living_hero.jpg',
+      image: '/images/products/veloura_kyoto_coffee_table.jpg',
       material: 'Solid American Walnut',
     },
     {
@@ -80,7 +80,7 @@ export const SpatialRoomStudio: React.FC = () => {
       xPercent: 24,
       yPercent: 58,
       rotation: 45,
-      image: '/images/rooms/veloura_ultra_luxury_living_hero.jpg',
+      image: '/images/products/veloura_solis_boucle_chair.jpg',
       material: 'Textural Wool Bouclé',
     },
     {
@@ -95,7 +95,7 @@ export const SpatialRoomStudio: React.FC = () => {
       xPercent: 84,
       yPercent: 32,
       rotation: -30,
-      image: '/images/rooms/veloura_ultra_luxury_living_hero.jpg',
+      image: '/images/products/veloura_arcos_brass_arch_lamp.jpg',
       material: 'Hand-Spun Brushed Brass',
     },
   ]);
@@ -183,7 +183,7 @@ export const SpatialRoomStudio: React.FC = () => {
           xPercent: 50,
           yPercent: 42,
           rotation: 0,
-          image: '/images/rooms/veloura_luxury_bedroom_hero.jpg',
+          image: '/images/products/veloura_solitude_platform_bed.jpg',
           material: 'Solid Ash & Natural Flax Linen',
         },
         {
@@ -198,13 +198,13 @@ export const SpatialRoomStudio: React.FC = () => {
           xPercent: 22,
           yPercent: 42,
           rotation: 0,
-          image: '/images/rooms/veloura_luxury_bedroom_hero.jpg',
+          image: '/images/products/veloura_kanso_floating_nightstand.jpg',
           material: 'American Walnut',
         },
         {
           id: 'item-b3',
           productId: 'prod-br-03',
-          name: 'Verona End-of-Bed Bench',
+          name: 'Haven Bouclé End-of-Bed Bench',
           category: 'Bench',
           room: 'bedroom',
           price: 28000,
@@ -213,7 +213,7 @@ export const SpatialRoomStudio: React.FC = () => {
           xPercent: 50,
           yPercent: 78,
           rotation: 0,
-          image: '/images/rooms/veloura_luxury_bedroom_hero.jpg',
+          image: '/images/products/veloura_haven_boucle_bench.jpg',
           material: 'Fluted Walnut & Bouclé',
         },
       ]);
@@ -221,8 +221,8 @@ export const SpatialRoomStudio: React.FC = () => {
       setPlacedItems([
         {
           id: 'item-d1',
-          productId: 'prod-dr-01',
-          name: 'Monolith Solid Walnut Dining Table',
+          productId: 'prod-dn-01',
+          name: 'Heritage Solid Walnut Dining Table',
           category: 'Dining Table',
           room: 'dining',
           price: 148000,
@@ -231,13 +231,13 @@ export const SpatialRoomStudio: React.FC = () => {
           xPercent: 50,
           yPercent: 50,
           rotation: 0,
-          image: '/images/rooms/veloura_luxury_dining_hero.jpg',
+          image: '/images/products/veloura_heritage_walnut_dining_table.jpg',
           material: 'Solid American Walnut',
         },
         {
           id: 'item-d2',
-          productId: 'prod-dr-02',
-          name: 'Aurelia Sculptural Dining Chairs',
+          productId: 'prod-dn-02',
+          name: 'Astrid Sculptural Dining Chairs',
           category: 'Dining Chairs',
           room: 'dining',
           price: 38000,
@@ -246,7 +246,7 @@ export const SpatialRoomStudio: React.FC = () => {
           xPercent: 30,
           yPercent: 50,
           rotation: 90,
-          image: '/images/rooms/veloura_luxury_dining_hero.jpg',
+          image: '/images/products/veloura_astrid_dining_chair.jpg',
           material: 'Solid Timber & Oat Wool',
         },
       ]);
@@ -265,7 +265,7 @@ export const SpatialRoomStudio: React.FC = () => {
           xPercent: 55,
           yPercent: 48,
           rotation: 0,
-          image: '/images/rooms/veloura_ultra_luxury_living_hero.jpg',
+          image: '/images/products/veloura_serpentine_modular_sofa.jpg',
           material: 'Belgian Bouclé & Kiln-Dried Oak',
         },
         {
@@ -280,7 +280,7 @@ export const SpatialRoomStudio: React.FC = () => {
           xPercent: 52,
           yPercent: 68,
           rotation: 0,
-          image: '/images/rooms/veloura_ultra_luxury_living_hero.jpg',
+          image: '/images/products/veloura_kyoto_coffee_table.jpg',
           material: 'Solid American Walnut',
         },
       ]);

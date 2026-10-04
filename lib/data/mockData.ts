@@ -266,7 +266,7 @@ export const PRODUCTS: Product[] = [
   // --- LIVING ROOM ---
   {
     id: 'prod-lr-01',
-    sku: 'VL-LR-SEC-001',
+    sku: 'VL-LR-SF-001',
     name: 'Serpentine Modular Sectional Sofa',
     slug: 'serpentine-modular-sectional-sofa',
     category: 'Seating',
@@ -289,9 +289,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Warm Oat Cream', 'Earth Charcoal', 'Sage Olive'],
     tags: ['Bestseller', 'Modular', 'Feather Blend', 'Veloura Signature'],
     images: [
-      'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_serpentine_modular_sofa.jpg'
     ],
     description: 'A monument to modern comfort. The Serpentine Sectional combines low architectural geometry with generous, feather-wrapped seats that embrace without sagging.',
     story: 'Conceived in collaboration with Scandinavian craftsmen, the Serpentine brings expansive residential scale into modern homes. Every joint is mortise-and-tenon reinforced to last decades.',
@@ -309,7 +307,7 @@ export const PRODUCTS: Product[] = [
         price: 185000,
         salePrice: 168000,
         stock: 5,
-        image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_serpentine_modular_sofa.jpg'
       },
       {
         id: 'var-lr01-charcoal',
@@ -320,7 +318,7 @@ export const PRODUCTS: Product[] = [
         price: 185000,
         salePrice: 168000,
         stock: 3,
-        image: 'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_serpentine_modular_sofa.jpg'
       }
     ],
     complementaryProductIds: ['prod-lr-02', 'prod-lr-03', 'prod-lr-05'],
@@ -351,8 +349,7 @@ export const PRODUCTS: Product[] = [
     colors: ['American Walnut', 'Bleached White Oak'],
     tags: ['Organic Shape', 'Solid Hardwood', 'Editorial Pick'],
     images: [
-      'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1532372320572-cda25653a26d?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_kyoto_coffee_table.jpg'
     ],
     description: 'An organic pebble silhouette that softens rectilinear seating layouts. Cut from sustainably managed American walnut with bullnose rounded edges.',
     story: 'Inspired by Japanese Zen garden stepping stones, Kyoto brings nature’s soothing irregularity indoors.',
@@ -369,7 +366,7 @@ export const PRODUCTS: Product[] = [
         material: 'Solid Walnut',
         price: 48000,
         stock: 8,
-        image: 'https://images.unsplash.com/photo-1533090161767-e6ffed986c88?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_kyoto_coffee_table.jpg'
       },
       {
         id: 'var-lr02-oak',
@@ -379,7 +376,7 @@ export const PRODUCTS: Product[] = [
         material: 'Solid White Oak',
         price: 48000,
         stock: 4,
-        image: 'https://images.unsplash.com/photo-1532372320572-cda25653a26d?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_kyoto_coffee_table.jpg'
       }
     ],
     complementaryProductIds: ['prod-lr-01', 'prod-lr-04', 'prod-lr-05'],
@@ -411,8 +408,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Ivory Boucle', 'Terracotta Rust', 'Moss'],
     tags: ['Cozy', 'Curved', 'Design Icon'],
     images: [
-      'https://images.unsplash.com/photo-1580481077195-c3a824490796?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_solis_boucle_chair.jpg'
     ],
     description: 'A cocoon-like embrace with an enveloping barrel back. Solis transforms any corner into an inviting contemplation spot.',
     story: 'Designed to break rigid living room grids with human-centered soft curves.',
@@ -430,7 +426,7 @@ export const PRODUCTS: Product[] = [
         price: 54000,
         salePrice: 49500,
         stock: 4,
-        image: 'https://images.unsplash.com/photo-1580481077195-c3a824490796?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_solis_boucle_chair.jpg'
       },
       {
         id: 'var-lr03-rust',
@@ -441,7 +437,7 @@ export const PRODUCTS: Product[] = [
         price: 56000,
         salePrice: 51000,
         stock: 2,
-        image: 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_solis_boucle_chair.jpg'
       }
     ],
     complementaryProductIds: ['prod-lr-01', 'prod-lr-02', 'prod-lr-04'],
@@ -471,8 +467,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Brushed Brass', 'Matte Black Oxide'],
     tags: ['Ambient Light', 'Heavy Marble Base', 'Dimmable'],
     images: [
-      'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_arcos_brass_arch_lamp.jpg'
     ],
     description: 'A sweeping arch of warm brushed brass balanced by an unyielding solid black marble base. Creates an intimate pool of light over sofas or reading chairs.',
     story: 'Crafted to replace harsh overhead lighting with a gentle, atmospheric golden warmth.',
@@ -507,8 +502,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Oat Cream Relief', 'Warm Sand'],
     tags: ['Hand Tufted', 'Plush Pile', 'Zero Dye'],
     images: [
-      'https://images.unsplash.com/photo-1600121848594-d8644e57abab?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_dune_wool_rug.jpg'
     ],
     description: 'Subtle high-low carved linear patterns that catch raking natural sunlight. Luxuriously soft under barefoot steps.',
     story: 'Woven by master artisans in Bhadohi using unbleached highland wool.',
@@ -543,8 +537,7 @@ export const PRODUCTS: Product[] = [
     colors: ['American Walnut', 'Charcoal Stained Ash'],
     tags: ['Acoustic Transparent', 'Cable Management', 'Fluted Detail'],
     images: [
-      'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_atelier_fluted_credenza.jpg'
     ],
     description: 'Discreet luxury for home entertainment. Tambour doors glide smoothly around curved corners while internal channels route all cables out of sight.',
     story: 'Designed so media devices, soundbars, and consoles remain invisible while remote signals pass through effortlessly.',
@@ -582,9 +575,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Oat Linen', 'Warm Sand', 'Slate Charcoal'],
     tags: ['Bestseller', 'Generational Frame', 'Quiet Slat System'],
     images: [
-      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1540518614846-7ede433c4ef2?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_solitude_platform_bed.jpg'
     ],
     description: 'A serene centerpiece for undisturbed sleep. Features an ergonomically angled padded headboard for late-night reading and an acoustic dampening slat system.',
     story: 'Engineered for zero creaks. The recessed floating base gives the bed an ethereal, weightless appearance.',
@@ -602,7 +593,7 @@ export const PRODUCTS: Product[] = [
         price: 135000,
         salePrice: 122000,
         stock: 6,
-        image: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_solitude_platform_bed.jpg'
       },
       {
         id: 'var-br01-king-sand',
@@ -613,7 +604,7 @@ export const PRODUCTS: Product[] = [
         price: 135000,
         salePrice: 122000,
         stock: 3,
-        image: 'https://images.unsplash.com/photo-1540518614846-7ede433c4ef2?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_solitude_platform_bed.jpg'
       }
     ],
     complementaryProductIds: ['prod-br-02', 'prod-br-03', 'prod-br-05'],
@@ -644,8 +635,7 @@ export const PRODUCTS: Product[] = [
     colors: ['American Walnut', 'Natural Oak'],
     tags: ['Soft Close', 'Floating Feel', 'Integrated Cable Notch'],
     images: [
-      'https://images.unsplash.com/photo-1532372320572-cda25653a26d?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1540518614846-7ede433c4ef2?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_kanso_floating_nightstand.jpg'
     ],
     description: 'Pure geometry and function. An open lower tier for books and a felt-lined soft-close drawer with a discreet rear cable channel for bedside charging.',
     story: 'Kanso embodies the Japanese concept of simplicity eliminating non-essential elements.',
@@ -680,8 +670,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Ivory Boucle', 'Camel Wool'],
     tags: ['Tactile', 'Low Profile', 'Dual Use'],
     images: [
-      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_haven_boucle_bench.jpg'
     ],
     description: 'An architectural pill bench designed to sit comfortably at the foot of king or queen beds. Perfect for morning dressing and afternoon reading.',
     story: 'Balances the soft linen headboard with tactile bouclé textures in soothing neutral tones.',
@@ -717,8 +706,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Natural Oak', 'Smoked Espresso Oak'],
     tags: ['Heirloom Storage', 'Auto LED Lights', 'Custom Wardrobe'],
     images: [
-      'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1558997519-83ea9252def8?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_pillar_fluted_wardrobe.jpg'
     ],
     description: 'Generous architectural wardrobe offering hanging rails, soft-close velvet lined jewelry drawers, and adjustable luggage shelving.',
     story: 'Transforms bedroom storage from a utilitarian box into a rhythmic wall of warm natural fluting.',
@@ -753,8 +741,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Muted Brass', 'Deep Bronze'],
     tags: ['Full Length', 'Shatterproof', 'Floor Leaning or Wall Mount'],
     images: [
-      'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_aura_arch_mirror.jpg'
     ],
     description: 'An elegant arched silhouette that reflects natural daylight and visually doubles room volume without visual heaviness.',
     story: 'Designed with a weighted anti-slip rubber foot for leaning or sturdy heavy-duty cleat wall mounting.',
@@ -792,8 +779,7 @@ export const PRODUCTS: Product[] = [
     colors: ['American Black Walnut', 'Natural Ash'],
     tags: ['Heirloom Grade', 'Continuous Grain', 'Seats 8-10', 'Bestseller'],
     images: [
-      'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1530018607912-eff2daa1bac4?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_heritage_walnut_dining_table.jpg'
     ],
     description: 'The definitive dinner table. Crafted from continuous-grain solid American black walnut with gently softened pill edges and sculptural trestle legs that ensure zero knee interference.',
     story: 'Built to be passed down through generations. The natural oils in the timber develop a deeper, richer patina with every passing dinner party.',
@@ -811,7 +797,7 @@ export const PRODUCTS: Product[] = [
         price: 145000,
         salePrice: 132000,
         stock: 5,
-        image: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_heritage_walnut_dining_table.jpg'
       },
       {
         id: 'var-dn01-6seat',
@@ -822,7 +808,7 @@ export const PRODUCTS: Product[] = [
         price: 115000,
         salePrice: 105000,
         stock: 2,
-        image: 'https://images.unsplash.com/photo-1530018607912-eff2daa1bac4?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_heritage_walnut_dining_table.jpg'
       }
     ],
     complementaryProductIds: ['prod-dn-02', 'prod-dn-03', 'prod-dn-04'],
@@ -855,8 +841,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Oat Cream / Walnut Frame', 'Charcoal / Black Oak Frame'],
     tags: ['Set of 2', 'Ergonomic Curved Back', 'Stain Resistant'],
     images: [
-      'https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_astrid_dining_chair.jpg'
     ],
     description: 'Designed for lingering conversations long after dessert. The continuous curved backrest cradles the spine naturally.',
     story: 'Tested for 4+ hour dinner comfort without fatigue.',
@@ -892,8 +877,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Smoked Amber Glass', 'Opal Frosted Glass'],
     tags: ['Dimmable', 'Warm 2700K Glow', 'Architectural Statement'],
     images: [
-      'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_eclipse_glass_pendant.jpg'
     ],
     description: 'Suspended like celestial bodies above your dining table. Casts a warm, intimate pool of non-glare illumination.',
     story: 'Handmade by glass artisans with subtle gradation from clear amber to smoked bronze.',
@@ -929,8 +913,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Natural Oak / Travertine', 'Smoked Oak / Marquina Marble'],
     tags: ['Real Stone Top', 'Wine & Dinnerware Storage', 'Luxury Buffet'],
     images: [
-      'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_oslo_fluted_sideboard.jpg'
     ],
     description: 'A sculptural storage unit featuring a honed Italian travertine top resistant to dinner party wine spills and hot serving dishes.',
     story: 'Four fluted push-to-open doors conceal adjustable glassware racks and felt-lined cutlery organizers.',
@@ -968,8 +951,7 @@ export const PRODUCTS: Product[] = [
     colors: ['American Walnut', 'Smoked Black Ash'],
     tags: ['Built-in Wireless Charger', 'Hidden Cable Raceway', 'Executive Size'],
     images: [
-      'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_meridian_executive_desk.jpg'
     ],
     description: 'Commanding presence and refined warmth. Features a flush leather writing surface, hidden high-speed Qi2 wireless charging spot, and concealed power cable bay.',
     story: 'Eliminates workplace clutter so your focus stays centered on meaningful thoughts.',
@@ -1008,8 +990,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Cognac Saddle Leather', 'Onyx Black Leather', 'Taupe Grey'],
     tags: ['12-Hour Ergonomics', 'Dynamic Lumbar Tilt', 'Bestseller'],
     images: [
-      'https://images.unsplash.com/photo-1580481077195-c3a824490796?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_aeron_pro_leather_chair.jpg'
     ],
     description: 'The pinnacle of ergonomic support dressed in buttery Italian leather. Synchronized tilt follows your spinal motion throughout deep work sprints.',
     story: 'Replaces cold plastic office chairs with luxurious residential craftsmanship that supports long hours.',
@@ -1027,7 +1008,7 @@ export const PRODUCTS: Product[] = [
         price: 68000,
         salePrice: 59000,
         stock: 8,
-        image: 'https://images.unsplash.com/photo-1580481077195-c3a824490796?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_aeron_pro_leather_chair.jpg'
       },
       {
         id: 'var-of02-black',
@@ -1038,7 +1019,7 @@ export const PRODUCTS: Product[] = [
         price: 68000,
         salePrice: 59000,
         stock: 4,
-        image: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1400&q=80'
+        image: '/images/products/veloura_aeron_pro_leather_chair.jpg'
       }
     ],
     complementaryProductIds: ['prod-of-01', 'prod-of-04'],
@@ -1068,8 +1049,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Walnut / Bronze', 'Natural Oak / White Steel'],
     tags: ['Heavy Load Rating', 'Architectural Grids', 'Open Display'],
     images: [
-      'https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_bauhaus_bookcase.jpg'
     ],
     description: 'An open-air shelving system engineered to hold heavy art monographs, design artifacts, and ceramics without shelf sagging.',
     story: 'Balances industrial precision with warm natural timber.',
@@ -1104,8 +1084,7 @@ export const PRODUCTS: Product[] = [
     colors: ['Brushed Brass', 'Matte Black'],
     tags: ['CRI 95+ Eye Care', 'Touch Dimmer', 'Weighted Base'],
     images: [
-      'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1400&q=80',
-      'https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=1400&q=80'
+      '/images/products/veloura_linear_brass_task_lamp.jpg'
     ],
     description: 'Minimalist illumination engineered for zero screen glare and maximum color accuracy during late-night design & writing sessions.',
     story: 'Subtle touch-sensitive brass control smoothly cycles from 10% warm amber mood to 100% focused reading light.',
@@ -1116,6 +1095,198 @@ export const PRODUCTS: Product[] = [
     variants: [],
     complementaryProductIds: ['prod-of-01', 'prod-of-02'],
     roomFitScore: 95
+  },
+
+  // --- STORAGE & SHOE RACKS (URBAN LADDER REFERENCE CURATION) ---
+  {
+    id: 'prod-sr-01',
+    sku: 'VL-ST-SH-001',
+    name: 'Bennis 25 Pair Shoe Rack in Dark Walnut Finish',
+    slug: 'bennis-25-pair-shoe-rack-in-dark-walnut-finish',
+    category: 'Storage',
+    room: 'living-room',
+    furnitureType: 'Shoe Rack',
+    price: 17799,
+    salePrice: 11999,
+    rating: 4.8,
+    reviewCount: 34,
+    stock: 14,
+    availability: 'in_stock',
+    dimensions: {
+      width: '45"',
+      depth: '15"',
+      height: '34"',
+      weight: '36 kg'
+    },
+    materials: ['Solid Sheesham & Walnut', 'High-Resilience Padded Bench Cushion', 'Louvered Slatted Timber Doors'],
+    colors: ['Dark Walnut Finish', 'Classic Teak'],
+    tags: ['25 Pairs Capacity', 'Louvered Ventilation', 'Integrated Bench', 'Veloura Living'],
+    images: [
+      '/images/products/veloura_bennis_shoe_rack.jpg'
+    ],
+    description: 'The Bennis Shoe Rack seamlessly integrates extensive footwear organization with an entryway seating bench. Breathable slatted louvered doors maintain fresh airflow while concealed tiers protect fine leather shoes from dust.',
+    story: 'Designed to solve everyday entryway clutter with quiet architectural elegance and seating convenience.',
+    craftsmanship: 'Handcrafted with mortise-and-tenon joints and moisture-resistant matte lacquer.',
+    care: 'Wipe with a soft dry cloth. Spot clean upholstered bench with fabric foam.',
+    shippingEstimate: 'Ships within 3–5 business days with free doorstep delivery.',
+    warranty: '5-year structural warranty.',
+    variants: [],
+    complementaryProductIds: ['prod-lr-06', 'prod-br-04'],
+    roomFitScore: 96,
+    bestseller: true,
+    featured: true
+  },
+  {
+    id: 'prod-sr-02',
+    sku: 'VL-ST-SH-002',
+    name: 'Webster 48 Pair Shoe Rack in Walnut Finish',
+    slug: 'webster-48-pair-shoe-rack-in-walnut-finish',
+    category: 'Storage',
+    room: 'living-room',
+    furnitureType: 'Shoe Cabinet',
+    price: 32199,
+    salePrice: 22999,
+    rating: 4.9,
+    reviewCount: 41,
+    stock: 9,
+    availability: 'in_stock',
+    dimensions: {
+      width: '52"',
+      depth: '16"',
+      height: '44"',
+      weight: '58 kg'
+    },
+    materials: ['Kiln-Dried American Walnut', 'Solid Wood Splayed Legs', 'Soft-Close Concealed European Hinges'],
+    colors: ['Walnut Finish', 'Espresso Dark Oak'],
+    tags: ['48 Pairs Huge Capacity', 'Soft Close Doors', 'Adjustable Internal Tiers', 'Veloura Living'],
+    images: [
+      '/images/products/veloura_webster_shoe_cabinet.jpg'
+    ],
+    description: 'A grand-capacity shoe console engineered for multi-pair collections. Behind its minimalist dual walnut doors lie 8 adjustable internal tiers with anti-dust seal gaskets and angled heels support.',
+    story: 'Accommodates up to 48 pairs of formal footwear, sneakers, and boots without visual bulk.',
+    craftsmanship: 'Continuous matching wood grain across both front doors with hidden acoustic dampers.',
+    care: 'Dust with soft micro-fiber cloth and apply natural wood wax twice a year.',
+    shippingEstimate: 'Ships within 4–7 business days with white-glove setup.',
+    warranty: '10-year warranty.',
+    variants: [],
+    complementaryProductIds: ['prod-sr-01', 'prod-of-03'],
+    roomFitScore: 98,
+    bestseller: true,
+    featured: true
+  },
+  {
+    id: 'prod-sr-03',
+    sku: 'VL-ST-SH-003',
+    name: 'Alex 21 Pair Shoe Cabinet in Classic Walnut Finish',
+    slug: 'alex-21-pair-shoe-cabinet-in-classic-walnut-finish',
+    category: 'Storage',
+    room: 'living-room',
+    furnitureType: 'Shoe Bench & Cabinet',
+    price: 15999,
+    salePrice: 7999,
+    rating: 4.7,
+    reviewCount: 29,
+    stock: 18,
+    availability: 'in_stock',
+    dimensions: {
+      width: '42"',
+      depth: '14"',
+      height: '38"',
+      weight: '32 kg'
+    },
+    materials: ['Engineered Hardwood with Walnut Grain', 'High-Density Foam Padded Seat', 'Heavy-Duty Hardware'],
+    colors: ['Classic Walnut', 'Natural Muted Oak'],
+    tags: ['50% Privilege Offer', 'Entryway Bench', '21 Pair Capacity', 'Veloura Living'],
+    images: [
+      '/images/products/veloura_alex_shoe_bench_cabinet.jpg'
+    ],
+    description: 'Smart dual-zone entryway console combining a vertical 2-door enclosed cabinet with an open quick-access 2-tier bench seat for daily sneakers, loafers, and guest footwear.',
+    story: 'Optimized for modern apartments where space efficiency meets comfortable morning shoe tying.',
+    craftsmanship: 'Scratch-resistant melamine polymer coat with reinforced bench load capacity of 130 kg.',
+    care: 'Clean with damp cloth and dry immediately.',
+    shippingEstimate: 'Ships within 2–4 business days.',
+    warranty: '3-year warranty.',
+    variants: [],
+    complementaryProductIds: ['prod-sr-01', 'prod-lr-06'],
+    roomFitScore: 94,
+    bestseller: false,
+    featured: true
+  },
+  {
+    id: 'prod-sr-04',
+    sku: 'VL-ST-SH-004',
+    name: 'Nina 24 Pairs Solid Wood Shoe Cabinet in Mango Walnut Finish',
+    slug: 'nina-24-pairs-solid-wood-shoe-cabinet-in-mango-walnut-finish',
+    category: 'Storage',
+    room: 'living-room',
+    furnitureType: 'Solid Wood Shoe Cabinet',
+    price: 49999,
+    salePrice: 29999,
+    rating: 4.9,
+    reviewCount: 53,
+    stock: 7,
+    availability: 'in_stock',
+    dimensions: {
+      width: '38"',
+      depth: '16"',
+      height: '46"',
+      weight: '52 kg'
+    },
+    materials: ['Solid Mango Wood with Walnut Stain', 'Hand-Laid Chevron Herringbone Parquet', 'Brushed Brass Metal Base'],
+    colors: ['Mango Walnut Finish', 'Smoked Espresso Teak'],
+    tags: ['Handcrafted Chevron', 'Solid Wood Heritage', 'Brushed Brass Base', 'Veloura Living'],
+    images: [
+      '/images/products/veloura_nina_chevron_cabinet.jpg'
+    ],
+    description: 'An heirloom statement storage piece. Features hand-laid geometric chevron wood parquet door fronts, slim vertical champagne brass pulls, and an elevated metal chassis that allows robotic vacuums to pass underneath.',
+    story: 'Crafted in Jodhpur by master carpenters specializing in generational wood parquet marquetry.',
+    craftsmanship: 'Solid kiln-seasoned mango hardwood frame with hand-rubbed organic oil stain.',
+    care: 'Condition with natural beeswax polish. Wipe brass with dry cloth.',
+    shippingEstimate: 'Ships within 5–8 business days with white-glove setup.',
+    warranty: '7-year structural warranty.',
+    variants: [],
+    complementaryProductIds: ['prod-br-04', 'prod-dn-04'],
+    roomFitScore: 99,
+    bestseller: true,
+    featured: true
+  },
+  {
+    id: 'prod-sr-05',
+    sku: 'VL-ST-SH-005',
+    name: 'Fujiwara 20 Pair Solid Wood and Cane Cabinet With Drawer In Amber Walnut',
+    slug: 'fujiwara-20-pair-solid-wood-and-cane-cabinet-with-drawer-in-amber-walnut',
+    category: 'Storage',
+    room: 'living-room',
+    furnitureType: 'Solid Wood & Cane Shoe Cabinet',
+    price: 54999,
+    salePrice: 33999,
+    rating: 5.0,
+    reviewCount: 62,
+    stock: 6,
+    availability: 'in_stock',
+    dimensions: {
+      width: '40"',
+      depth: '15"',
+      height: '45"',
+      weight: '46 kg'
+    },
+    materials: ['Solid Amber Walnut Wood', 'Handwoven Natural Rattan Cane Mesh', 'Solid Brass Knobs'],
+    colors: ['Amber Walnut & Natural Cane', 'Aged Teak & Honey Cane'],
+    tags: ['Japandi Cane Weave', 'Top Accessory Drawer', 'Breathable Storage', 'Veloura Living'],
+    images: [
+      '/images/products/veloura_fujiwara_cane_cabinet.jpg'
+    ],
+    description: 'Harmonious Japandi craftsmanship integrating natural handwoven rattan cane panels with warm amber walnut. Top accessory drawer stores keys, sunglasses, and shoe care essentials with effortless elegance.',
+    story: 'Inspired by traditional Kyoto lattice cabinetry, allowing shoes to naturally breathe through woven cane while remaining discreetly concealed.',
+    craftsmanship: 'Double-woven octagonal rattan cane mesh tightly stretched over solid walnut rails.',
+    care: 'Dust cane gently with dry brush. Keep away from direct water contact.',
+    shippingEstimate: 'Ships within 4–6 business days with white-glove setup.',
+    warranty: '5-year craftsmanship warranty.',
+    variants: [],
+    complementaryProductIds: ['prod-lr-02', 'prod-of-04'],
+    roomFitScore: 97,
+    bestseller: true,
+    featured: true
   }
 ];
 

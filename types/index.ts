@@ -5,6 +5,7 @@ export * from './order';
 export * from './database';
 export * from './api';
 export * from './auth';
+export * from './shopHover';
 
 import { Product } from './product';
 

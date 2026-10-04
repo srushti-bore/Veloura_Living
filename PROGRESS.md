@@ -107,7 +107,28 @@ All 10 phases defined in the normative SRS specification (`docs/Veloura-Living_S
 - **Automated Verification Suites:**
   - `npm.cmd run test:swagger`: 19/19 live REST endpoints passing 100%.
   - `npx.cmd -y tsx tests/e2e-live-pages-test.ts`: 15/15 live pages responding HTTP 200 OK with full cart, checkout, and invoice generation.
+  - `npx.cmd tsx tests/verify-all-images.ts`: 37/37 static images & material swatches verified with HTTP 200 OK.
   - `npm.cmd test`: 33/33 unit & integration tests passing 100%.
+
+### 11. Recent Quiet Luxury UI/UX Enhancements & Spatial Refinements ✅
+- **Dynamic Category Mega-Menu & Room Hover Experience (`components/layout/Header.tsx`, `components/views/shop/ShopPage.tsx`):**
+  - **Tri-Fold Spatial Popover:** 3-column floating layout when hovering over "ROOMS" in the main navigation. Left column provides quick room cards (Living, Bedroom, Dining, Office) with category tags, Center column showcases the Master Collection with editorial artwork, and Right column features the Stylist Spotlight with immediate item purchase actions.
+  - **Clean Architectural Banners:** Streamlined room header banners in the Shop page without nested redundant cards, featuring breadcrumbs and active item counts.
+- **Sticky Refine Catalog Sidebar & Micro-Interactions (`components/views/shop/ShopPage.tsx`):**
+  - **Scroll-Lock Elevation Glow:** The Refine Catalog sidebar stays fixed at `top-28` while the product catalog scrolls smoothly, equipped with ambient glow shadows (`shadow-soft-xl`) and subtle gold borders (`border-[#8B5A2B]/30`).
+  - **Active Filter Chips Row:** Real-time filter tags allowing 1-click removal of individual room, price, material, or stock filters, plus a "Clear All" reset action.
+  - **Floating Sort Popover:** Custom luxury dropdown for price sorting, new arrivals, and curated selections.
+- **Tactile Material Laboratory 8K Macro Swatches (`components/studio/MaterialTextureStudio.tsx`, `public/images/materials/`):**
+  - Generated and integrated 5 ultra-realistic 8K macro texture assets:
+    1. `Solid American Black Walnut` (`/images/materials/veloura_swatch_walnut.jpg`)
+    2. `Belgian Heritage Wool Bouclé` (`/images/materials/veloura_swatch_boucle.jpg`)
+    3. `Vegetable-Tanned Saddle Leather` (`/images/materials/veloura_swatch_leather.jpg`)
+    4. `Honed Roman Travertine Stone` (`/images/materials/veloura_swatch_travertine.jpg`)
+    5. `Hand-Spun Muted Brushed Brass` (`/images/materials/veloura_swatch_brass.jpg`)
+  - Interactive specification pane displaying finish, Janka/Martindale durability, acoustic tactile feel, origin badge, and conservation guidelines.
+- **Catalog Enrichment & Deduplication:**
+  - Added dedicated luxury shoe cabinets & racks (`Bennis 25 Pair`, `Webster 48 Pair`, `Alex 21 Pair`, `Nina 24 Pairs`, `Fujiwara 20 Pair Cane Cabinet`) with 0 image duplication across all 24 catalog pieces.
+  - Sanitized form initial states to ensure clean placeholder experience across cart and checkout.
 
 ---
 

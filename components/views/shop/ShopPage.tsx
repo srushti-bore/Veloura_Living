@@ -1,8 +1,13 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useStore } from '@/hooks/useStore';
 import { ProductCard } from '../../products/ProductCard';
+import { ShopRoomHoverPanel } from './ShopRoomHoverPanel';
+import { ShopMobileRoomAccordion } from './ShopMobileRoomAccordion';
+import { ShopFilterSidebar } from './ShopFilterSidebar';
+import { SHOP_ROOM_HOVER_DATA } from '@/lib/data/shopRoomHoverData';
+import { ShopRoomSubcategory, ShopRoomFeaturedHero } from '@/types/shopHover';
 import {
   Search,
   Sparkles,
@@ -15,12 +20,95 @@ import {
 import { RoomType } from '../../../types';
 
 export const ShopPage: React.FC = () => {
-  const { allProducts, rooms, filters, setFilters, searchQuery, setSearchQuery, resetFilters } = useStore();
+  const { allProducts, rooms, filters, setFilters, searchQuery, setSearchQuery, resetFilters, navigate } = useStore();
 
   const [aiPromptInput, setAiPromptInput] = useState('');
   const [aiExplanation, setAiExplanation] = useState<string | null>(null);
 
+  // Shop Room Hover State
+  const [hoveredRoomKey, setHoveredRoomKey] = useState<string | null>(null);
+  const [isHoverPanelOpen, setIsHoverPanelOpen] = useState(false);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const materialsList = ['all', 'Solid Walnut', 'Oak', 'Bouclé', 'Linen', 'Leather', 'Travertine'];
+
+  // Hover Handlers with safety delay
+  const handleRoomMouseEnter = (roomKey: string) => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setHoveredRoomKey(roomKey);
+    setIsHoverPanelOpen(true);
+  };
+
+  const handleRoomMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsHoverPanelOpen(false);
+      setHoveredRoomKey(null);
+    }, 180);
+  };
+
+  const handlePanelMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setIsHoverPanelOpen(true);
+  };
+
+  const handlePanelMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsHoverPanelOpen(false);
+      setHoveredRoomKey(null);
+    }, 180);
+  };
+
+  const handleSelectSubcategory = (item: ShopRoomSubcategory) => {
+    if (item.href) {
+      navigate(item.href);
+    } else {
+      setFilters((prev) => ({
+        ...prev,
+        ...(hoveredRoomKey && hoveredRoomKey !== 'all' ? { room: hoveredRoomKey as RoomType } : {}),
+        category: item.categoryFilter || prev.category,
+        material: item.materialFilter || prev.material,
+        furnitureType: item.furnitureType || prev.furnitureType
+      }));
+    }
+    setIsHoverPanelOpen(false);
+    setHoveredRoomKey(null);
+  };
+
+  const handleSelectHero = (hero: ShopRoomFeaturedHero) => {
+    if (hero.href) {
+      navigate(hero.href);
+    } else if (hero.targetRoom) {
+      setFilters((prev) => ({
+        ...prev,
+        room: hero.targetRoom || 'all',
+        category: hero.targetCategory || 'all'
+      }));
+    }
+    setIsHoverPanelOpen(false);
+    setHoveredRoomKey(null);
+  };
+
+  const handlePrimaryCta = () => {
+    if (!hoveredRoomKey || hoveredRoomKey === 'all') {
+      setFilters((prev) => ({ ...prev, room: 'all', category: 'all' }));
+    } else {
+      setFilters((prev) => ({ ...prev, room: hoveredRoomKey as RoomType, category: 'all' }));
+    }
+    setIsHoverPanelOpen(false);
+    setHoveredRoomKey(null);
+  };
+
+  const handleApplyRoomFilter = (roomType: string) => {
+    setFilters((prev) => ({ ...prev, room: roomType as any, category: 'all' }));
+    setIsHoverPanelOpen(false);
+    setHoveredRoomKey(null);
+  };
 
   // Handle AI Search prompt
   const handleAISearch = (e: React.FormEvent) => {
@@ -158,112 +246,108 @@ export const ShopPage: React.FC = () => {
             )}
           </form>
 
-          {/* Primary Room Switcher Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 border-t border-[#EEE9E1] pt-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#9C9287] mr-2">
-              Room:
-            </span>
-            <button
-              onClick={() => setFilters((prev) => ({ ...prev, room: 'all' }))}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 interactive-pill cursor-pointer ${
-                filters.room === 'all'
-                  ? 'bg-[#4A2C1A] text-white shadow-sm'
-                  : 'bg-[#FCFAF7] text-[#514A43] hover:bg-[#EEE9E1] hover:text-[#211E1B]'
-              }`}
-            >
-              All Living Spaces
-            </button>
-            {rooms.map((r) => (
+          {/* Primary Room Switcher Tabs with Hover Trigger Area */}
+          <div
+            className="relative border-t border-[#EEE9E1] pt-4"
+            onMouseLeave={handleRoomMouseLeave}
+          >
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#9C9287] mr-2">
+                Room:
+              </span>
+              
               <button
-                key={r.id}
-                onClick={() => setFilters((prev) => ({ ...prev, room: r.type }))}
-                className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 interactive-pill cursor-pointer ${
-                  filters.room === r.type
+                type="button"
+                onClick={() => {
+                  setFilters((prev) => ({ ...prev, room: 'all' }));
+                  setHoveredRoomKey('all');
+                  setIsHoverPanelOpen(true);
+                }}
+                onMouseEnter={() => handleRoomMouseEnter('all')}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 interactive-pill cursor-pointer relative ${
+                  filters.room === 'all'
                     ? 'bg-[#4A2C1A] text-white shadow-sm'
                     : 'bg-[#FCFAF7] text-[#514A43] hover:bg-[#EEE9E1] hover:text-[#211E1B]'
-                }`}
+                } ${hoveredRoomKey === 'all' && isHoverPanelOpen ? 'ring-2 ring-[#8B5A2B]/40 bg-[#F5E6D3] text-[#4A2C1A]' : ''}`}
+                aria-expanded={isHoverPanelOpen && hoveredRoomKey === 'all'}
+                aria-haspopup="true"
               >
-                {r.name}
+                All Living Spaces
               </button>
-            ))}
+
+              {rooms.map((r) => {
+                const isSelected = filters.room === r.type;
+                const isHovered = hoveredRoomKey === r.type && isHoverPanelOpen;
+
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => {
+                      setFilters((prev) => ({ ...prev, room: r.type }));
+                      setHoveredRoomKey(r.type);
+                      setIsHoverPanelOpen(true);
+                    }}
+                    onMouseEnter={() => handleRoomMouseEnter(r.type)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 interactive-pill cursor-pointer relative ${
+                      isSelected
+                        ? 'bg-[#4A2C1A] text-white shadow-sm'
+                        : 'bg-[#FCFAF7] text-[#514A43] hover:bg-[#EEE9E1] hover:text-[#211E1B]'
+                    } ${isHovered ? 'ring-2 ring-[#8B5A2B]/40 bg-[#F5E6D3] text-[#4A2C1A]' : ''}`}
+                    aria-expanded={isHovered}
+                    aria-haspopup="true"
+                  >
+                    {r.name}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Desktop Dynamic Floating Popover on Hover (Matching Reference Image) */}
+            {isHoverPanelOpen && hoveredRoomKey && SHOP_ROOM_HOVER_DATA[hoveredRoomKey] && (
+              <div className="hidden lg:block">
+                <ShopRoomHoverPanel
+                  roomData={SHOP_ROOM_HOVER_DATA[hoveredRoomKey]}
+                  isOpen={isHoverPanelOpen}
+                  onClose={() => {
+                    setIsHoverPanelOpen(false);
+                    setHoveredRoomKey(null);
+                  }}
+                  onMouseEnter={handlePanelMouseEnter}
+                  onMouseLeave={handlePanelMouseLeave}
+                  onSelectSubcategory={handleSelectSubcategory}
+                  onSelectHero={handleSelectHero}
+                  onPrimaryCta={handlePrimaryCta}
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Main Content Layout with Filters Sidebar & Product Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Filters Sidebar */}
-          <div className="lg:col-span-3 space-y-6">
-            <div className="bg-white rounded-2xl p-6 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b border-[#EEE9E1]">
-                <h3 className="font-display font-bold text-base text-[#211E1B] flex items-center gap-2">
-                  <SlidersHorizontal className="w-4 h-4 text-[#8B5A2B]" />
-                  Refine Catalog
-                </h3>
-                <button
-                  onClick={resetFilters}
-                  className="text-[11px] font-semibold text-[#8B5A2B] hover:text-[#4A2C1A] flex items-center gap-1.5 group cursor-pointer transition-colors"
-                >
-                  <RotateCcw className="w-3 h-3 group-hover:-rotate-90 transition-transform duration-300" />
-                  <span>Reset All</span>
-                </button>
-              </div>
+        {/* Mobile Room Explorer Accordion */}
+        <div className="lg:hidden">
+          <ShopMobileRoomAccordion
+            activeRoom={filters.room}
+            onApplyRoomFilter={handleApplyRoomFilter}
+            onSelectSubcategory={handleSelectSubcategory}
+            onSelectHero={handleSelectHero}
+          />
+        </div>
 
-              {/* Price Range Slider */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-semibold text-[#514A43]">
-                  <span>Max Investment</span>
-                  <span className="text-[#4A2C1A] font-bold">₹{filters.maxPrice.toLocaleString('en-IN')}</span>
-                </div>
-                <input
-                  type="range"
-                  min={20000}
-                  max={200000}
-                  step={5000}
-                  value={filters.maxPrice}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, maxPrice: Number(e.target.value) }))}
-                  className="w-full accent-[#8B5A2B] cursor-pointer transition-all"
-                />
-              </div>
-
-              {/* Material Selector */}
-              <div className="space-y-2 pt-2 border-t border-[#EEE9E1]">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#746B61] block">
-                  Material Craft
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {materialsList.map((mat) => (
-                    <button
-                      key={mat}
-                      onClick={() => setFilters((prev) => ({ ...prev, material: mat }))}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 interactive-pill cursor-pointer ${
-                        filters.material === mat
-                          ? 'bg-[#8B5A2B] text-white font-semibold shadow-sm'
-                          : 'bg-[#FCFAF7] text-[#514A43] hover:bg-[#F5E6D3] hover:text-[#4A2C1A] border border-[#EEE9E1]'
-                      }`}
-                    >
-                      {mat === 'all' ? 'All Materials' : mat}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sorting */}
-              <div className="space-y-2 pt-2 border-t border-[#EEE9E1]">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#746B61] block">
-                  Sort Order
-                </label>
-                <select
-                  value={filters.sortBy}
-                  onChange={(e) => setFilters((prev) => ({ ...prev, sortBy: e.target.value as any }))}
-                  className="w-full bg-[#FCFAF7] border border-[#DED7CD] hover:border-[#8B5A2B]/50 rounded-xl px-3.5 py-2.5 text-xs text-[#211E1B] focus:outline-none focus:border-[#8B5A2B] focus:ring-2 focus:ring-[#8B5A2B]/20 transition-all cursor-pointer"
-                >
-                  <option value="featured">Featured / Veloura Signature</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="rating">Highest Customer Rating</option>
-                </select>
-              </div>
-            </div>
+        {/* Main Content Layout with Sticky Filters Sidebar & Product Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Filters Sidebar - Sticky on Desktop */}
+          <div className="lg:col-span-3 lg:sticky lg:top-28 self-start">
+            <ShopFilterSidebar
+              filters={filters}
+              setFilters={setFilters}
+              resetFilters={resetFilters}
+              filteredCount={filteredProducts.length}
+              totalCount={allProducts.length}
+              materialsList={materialsList}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+            />
           </div>
 
           {/* Product Grid Area */}

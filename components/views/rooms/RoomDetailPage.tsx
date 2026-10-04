@@ -72,7 +72,7 @@ export const RoomDetailPage: React.FC<Props> = ({ roomSlug }) => {
               Hover any piece to view joinery & instant carting
             </span>
           </div>
-          <RoomScene room={room} fullWidth />
+          <RoomScene room={room} fullWidth hideBottomRail />
         </section>
 
         {/* 2. Individual Products Catalog for this Room */}

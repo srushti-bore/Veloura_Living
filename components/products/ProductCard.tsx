@@ -61,12 +61,18 @@ export const ProductCard: React.FC<Props> = ({ product, showRoomTag = true }) =>
     });
   };
 
+  const sellingPrice = activeVariant?.salePrice || activeVariant?.price || product.salePrice || product.price;
+  const originalPrice = (activeVariant?.salePrice && activeVariant?.price) ? activeVariant.price : (product.salePrice ? product.price : null);
+  const discountPercent = originalPrice && originalPrice > sellingPrice
+    ? Math.round(((originalPrice - sellingPrice) / originalPrice) * 100)
+    : null;
+
   return (
     <div
       data-cursor="VIEW"
       className="product-card-item group relative flex flex-col bg-white rounded-2xl overflow-hidden border border-[#4A2C1A]/10 hover:border-[#8B5A2B]/35 hover:-translate-y-1 transition-all duration-300 hover:shadow-soft-md"
     >
-      {/* Image Container with 4:5 Aspect Ratio */}
+      {/* Image Container with 4:5 Aspect Ratio for 100% Uniform Height */}
       <div className="relative aspect-[4/5] bg-[#F7F4EF] overflow-hidden">
         {/* Main Image with Subtle Zoom on Hover (Restrained 1.02 scale) */}
         <img
@@ -76,8 +82,8 @@ export const ProductCard: React.FC<Props> = ({ product, showRoomTag = true }) =>
           className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
         />
 
-        {/* Secondary Image hover reveal */}
-        {product.images[1] && (
+        {/* Secondary Image hover reveal (only when a distinct alternate angle exists) */}
+        {product.images[1] && product.images[1] !== product.images[0] && (
           <img
             src={product.images[1]}
             alt={`${product.name} alternate angle`}
@@ -92,17 +98,17 @@ export const ProductCard: React.FC<Props> = ({ product, showRoomTag = true }) =>
         {/* Top Badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
           {product.bestseller && (
-            <span className="bg-[#4A2C1A] text-[#F5E6D3] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-sm">
+            <span className="bg-[#4A2C1A] text-[#F5E6D3] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full shadow-xs">
               Signature Piece
             </span>
           )}
           {product.salePrice && (
-            <span className="bg-[#8B5A2B] text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+            <span className="bg-[#8B5A2B] text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs">
               Privilege Offer
             </span>
           )}
           {showRoomTag && (
-            <span className="bg-white/90 backdrop-blur-sm text-[#4A2C1A] text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm">
+            <span className="bg-[#FBF8F3] text-[#4A2C1A] text-[10px] font-medium uppercase tracking-wider px-2.5 py-0.5 rounded-full border border-[#4A2C1A]/10 shadow-xs">
               {product.room.replace('-', ' ')}
             </span>
           )}
@@ -145,23 +151,26 @@ export const ProductCard: React.FC<Props> = ({ product, showRoomTag = true }) =>
         </div>
       </div>
 
-      {/* Card Content */}
+      {/* Card Content (Standardized Luxury E-Commerce Layout) */}
       <div className="p-4 sm:p-5 flex flex-col flex-1 justify-between bg-white">
         <div>
-          {/* Rating & Category */}
-          <div className="flex items-center justify-between text-xs text-[#9C9287] mb-1.5">
-            <span className="font-medium text-[#8B5A2B]">{product.category}</span>
+          {/* Brand Header & Rating */}
+          <div className="flex items-center justify-between text-xs text-[#8E867E] mb-1">
+            <span className="font-medium text-[#746B61] text-[11px] sm:text-xs uppercase tracking-wider">
+              Veloura Living
+            </span>
             <div className="flex items-center gap-1">
               <Star className="w-3.5 h-3.5 fill-[#A47A45] text-[#A47A45]" />
               <span className="font-semibold text-[#211E1B]">{product.rating}</span>
-              <span>({product.reviewCount})</span>
+              <span className="text-[#9C9287]">({product.reviewCount})</span>
             </div>
           </div>
 
-          {/* Product Title */}
+          {/* Product Title (2-Line Clamp for Consistent Height) */}
           <button
             onClick={() => navigate(`/products/${product.slug}`)}
-            className="text-left font-display font-semibold text-base sm:text-lg text-[#211E1B] hover:text-[#8B5A2B] transition-colors leading-snug line-clamp-1 block mb-1 cursor-pointer"
+            className="text-left font-display font-semibold text-sm sm:text-base text-[#211E1B] hover:text-[#8B5A2B] transition-colors leading-snug line-clamp-2 min-h-[2.6rem] block mb-1.5 cursor-pointer"
+            title={product.name}
           >
             {product.name}
           </button>
@@ -172,15 +181,20 @@ export const ProductCard: React.FC<Props> = ({ product, showRoomTag = true }) =>
           </p>
         </div>
 
-        {/* Bottom Price & Swatches with Interactive Hover */}
-        <div className="pt-3 border-t border-[#F7F4EF] flex items-center justify-between">
-          <div className="flex items-baseline gap-2">
+        {/* Bottom Price & Swatches with Standardized E-Commerce Layout */}
+        <div className="pt-3 border-t border-[#F7F4EF] flex items-center justify-between gap-2">
+          <div className="flex items-baseline flex-wrap gap-1.5 sm:gap-2">
             <span className="text-base sm:text-lg font-bold text-[#211E1B]">
-              {formatPrice((activeVariant?.salePrice || activeVariant?.price || product.salePrice || product.price))}
+              {formatPrice(sellingPrice)}
             </span>
-            {product.salePrice && !activeVariant?.salePrice && (
-              <span className="text-xs text-[#9C9287] line-through">
-                {formatPrice(product.price)}
+            {originalPrice && originalPrice > sellingPrice && (
+              <span className="text-xs sm:text-sm text-[#9C9287] line-through">
+                {formatPrice(originalPrice)}
+              </span>
+            )}
+            {discountPercent && discountPercent > 0 && (
+              <span className="text-xs sm:text-sm font-bold text-[#2E7D32]">
+                {discountPercent}% OFF
               </span>
             )}
           </div>
@@ -222,7 +236,7 @@ export const ProductCard: React.FC<Props> = ({ product, showRoomTag = true }) =>
               )}
             </div>
           ) : (
-            <span className="text-[11px] text-[#557A5A] font-medium bg-[#557A5A]/10 px-2 py-0.5 rounded-full">
+            <span className="text-[11px] text-[#557A5A] font-medium bg-[#557A5A]/10 px-2 py-0.5 rounded-full flex-shrink-0">
               In Stock
             </span>
           )}
