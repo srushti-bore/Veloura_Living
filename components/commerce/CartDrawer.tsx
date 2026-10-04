@@ -37,7 +37,7 @@ export const CartDrawer: React.FC = () => {
 
   if (!isCartOpen) return null;
 
-  const freeShippingThreshold = 25000;
+  const freeShippingThreshold = 2999;
   const progressPercent = Math.min(100, Math.round((cartSubtotal / freeShippingThreshold) * 100));
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - cartSubtotal);
 

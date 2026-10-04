@@ -23,11 +23,14 @@ export interface DetailedOrder extends DbOrder {
   items: DbOrderItem[];
   payment?: DbPayment & { transactions: DbPaymentTransaction[] };
   shipment?: DbShipment & { events: { status: ShipmentStatusEnum; location: string; description: string; timestamp: string }[] };
+  delivery_date?: string;
+  payment_intent_id?: string;
   customer_info?: {
     full_name: string;
     email: string;
     phone: string;
     shipping_address: string;
+    address_line1?: string;
     city: string;
     state: string;
     postal_code: string;

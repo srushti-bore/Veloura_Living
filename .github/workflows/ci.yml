@@ -1,0 +1,42 @@
+name: Veloura Living CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-build:
+    name: Test, Security & Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Root Dependencies
+        run: npm ci
+
+      - name: Run SRS v1.1 Automated Test Suite
+        run: npm test
+
+      - name: Build Next.js Fullstack Platform
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_URL: https://veloura-living.vercel.app
+          JWT_SECRET: production-ci-build-test-secret-key-2026
+
+      - name: Install Backend Dependencies
+        working-directory: ./backend
+        run: npm ci
+
+      - name: Build Standalone Node.js Backend
+        working-directory: ./backend
+        run: npm run build

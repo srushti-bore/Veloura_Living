@@ -189,25 +189,33 @@ export function calculateAuthoritativeCheckout(params: {
   // 3. Tax Calculation (GST 18%)
   const taxAmount = Math.round(taxableAmount * 0.18);
 
-  // 4. Shipping Tier Selection
+  // 4. Shipping Tier Selection (Aligned with SRS v1.1 CHK-003 & PRC-006: Flat ₹199, Free >= ₹2,999, International ₹5,000)
   let shippingCost = 0;
-  let shippingDescription = 'Complimentary White-Glove Room Delivery & Placement';
+  let shippingDescription = 'Complimentary White-Glove Delivery (Order above ₹2,999 threshold)';
   let isComplimentary = true;
 
-  if (shippingMethod === 'express') {
-    shippingCost = 4500;
-    shippingDescription = 'Express Priority Architectural Delivery (Within 48 Hours)';
+  if (shippingMethod === ('international' as any)) {
+    shippingCost = 5000;
+    shippingDescription = 'Fixed International Priority Freight & Courier (₹5,000 flat)';
+    isComplimentary = false;
+  } else if (shippingMethod === 'express') {
+    shippingCost = 999;
+    shippingDescription = 'Express Priority Delivery (Within 48 Hours)';
     isComplimentary = false;
   } else if (shippingMethod === 'fragile') {
-    shippingCost = 1500;
-    shippingDescription = 'Specialized Fragile Art & Heavy Mirror Rigging';
+    shippingCost = 1499;
+    shippingDescription = 'Specialized White-Glove Fragile Art & Mirror Assembly';
     isComplimentary = false;
   } else {
-    // Standard white-glove
-    if (subtotal < 50000 && subtotal > 0) {
-      shippingCost = 2500;
-      shippingDescription = 'Standard White-Glove Logistics (Orders below ₹50,000 threshold)';
+    // Standard domestic shipping (CHK-003: ₹199 flat, free for orders of ₹2,999 or more)
+    if (subtotal < 2999 && subtotal > 0) {
+      shippingCost = 199;
+      shippingDescription = 'Standard Domestic Shipping (Orders below ₹2,999 threshold)';
       isComplimentary = false;
+    } else {
+      shippingCost = 0;
+      shippingDescription = 'Complimentary Standard Domestic Shipping (Orders ₹2,999 or more)';
+      isComplimentary = true;
     }
   }
 

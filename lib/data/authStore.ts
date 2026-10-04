@@ -12,8 +12,15 @@ export interface UserRecord {
   profile: DbProfile;
   addresses: DbAddress[];
   resetToken?: string;
-  resetTokenExpires?: number;
+  resetTokenExpires?: number; // 30 minutes (SRS AUTH-005)
+  verificationToken?: string;
+  verificationTokenExpires?: number; // 24 hours (SRS AUTH-003)
+  failedAttempts?: number; // Counter for failed attempts (SRS AUTH-007)
+  firstFailedAt?: number;
+  lockoutUntil?: number; // Timestamp until which account is locked (15 mins)
 }
+
+// ... rest of methods below ...
 
 // Global in-memory storage singleton for fast runtime & testing
 const globalUsers: Map<string, UserRecord> = new Map();
@@ -137,4 +144,97 @@ export function findUserById(id: string): UserRecord | undefined {
 
 export function saveUserRecord(record: UserRecord): void {
   globalUsers.set(record.user.email.toLowerCase().trim(), record);
+}
+
+/**
+ * Check if account is locked out (SRS AUTH-007: 5 failed attempts in 15 mins -> 15 mins lockout).
+ */
+export function checkAccountLockout(email: string): { isLocked: boolean; remainingMinutes?: number } {
+  const record = findUserByEmail(email);
+  if (!record || !record.lockoutUntil) {
+    return { isLocked: false };
+  }
+
+  const now = Date.now();
+  if (record.lockoutUntil > now) {
+    const remainingMinutes = Math.ceil((record.lockoutUntil - now) / (60 * 1000));
+    return { isLocked: true, remainingMinutes };
+  }
+
+  // Lockout expired, reset counters
+  record.lockoutUntil = undefined;
+  record.failedAttempts = 0;
+  record.firstFailedAt = undefined;
+  saveUserRecord(record);
+  return { isLocked: false };
+}
+
+/**
+ * Record a failed login attempt and apply 15-minute lock on 5th attempt (SRS AUTH-007).
+ */
+export function recordFailedLogin(email: string): { isLocked: boolean; remainingMinutes?: number; attempts: number } {
+  const record = findUserByEmail(email);
+  if (!record) {
+    return { isLocked: false, attempts: 1 };
+  }
+
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000; // 15 minutes window
+
+  if (!record.firstFailedAt || now - record.firstFailedAt > windowMs) {
+    record.firstFailedAt = now;
+    record.failedAttempts = 1;
+  } else {
+    record.failedAttempts = (record.failedAttempts || 0) + 1;
+  }
+
+  if (record.failedAttempts >= 5) {
+    record.lockoutUntil = now + (15 * 60 * 1000); // Lock for 15 minutes
+    saveUserRecord(record);
+    return { isLocked: true, remainingMinutes: 15, attempts: record.failedAttempts };
+  }
+
+  saveUserRecord(record);
+  return { isLocked: false, attempts: record.failedAttempts };
+}
+
+/**
+ * Reset failed login counters on successful login.
+ */
+export function resetFailedLogin(email: string): void {
+  const record = findUserByEmail(email);
+  if (record) {
+    record.failedAttempts = 0;
+    record.firstFailedAt = undefined;
+    record.lockoutUntil = undefined;
+    saveUserRecord(record);
+  }
+}
+
+/**
+ * Generate a single-use password reset token expiring in 30 minutes (SRS AUTH-005).
+ */
+export function createPasswordResetToken(email: string): string | undefined {
+  const record = findUserByEmail(email);
+  if (!record) return undefined;
+
+  const token = `reset_${crypto.randomUUID().replace(/-/g, '')}`;
+  record.resetToken = token;
+  record.resetTokenExpires = Date.now() + (30 * 60 * 1000); // 30 minutes
+  saveUserRecord(record);
+  return token;
+}
+
+/**
+ * Generate email verification token expiring in 24 hours (SRS AUTH-003).
+ */
+export function createEmailVerificationToken(email: string): string | undefined {
+  const record = findUserByEmail(email);
+  if (!record) return undefined;
+
+  const token = `verify_${crypto.randomUUID().replace(/-/g, '')}`;
+  record.verificationToken = token;
+  record.verificationTokenExpires = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+  saveUserRecord(record);
+  return token;
 }

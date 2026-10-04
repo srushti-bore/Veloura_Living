@@ -17,6 +17,7 @@ import { SEED_CATEGORIES, SEED_BRANDS } from './dbSeedData';
 import { PRODUCTS, ROOMS } from './mockData';
 
 export interface EnrichedProduct extends DbProduct {
+  sku?: string;
   category_name?: string;
   brand_name?: string;
   images: string[];
@@ -398,9 +399,13 @@ export function deleteProduct(id: string): boolean {
 
 export function getVariantBySku(sku: string): EnrichedVariant | undefined {
   initCatalogStore();
+  const target = sku.trim().toUpperCase();
   for (const p of productsStore) {
-    const v = p.variants.find((variant) => variant.sku.toUpperCase() === sku.toUpperCase());
+    const v = p.variants.find((variant) => variant.sku.toUpperCase() === target);
     if (v) return v;
+    if (p.sku && p.sku.toUpperCase() === target && p.variants.length > 0) {
+      return p.variants[0];
+    }
   }
   return undefined;
 }
@@ -420,16 +425,25 @@ export function updateVariantStock(sku: string, newStock: number): EnrichedVaria
   return undefined;
 }
 
-export function adjustVariantStock(params: {
-  sku: string;
-  quantityDelta: number;
-  movementType?: string;
-  referenceId?: string;
-  note?: string;
-}): EnrichedVariant | undefined {
-  const current = getVariantBySku(params.sku);
+export function getAllVariants(): EnrichedVariant[] {
+  initCatalogStore();
+  const list: EnrichedVariant[] = [];
+  for (const p of productsStore) {
+    list.push(...p.variants);
+  }
+  return list;
+}
+
+export function adjustVariantStock(paramsOrSku: any, delta?: number, type?: string, note?: string): EnrichedVariant | undefined {
+  if (typeof paramsOrSku === 'string') {
+    const current = getVariantBySku(paramsOrSku);
+    if (!current) return undefined;
+    const newStock = Math.max(0, current.stock + (delta || 0));
+    return updateVariantStock(paramsOrSku, newStock);
+  }
+  const current = getVariantBySku(paramsOrSku.sku);
   if (!current) return undefined;
-  const newStock = Math.max(0, current.stock + params.quantityDelta);
-  return updateVariantStock(params.sku, newStock);
+  const newStock = Math.max(0, current.stock + paramsOrSku.quantityDelta);
+  return updateVariantStock(paramsOrSku.sku, newStock);
 }
 

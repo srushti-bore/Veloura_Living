@@ -323,6 +323,25 @@ export function getReturnById(id: string): DbReturn | undefined {
   return returnsStore.get(id);
 }
 
+export const CATEGORY_RETURN_WINDOWS: Record<string, number> = {
+  furniture: 7, // Furniture 7 days (SRS RET-001)
+  decor: 10,    // Decor 10 days (SRS RET-001)
+  textiles: 14, // Textiles 14 days (SRS RET-001)
+  default: 7,
+};
+
+export function getCategoryReturnWindow(categoryName?: string): number {
+  if (!categoryName) return CATEGORY_RETURN_WINDOWS.default;
+  const cat = categoryName.toLowerCase();
+  if (cat.includes('decor') || cat.includes('lighting') || cat.includes('mirror') || cat.includes('art')) {
+    return CATEGORY_RETURN_WINDOWS.decor;
+  }
+  if (cat.includes('textile') || cat.includes('rug') || cat.includes('fabric') || cat.includes('cushion') || cat.includes('linen')) {
+    return CATEGORY_RETURN_WINDOWS.textiles;
+  }
+  return CATEGORY_RETURN_WINDOWS.furniture;
+}
+
 export function createReturnRequest(data: {
   orderId: string;
   userId: string;
@@ -337,6 +356,7 @@ export function createReturnRequest(data: {
   reason: string;
   condition?: string;
   images?: string[];
+  isDamagedOrWrong?: boolean;
 }): DbReturn {
   initPostPurchaseStore();
 
@@ -354,6 +374,32 @@ export function createReturnRequest(data: {
   const allowedStatuses = ['DELIVERED', 'SHIPPED'];
   if (!allowedStatuses.includes(order.status)) {
     throw new Error(`Returns can only be requested for delivered orders. Current order status: ${order.status}`);
+  }
+
+  // Enforce Category-Wise Return Window (RET-001 & RET-006)
+  const isDamagedOrWrong = data.isDamagedOrWrong || 
+    data.reason.toLowerCase().includes('damage') || 
+    data.reason.toLowerCase().includes('broken') || 
+    data.reason.toLowerCase().includes('wrong');
+
+  if (!isDamagedOrWrong) {
+    const deliveryTimestamp = order.delivery_date 
+      ? new Date(order.delivery_date).getTime() 
+      : new Date(order.created_at).getTime();
+    const daysSinceDelivery = (Date.now() - deliveryTimestamp) / (1000 * 60 * 60 * 24);
+
+    // Get lowest category window among return items
+    const returnItems = data.items || order.items;
+    const windowDays = returnItems.reduce((minWindow, item) => {
+      const window = getCategoryReturnWindow(item.product_name);
+      return Math.min(minWindow, window);
+    }, 14);
+
+    if (daysSinceDelivery > windowDays) {
+      throw new Error(
+        `Return window exceeded. The maximum return window for this category is ${windowDays} days from delivery (SRS RET-001). Damaged or wrong items can be returned anytime with proof (SRS RET-006).`
+      );
+    }
   }
 
   const returnId = `ret-${crypto.randomUUID().slice(0, 8)}`;

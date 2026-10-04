@@ -91,6 +91,8 @@ export function getCart(ownerKey: string): AuthoritativeCart {
   return cart;
 }
 
+export const MAX_QUANTITY_PER_SKU = 10; // Aligned with SRS v1.1 CART-006
+
 export function addToCart(
   ownerKey: string,
   variantSku: string,
@@ -112,6 +114,12 @@ export function addToCart(
 
   if (existingItemIndex > -1) {
     const newQty = cart.items[existingItemIndex].quantity + quantity;
+    if (newQty > MAX_QUANTITY_PER_SKU) {
+      return {
+        cart,
+        error: `Maximum allowed quantity per item is ${MAX_QUANTITY_PER_SKU} units (SRS CART-006).`,
+      };
+    }
     if (newQty > variant.stock) {
       return {
         cart,
@@ -122,6 +130,12 @@ export function addToCart(
     cart.items[existingItemIndex].total_price = cart.items[existingItemIndex].unit_price * newQty;
     cart.items[existingItemIndex].available_stock = variant.stock;
   } else {
+    if (quantity > MAX_QUANTITY_PER_SKU) {
+      return {
+        cart,
+        error: `Maximum allowed quantity per item is ${MAX_QUANTITY_PER_SKU} units (SRS CART-006).`,
+      };
+    }
     if (quantity > variant.stock) {
       return {
         cart,
@@ -174,6 +188,13 @@ export function updateCartItemQuantity(
   if (quantity <= 0) {
     cart.items.splice(itemIndex, 1);
   } else {
+    if (quantity > MAX_QUANTITY_PER_SKU) {
+      return {
+        cart,
+        error: `Cannot set quantity to ${quantity}. Maximum allowed quantity per item is ${MAX_QUANTITY_PER_SKU} units.`,
+      };
+    }
+
     const variant = getVariantBySku(cart.items[itemIndex].sku);
     const maxStock = variant ? variant.stock : 99;
 

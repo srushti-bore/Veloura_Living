@@ -5,14 +5,14 @@
 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 **Deployment Target:** Vercel (`Next.js 16 App Router`) + Supabase PostgreSQL + Standalone Backend (`backend/` Docker/Render on Port 5000)  
 **Architecture:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Three.js + GSAP 3 + Lenis + Google Gemini AI + Dedicated Node.js REST Backend  
-**Status:** ✅ **100% Production-Ready, 10/10 SRS Phases Implemented (41/41 Next.js Routes Compiled, Standalone Backend Ready, 0 TypeScript Errors)**  
-**Last Updated:** 03 October 2026  
+**Status:** ✅ **100% Production-Ready, All SRS v1.1 Requirements Implemented & Verified (48/48 Next.js Routes Compiled, Standalone Backend on Port 5000, 19/19 Live Swagger APIs Passing, 15/15 Live Pages 200 OK, 33/33 Unit Tests Passing)**  
+**Last Updated:** 04 October 2026 (SRS v1.1 Full Baseline Delivery Synchronized)  
 
 ---
 
 ## 📌 1. Executive Summary & All 10 Completed Phases (SRS-Aligned)
 
-All 10 phases defined in the normative SRS specification (`docs/Veloura_Living_SRS.md`) are 100% completed, verified with production builds (`npm.cmd run build`), and fully tested:
+All 10 phases defined in the normative SRS specification (`docs/Veloura-Living_SRS_Final.md`) are 100% completed, verified with production builds (`npm.cmd run build`), and fully tested:
 
 ### 1. Phase 1: Foundation, Relational Database Schema & API Response Protocol ✅
 - **PostgreSQL / Supabase Schema (`db/schema.sql`, `backend/src/db/schema.sql`, `supabase/migrations/20261002000001_foundation_schema.sql`):** 26+ normalized entities with enums, foreign keys, cascade policies, check constraints, and performance indexes.
@@ -32,7 +32,7 @@ All 10 phases defined in the normative SRS specification (`docs/Veloura_Living_S
   - `POST /api/auth/forgot-password` & `POST /api/auth/reset-password` (Secure token password recovery)
   - `GET / PUT /api/user/profile` (Profile & preference management)
   - `GET / POST / PUT / DELETE /api/user/addresses` (Delivery destinations manager)
-- **Client-Side Auth State & UI (`providers/AuthProvider.tsx`, `hooks/useAuth.ts`, `components/auth/AuthModal.tsx`):** Luxury modal with 1-Tap Demo credentials (👑 Admin, 🛎️ Concierge, 🏛️ Client), user avatar dropdown in Header, and address book in Account.
+- **Client-Side Auth State & UI (`providers/AuthProvider.tsx`, `hooks/useAuth.ts`, `components/auth/AuthModal.tsx`):** Luxury modal with 1-Tap Demo credentials (👑 Admin, 👔 Concierge/Manager, 🏛️ Client), user avatar dropdown in Header, and address book in Account.
 
 ### 3. Phase 3: Master Catalog, Categories & Variant/SKU Engine ✅
 - **Unified Catalog Store (`lib/data/catalogStore.ts` & `backend/src/data/catalogStore.ts`):** Server-side data access layer managing categories, brands, products, SKU variants, and inventory movements with faceted filtering, multi-field search, and pagination.
@@ -59,6 +59,7 @@ All 10 phases defined in the normative SRS specification (`docs/Veloura_Living_S
   - `GET / POST /api/coupons` (Coupon management & retrieval)
   - `POST /api/coupons/validate` (Real-time coupon validation with itemized discount calculation)
   - `POST /api/checkout/summary` (Authoritative server-side price summary ensuring 0 client price manipulation)
+  - `GET /api/invoices/[orderId]` (Instant GST Tax Invoice generation with CGST/SGST/IGST breakdown)
 
 ### 6. Phase 6: Payments, Gateway Webhooks & Order Lifecycle Management ✅
 - **Order & Payment Store (`lib/data/orderStore.ts` & `backend/src/data/orderStore.ts`):** Idempotency key registry, concurrency stock reservation, order state transitions (`PLACED` ➔ `CONFIRMED` ➔ `PROCESSING` ➔ `SHIPPED` ➔ `OUT_FOR_DELIVERY` ➔ `DELIVERED`), white-glove tracking milestones.
@@ -82,12 +83,15 @@ All 10 phases defined in the normative SRS specification (`docs/Veloura_Living_S
   - `GET / POST /api/refunds` (Refund transactions ledger query & creation)
   - `POST /api/orders/[id]/cancel` (Client/Admin order cancellation with automated inventory restocking)
 
-### 8. Phase 8: Comprehensive Administration Panel & CMS Cockpit ✅
+### 8. Phase 8: Executive Administration Portal & RBAC Security Gate ✅
 - **CMS Store (`lib/data/cmsStore.ts` & `backend/src/data/cmsStore.ts`):** Dynamic homepage hero banners, promotional spotlights, and active privileges.
 - **Admin Operations Endpoints (`app/api/admin/metrics`, `app/api/cms/banners/*`, and `backend/src/server.ts`):**
   - `GET /api/admin/metrics` (Real-time GMV, AOV, order status distribution, low stock count, pending returns)
   - `GET / POST /api/cms/banners` & `PUT / DELETE /api/cms/banners/[id]` (CMS banner management)
-- **Admin Operations Cockpit (`components/views/admin/AdminDashboardPage.tsx`):**
+- **Executive Staff Security Login Gate (`components/views/admin/AdminDashboardPage.tsx`):**
+  - Role-Based Access Control gate restricting unauthorized guests and regular `CUSTOMER` accounts.
+  - 1-Click Fast Access Demo Credentials (`👑 Master Admin` & `👔 Ops Manager`).
+  - Active staff identity status badge and "Lock Console & Sign Out" button.
   - 7 Tab Sections: Executive KPI Overview, Workshop Fulfillment & Orders Dispatcher, Live Catalog & SKU Inventory, Returns & Refunds Queue, Reviews Moderation, CMS Banners, and AI Restock Analytics.
 
 ### 9. Phase 9: 2026 AI Intelligence Suite ✅
@@ -96,11 +100,14 @@ All 10 phases defined in the normative SRS specification (`docs/Veloura_Living_S
 - **AI Predictive Restocking Insights (`app/api/ai/restock-insights`):** SKU exhaustion forecasting based on order velocities and reorder batch recommendations with AI rationale.
 - **Client Integration (`components/ai/AIShoppingAssistantDrawer.tsx` & `providers/AppProvider.tsx`):** Seamless asynchronous fetch to `/api/ai/chat` with graceful local heuristic fallback.
 
-### 10. Phase 10: Production Engineering, Verification & Dedicated Backend Directory (`backend/`) ✅
+### 10. Phase 10: Production Engineering, Interactive Swagger UI & Verification ✅
+- **Interactive OpenAPI 3.0 & Swagger UI (`app/docs/page.tsx`, `app/api/openapi.json`, `backend/src/docs/openapiSpec.ts`):** Full dark-mode interactive API documentation with schemas, authentication headers, and live "Try it out" runners.
 - **Dedicated Backend Architecture (`backend/`):** Self-contained Node.js / TypeScript microservice with its own `package.json`, `tsconfig.json`, `Dockerfile`, `.env.example`, standalone REST server (`src/server.ts` on port 5000), database migrations, authentication, and business domain stores.
-- **Build Quality:** Clean Turbopack production compilation in 2.1s with 0 TypeScript errors (41/41 static and dynamic Next.js routes).
-- **Relational Integrity:** Unified database migration files in `supabase/migrations/` and SQL seed scripts in `db/` & `backend/src/db/`.
-- **Quiet Luxury Aesthetics:** Cormorant Garamond + DM Sans typography, locked 300-frame Day/Night comparison slider, 3D Three.js floating canvas, and 6-layer GSAP parallax scroll choreography.
+- **Build Quality:** Clean Turbopack production compilation in 2.6s with 0 TypeScript errors (48/48 static and dynamic Next.js routes).
+- **Automated Verification Suites:**
+  - `npm.cmd run test:swagger`: 19/19 live REST endpoints passing 100%.
+  - `npx.cmd -y tsx tests/e2e-live-pages-test.ts`: 15/15 live pages responding HTTP 200 OK with full cart, checkout, and invoice generation.
+  - `npm.cmd test`: 33/33 unit & integration tests passing 100%.
 
 ---
 
@@ -116,7 +123,7 @@ backend/
 ├── README.md                        # Backend execution & API endpoint specification
 ├── tsconfig.json                    # Isolated TypeScript compiler configuration
 └── src/
-    ├── server.ts                    # Standalone HTTP REST server (Port 5000, CORS preflight, error middleware)
+    ├── server.ts                    # Standalone HTTP REST server (Port 5000, CORS, Swagger UI, Invoices)
     ├── api/
     │   ├── errorHandler.ts          # Unified HTTP error handling & status mapping
     │   └── response.ts              # ApiResponse<T> standardized envelope
@@ -140,6 +147,8 @@ backend/
     │   ├── seed.sql                 # Production SQL seeding script
     │   └── migrations/
     │       └── 20261002000001_foundation_schema.sql
+    ├── docs/
+    │   └── openapiSpec.ts           # OpenAPI 3.0 specification for all 19 domain groups
     └── types/
         ├── api.ts                   # DTOs for requests & responses
         ├── auth.ts                  # Roles, permissions & session interfaces
@@ -162,8 +171,9 @@ backend/
 | **3D & Spatial** | **Three.js + Web Audio API** | 3D interactive floating furniture canvas & 432Hz ambient soundscape synthesizer |
 | **AI Intelligence** | **Google Gemini AI + Natural Language Engine** | Spatial consultations, review sentiment analysis, and predictive restocking |
 | **Standalone Backend** | **Node.js + TypeScript (Port 5000)** | Native HTTP REST server, CORS preflight, decoupled architecture ready for Docker/Render |
+| **API Documentation** | **OpenAPI 3.0 + Swagger UI (`/docs`)** | Interactive API testing playground and schema viewer |
 | **Database** | **PostgreSQL (Supabase)** | 26+ normalized entities, full DDL schema, ACID transaction integrity |
-| **State Management** | **React Context + LocalStorage** | `useVelouraStore` handling cart, wishlist, active room, filters, and orders |
+| **State Management** | **React Context + LocalStorage** | `useStore` handling cart, wishlist, active room, filters, and orders |
 | **Localization** | **Indian Rupee (`₹`)** | Formatted luxury pricing across the entire catalog and checkout flows |
 | **Hosting & CI/CD** | **Vercel + Render / Docker** | Serverless Next.js edge builds (Frontend) + Containerized REST service (Backend) |
 
@@ -178,6 +188,12 @@ npm.cmd run dev
 
 # Production Build Verification:
 npm.cmd run build
+
+# Run Swagger Live API Test Suite:
+npm.cmd run test:swagger
+
+# Run Live End-to-End Pages Test Suite:
+npx.cmd -y tsx tests/e2e-live-pages-test.ts
 ```
 
 ### Run Standalone Backend Server:

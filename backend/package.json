@@ -18,8 +18,8 @@
   ],
   "author": "Veloura Living Engineering",
   "license": "MIT",
-  "dependencies": {},
   "devDependencies": {
+    "@types/node": "^26.6.4",
     "typescript": "^5.0.0"
   }
 }

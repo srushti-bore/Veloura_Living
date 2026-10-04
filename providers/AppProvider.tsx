@@ -169,7 +169,7 @@ export function useVelouraStore() {
     }
   }
 
-  const shippingCost = cartSubtotal > 25000 || cartSubtotal === 0 ? 0 : 2500;
+  const shippingCost = cartSubtotal >= 2999 || cartSubtotal === 0 ? 0 : 199;
   const cartTotal = Math.max(0, cartSubtotal - discountAmount + shippingCost);
 
   const applyCouponCode = (code: string): { success: boolean; message: string } => {

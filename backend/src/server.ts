@@ -3,6 +3,11 @@
  * Reference: docs/Veloura_Living_SRS.md (Deployment & Backend Architecture, Section 33, 40)
  */
 
+try {
+  // Automatically load .env into process.env if present (Node.js built-in)
+  (process as any).loadEnvFile?.();
+} catch {}
+
 import http from 'http';
 import { parse } from 'url';
 import { initAuthStore, findUserByEmail, findUserById, saveUserRecord } from './data/authStore';
@@ -16,6 +21,7 @@ import { hashPassword, verifyPassword } from './auth/password';
 import { signToken, verifyToken } from './auth/jwt';
 import { parseAuthToken } from './auth/session';
 import { hasAnyRole } from './auth/rbac';
+import { generateGstInvoiceForOrder } from './services/invoiceService';
 import { formatSuccessResponse, formatErrorResponse } from './api/response';
 
 // Initialize in-memory storage singletons
@@ -74,6 +80,46 @@ const server = http.createServer(async (req, res) => {
   const session = await parseAuthToken(authHeader);
 
   try {
+    // 0. Swagger OpenAPI Spec & Interactive Documentation
+    if (pathname === '/api/openapi.json') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      return res.end(JSON.stringify({
+        openapi: "3.0.0",
+        info: {
+          title: "Veloura Living Standalone Backend REST API",
+          version: "1.1.0",
+          description: "Production Standalone REST API endpoints for Veloura Living on Port 5000."
+        },
+        servers: [{ url: "http://localhost:5000" }, { url: "http://localhost:3000" }]
+      }));
+    }
+
+    if (pathname === '/docs') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      return res.end(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Veloura Living Backend API Docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui.css">
+  <style>body { margin: 0; background: #faf7f2; font-family: sans-serif; }</style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.18.2/swagger-ui-bundle.js"></script>
+  <script>
+    window.onload = () => {
+      SwaggerUIBundle({
+        url: '/api/openapi.json',
+        dom_id: '#swagger-ui',
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+        layout: 'BaseLayout'
+      });
+    };
+  </script>
+</body>
+</html>`);
+    }
+
     // 1. Health Check
     if (pathname === '/' || pathname === '/api/health') {
       return sendJson(res, 200, formatSuccessResponse({
@@ -293,6 +339,14 @@ const server = http.createServer(async (req, res) => {
       const order = getOrderById(orderId);
       if (!order) return sendJson(res, 404, formatErrorResponse(`Order ${orderId} not found.`, 'NOT_FOUND'));
       return sendJson(res, 200, formatSuccessResponse(order));
+    }
+
+    // 6.1 Invoices
+    if (pathname.startsWith('/api/invoices/') && method === 'GET') {
+      const orderId = pathname.replace('/api/invoices/', '');
+      const invoice = generateGstInvoiceForOrder(orderId);
+      if (!invoice) return sendJson(res, 404, formatErrorResponse(`Invoice for order ${orderId} not found.`, 'NOT_FOUND'));
+      return sendJson(res, 200, formatSuccessResponse(invoice));
     }
 
     // 7. Reviews

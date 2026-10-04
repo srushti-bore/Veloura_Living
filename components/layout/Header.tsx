@@ -97,13 +97,15 @@ export const Header: React.FC = () => {
             10-Year Generational Warranty & White-Glove Installation
           </span>
           <span className="mx-auto md:mx-0 font-medium tracking-wide">
-            Complimentary In-Home Assembly on Orders Above ₹25,000 | Code: <strong className="text-white underline decoration-[#8B5A2B] decoration-2">VELOURA10</strong>
+            Complimentary In-Home Assembly on Orders Above ₹2,999 | Code: <strong className="text-white underline decoration-[#8B5A2B] decoration-2">VELOURA15</strong>
           </span>
           <button
             onClick={() => navigate('/admin')}
-            className="hidden lg:inline-flex items-center gap-1 text-[11px] text-[#EADBC8] hover:text-white transition-colors underline decoration-dotted cursor-pointer"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#F5E6D3] hover:text-white bg-[#8B5A2B]/40 hover:bg-[#8B5A2B] px-2.5 py-0.5 rounded-full transition-all cursor-pointer"
+            title="Open Admin Operations Cockpit"
           >
-            Store Operations / Admin
+            <ShieldCheck className="w-3 h-3 text-[#EADBC8]" />
+            <span>Admin Console</span>
           </button>
         </div>
       </div>
@@ -269,6 +271,17 @@ export const Header: React.FC = () => {
               }`}
             >
               Journal
+            </button>
+
+            <button
+              onClick={() => navigate('/admin')}
+              className={`nav-link-indicator flex items-center gap-1 text-xs uppercase tracking-[0.1em] font-semibold transition-colors cursor-pointer py-1 ${
+                currentPath.startsWith('/admin') ? 'text-[#8B5A2B] font-bold active' : 'text-[#8B5A2B] hover:text-[#4A2C1A]'
+              }`}
+              title="Veloura Operations & CMS Cockpit"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#8B5A2B]" />
+              <span>Admin</span>
             </button>
           </nav>
 
@@ -547,6 +560,17 @@ export const Header: React.FC = () => {
                     className="w-full text-left py-2 text-base font-medium text-[#211E1B] hover:text-[#8B5A2B] cursor-pointer"
                   >
                     Account & Orders
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      navigate('/admin');
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left py-2 text-base font-medium text-[#8B5A2B] hover:text-[#4A2C1A] flex items-center gap-2 cursor-pointer border-t border-[#EEE9E1] pt-3 mt-1"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-[#8B5A2B]" />
+                    <span>Admin Operations Console</span>
                   </button>
                 </div>
               </div>

@@ -4,7 +4,7 @@ import { handleApiError, ValidationError, UnauthorizedError } from '@/lib/api/er
 import { verifyPassword } from '@/lib/auth/password';
 import { signToken } from '@/lib/auth/jwt';
 import { AUTH_COOKIE_NAME } from '@/lib/auth/session';
-import { initAuthStore, findUserByEmail } from '@/lib/data/authStore';
+import { initAuthStore, findUserByEmail, checkAccountLockout, recordFailedLogin, resetFailedLogin } from '@/lib/data/authStore';
 import { AuthResponseData } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -22,14 +22,33 @@ export async function POST(request: NextRequest) {
       throw new UnauthorizedError('Invalid email or password.');
     }
 
+    // 1. Check Account Lockout (SRS AUTH-007: 5 failed attempts in 15 mins -> 15 mins lock)
+    const lockout = checkAccountLockout(email);
+    if (lockout.isLocked) {
+      throw new UnauthorizedError(
+        `Account temporarily locked due to 5 consecutive failed login attempts (SRS AUTH-007). Please try again in ${lockout.remainingMinutes} minute(s).`
+      );
+    }
+
     if (record.user.status === 'SUSPENDED') {
       throw new UnauthorizedError('Your account has been suspended. Please contact concierge support.');
     }
 
     const isMatch = await verifyPassword(password, record.user.password_hash);
     if (!isMatch) {
-      throw new UnauthorizedError('Invalid email or password.');
+      const failInfo = recordFailedLogin(email);
+      if (failInfo.isLocked) {
+        throw new UnauthorizedError(
+          'Account has been temporarily locked for 15 minutes due to 5 failed login attempts (SRS AUTH-007).'
+        );
+      }
+      throw new UnauthorizedError(
+        `Invalid email or password. Attempt ${failInfo.attempts} of 5 before temporary 15-minute account lock.`
+      );
     }
+
+    // Reset failed login counter on success
+    resetFailedLogin(email);
 
     const token = await signToken(record.user.id, record.user.email, record.roles);
 

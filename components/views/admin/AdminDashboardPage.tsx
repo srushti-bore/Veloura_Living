@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '@/hooks/useStore';
+import { useAuth } from '@/providers/AuthProvider';
 import {
   TrendingUp,
   Package,
@@ -13,6 +14,7 @@ import {
   ArrowLeft,
   DollarSign,
   Eye,
+  EyeOff,
   Tag,
   ShieldCheck,
   Edit3,
@@ -30,15 +32,40 @@ import {
   SlidersHorizontal,
   ChevronRight,
   UserCheck,
-  Boxes
+  Boxes,
+  Lock,
+  LogOut,
+  Key,
+  ShieldAlert,
+  Mail,
+  ArrowRight,
+  User
 } from 'lucide-react';
 import { Product, OrderStatusEnum, ReturnStatusEnum, ReviewStatusEnum } from '@/types';
 
 export const AdminDashboardPage: React.FC = () => {
   const { allProducts, rooms, orders, navigate } = useStore();
+  const {
+    user,
+    profile,
+    isAuthenticated,
+    isAdmin,
+    isManager,
+    isLoading: isAuthLoading,
+    login,
+    logout
+  } = useAuth();
+
   const [activeTab, setActiveTab] = useState<
     'overview' | 'orders' | 'catalog' | 'reviews' | 'returns' | 'cms' | 'ai-analytics'
   >('overview');
+
+  // Admin Security Gate State
+  const [adminEmail, setAdminEmail] = useState('admin@velouraliving.com');
+  const [adminPassword, setAdminPassword] = useState('VelouraAdmin2026!');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Real-time API States
   const [metrics, setMetrics] = useState<any>(null);
@@ -127,12 +154,48 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadAdminData();
-  }, []);
+    if (isAuthenticated && (isAdmin || isManager)) {
+      loadAdminData();
+    }
+  }, [isAuthenticated, isAdmin, isManager]);
 
   const showNotification = (msg: string) => {
     setActionSuccessMsg(msg);
     setTimeout(() => setActionSuccessMsg(null), 4000);
+  };
+
+  // Staff Login Handler
+  const handleAdminLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setLoginError(null);
+    setIsAuthenticating(true);
+    try {
+      const res = await login({ email: adminEmail.trim(), password: adminPassword });
+      if (!res.success) {
+        setLoginError(res.message || 'Invalid administrative credentials.');
+      }
+    } catch {
+      setLoginError('Authentication service unreachable. Please try again.');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleQuickFillAndLogin = async (email: string, pass: string) => {
+    setAdminEmail(email);
+    setAdminPassword(pass);
+    setLoginError(null);
+    setIsAuthenticating(true);
+    try {
+      const res = await login({ email, password: pass });
+      if (!res.success) {
+        setLoginError(res.message || 'Authentication failed.');
+      }
+    } catch {
+      setLoginError('Authentication service unreachable.');
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
 
   // Order Status Updater
@@ -221,7 +284,6 @@ export const AdminDashboardPage: React.FC = () => {
     showNotification(`Added ${newP.name} to the master catalog.`);
   };
 
-
   // Filtered Orders
   const filteredOrders = liveOrders.filter((o) => {
     if (orderStatusFilter !== 'ALL' && o.status !== orderStatusFilter) return false;
@@ -236,6 +298,176 @@ export const AdminDashboardPage: React.FC = () => {
     return true;
   });
 
+  // 1. Auth Loading State
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#181614] flex items-center justify-center font-sans text-[#F7F4EE] px-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="w-12 h-12 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="font-display text-lg tracking-widest text-[#E6D7C3] uppercase font-semibold">
+            Verifying Security Clearance
+          </p>
+          <p className="text-xs text-[#A89F91]">
+            Veloura Living Enterprise Operations Enclave
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Executive Staff Security Login Gate
+  if (!isAuthenticated || (!isAdmin && !isManager)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1A1816] via-[#211E1B] to-[#121110] text-[#F7F4EE] flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
+        <div className="w-full max-w-md space-y-6">
+          {/* Brand Seal Header */}
+          <div className="text-center space-y-2">
+            <button
+              onClick={() => navigate('/')}
+              className="inline-flex items-center gap-2 text-xs font-semibold text-[#D4AF37] hover:text-[#E6D7C3] transition-colors cursor-pointer group mb-3"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span>Back to Storefront</span>
+            </button>
+
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-[#D4AF37]/30 shadow-inner backdrop-blur-md mb-2">
+              <Lock className="w-7 h-7 text-[#D4AF37]" />
+            </div>
+
+            <h1 className="font-display text-3xl font-bold tracking-tight text-[#F7F4EE]">
+              Executive Staff Portal
+            </h1>
+            <p className="text-xs text-[#B8ADA0] max-w-sm mx-auto">
+              Veloura Operations & CMS Cockpit. Role-Based Access Control (RBAC) enforced.
+            </p>
+          </div>
+
+          {/* If user is logged in as regular customer */}
+          {isAuthenticated && !isAdmin && !isManager && (
+            <div className="bg-[#9B2C2C]/20 border border-[#9B2C2C]/50 text-[#FCA5A5] text-xs p-4 rounded-2xl space-y-1">
+              <div className="flex items-center gap-2 font-semibold">
+                <ShieldAlert className="w-4 h-4 text-[#F87171]" />
+                <span>Administrative Clearance Required</span>
+              </div>
+              <p className="text-[11px] text-[#FECACA]">
+                You are authenticated as <span className="font-mono font-medium text-white">{user?.email}</span> ({user?.roles?.join(', ') || 'CUSTOMER'}), which does not have executive staff permissions. Authenticate with an Administrator or Manager account below.
+              </p>
+            </div>
+          )}
+
+          {/* Login Card */}
+          <div className="bg-white/5 border border-[#D4AF37]/25 rounded-3xl p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-6">
+            <form onSubmit={handleAdminLogin} className="space-y-4">
+              {loginError && (
+                <div className="bg-[#9B2C2C]/25 border border-[#9B2C2C]/60 text-[#FECACA] text-xs p-3.5 rounded-xl flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-[#F87171]" />
+                  <span>{loginError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-[#E6D7C3] uppercase tracking-wider mb-1.5">
+                  Staff Work Email
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A89F91]" />
+                  <input
+                    type="email"
+                    required
+                    value={adminEmail}
+                    onChange={(e) => setAdminEmail(e.target.value)}
+                    placeholder="admin@velouraliving.com"
+                    className="w-full pl-10 pr-4 py-3 bg-white/5 border border-[#EEE9E1]/20 rounded-xl text-sm text-white placeholder:text-stone-500 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#E6D7C3] uppercase tracking-wider mb-1.5">
+                  Security Passkey
+                </label>
+                <div className="relative">
+                  <Key className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A89F91]" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full pl-10 pr-10 py-3 bg-white/5 border border-[#EEE9E1]/20 rounded-xl text-sm text-white placeholder:text-stone-500 focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A89F91] hover:text-[#E6D7C3] cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isAuthenticating}
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-[#D4AF37] to-[#B89628] hover:from-[#DFBF4B] hover:to-[#C5A02E] text-[#1A1816] font-semibold text-sm rounded-xl shadow-lg transition-all active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isAuthenticating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Authenticating Clearance...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Authenticate & Unlock Console</span>
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Quick Demo Fillers for Fast Evaluation */}
+            <div className="pt-4 border-t border-white/10 space-y-3">
+              <p className="text-[11px] font-semibold text-[#A89F91] uppercase tracking-wider text-center">
+                Fast-Access Demo Credentials (1-Click)
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleQuickFillAndLogin('admin@velouraliving.com', 'VelouraAdmin2026!')}
+                  disabled={isAuthenticating}
+                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-[#D4AF37] hover:bg-white/10 text-left transition-all cursor-pointer group text-xs"
+                >
+                  <div className="font-semibold text-white flex items-center gap-1.5">
+                    <span>👑 Master Admin</span>
+                  </div>
+                  <div className="text-[10px] text-[#A89F91] font-mono truncate">admin@velouraliving.com</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleQuickFillAndLogin('concierge@velouraliving.com', 'VelouraAdmin2026!')}
+                  disabled={isAuthenticating}
+                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-[#D4AF37] hover:bg-white/10 text-left transition-all cursor-pointer group text-xs"
+                >
+                  <div className="font-semibold text-white flex items-center gap-1.5">
+                    <span>👔 Ops Manager</span>
+                  </div>
+                  <div className="text-[10px] text-[#A89F91] font-mono truncate">concierge@velouraliving.com</div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <p className="text-[11px] text-[#746B61]">
+              Veloura Living Luxury Furniture Co. • Enterprise Console v2026.1
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#FCFAF7] py-10 font-sans text-[#211E1B]">
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -246,7 +478,7 @@ export const AdminDashboardPage: React.FC = () => {
               onClick={() => navigate('/')}
               className="group text-xs font-semibold text-[#8B5A2B] hover:text-[#4A2C1A] flex items-center gap-1.5 mb-2 cursor-pointer transition-colors"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
               <span>Back to Storefront</span>
             </button>
             <div className="flex items-center gap-3">
@@ -262,14 +494,41 @@ export const AdminDashboardPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Active Staff Identity Badge */}
+            <div className="hidden sm:flex items-center gap-2.5 px-3 py-1.5 bg-white border border-[#EEE9E1] rounded-xl shadow-xs">
+              <div className="w-7 h-7 rounded-full bg-[#4A2C1A] text-[#F7F4EE] flex items-center justify-center text-xs font-bold font-serif">
+                {user?.email?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div className="text-left">
+                <p className="text-xs font-semibold text-[#211E1B] leading-none">
+                  {profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}` : (user?.email?.split('@')[0] || 'Executive Staff')}
+                </p>
+                <span className="text-[10px] text-[#8B5A2B] font-medium leading-none">
+                  {isAdmin ? '👑 System Admin' : '👔 Operations Manager'}
+                </span>
+              </div>
+            </div>
+
+            {/* Lock Console / Sign Out */}
+            <button
+              onClick={async () => {
+                await logout();
+              }}
+              title="Lock Console and Sign Out"
+              className="bg-white border border-[#EEE9E1] hover:border-[#D4AF37] text-[#746B61] hover:text-[#9B2C2C] px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Lock Console</span>
+            </button>
+
             <button
               onClick={loadAdminData}
               disabled={isLoading}
               className="bg-white border border-[#EEE9E1] text-[#4A2C1A] px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm hover:bg-[#F5E6D3] transition-colors cursor-pointer active:scale-95"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              <span>Refresh Metrics</span>
+              <span className="hidden sm:inline">Refresh Metrics</span>
             </button>
             <button
               onClick={() => setIsAddProductOpen(true)}

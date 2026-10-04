@@ -7,7 +7,9 @@
 import { JWTPayload, UserRoleEnum } from '../types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'veloura-living-master-luxury-jwt-secret-2026-auth-token';
-const DEFAULT_EXPIRATION_SECONDS = 7 * 24 * 60 * 60; // 7 days
+export const ACCESS_TOKEN_EXPIRY_SECONDS = 15 * 60; // 15 minutes (SRS AUTH-004)
+export const REFRESH_TOKEN_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days (SRS AUTH-004)
+const DEFAULT_EXPIRATION_SECONDS = ACCESS_TOKEN_EXPIRY_SECONDS;
 
 function base64UrlEncode(data: string | Uint8Array): string {
   let base64 = '';
@@ -28,7 +30,7 @@ function base64UrlEncode(data: string | Uint8Array): string {
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-function base64UrlDecode(str: string): string {
+function base64UrlDecodeToBytes(str: string): Uint8Array {
   let base64 = str.replace(/-/g, '+').replace(/_/g, '/');
   while (base64.length % 4) {
     base64 += '=';
@@ -38,6 +40,11 @@ function base64UrlDecode(str: string): string {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
+  return bytes;
+}
+
+function base64UrlDecode(str: string): string {
+  const bytes = base64UrlDecodeToBytes(str);
   return new TextDecoder().decode(bytes);
 }
 
@@ -96,14 +103,12 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
     const dataToVerify = `${headerB64}.${payloadB64}`;
 
     const key = await getCryptoKey();
-    const signatureBytes = new Uint8Array(
-      Array.from(base64UrlDecode(signatureB64)).map((char) => char.charCodeAt(0))
-    );
+    const signatureBytes = base64UrlDecodeToBytes(signatureB64);
 
     const isValid = await crypto.subtle.verify(
       'HMAC',
       key,
-      signatureBytes,
+      signatureBytes as any,
       new TextEncoder().encode(dataToVerify)
     );
 
