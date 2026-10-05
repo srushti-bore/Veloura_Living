@@ -247,17 +247,43 @@ graph LR
 
 ---
 
-## 10. Automated Verification & E2E Validation Matrix
+---
+
+## 10. Phase 13: 3D AR Spatial Configurator & Procedural Three.js Studio
+- **Procedural 3D Geometry Generators (`components/three/configurator/furnitureModels.ts`):** Dynamic construction of 4 modular signature pieces (*Serpentine Sofa*, *Aurelia Table*, *Fujiwara Cabinet*, *Zenith Lounge Chair*) with isolated part mesh topologies.
+- **Real-Time 8K PBR Material Shader Engine (`lib/data/configuratorMaterials.ts`):** 15 curated luxury materials with PBR physical properties (roughness, metalness, normal mapping).
+- **Interactive Spatial Tools:** 360° orbital camera with inertia damping, 4 lighting environment presets, true-scale 3D calipers overlay, and exploded joinery expansion slider.
+- **WebXR & QuickLook Bridge (`lib/services/arBridgeService.ts`):** QR code generation and iOS QuickLook USDZ / Android SceneViewer bridge.
+
+---
+
+## 11. Phase 14: VIP Concierge & Trade B2B Portal Architecture
+- **Tiered Volume Pricing Engine (`lib/data/tradeStore.ts`):** Automatic tier calculation (Bronze 15%, Silver 20%, Gold 25%) based on commercial project scope.
+- **Project RFQ Builder (`components/views/trade/TradeRFQBuilderModal.tsx`):** Multi-room Bill of Materials builder with instant tax computation and PDF/HTML quotation output.
+- **Physical Swatch Sample Box Pipeline (`components/views/trade/SwatchBoxOrderDrawer.tsx`):** Client selection for up to 5 physical 8K swatches with White-Glove logistics tracking.
+- **VIP Concierge Consultation Gate (`components/views/trade/VIPConciergeBookingModal.tsx`):** Calendar appointment scheduler with dedicated Trade Architect assignment and instant WhatsApp Concierge routing.
+
+---
+
+## 12. Phase 15: Progressive Web App (PWA) Offline Engine & Edge Cache Architecture
+- **Web App Manifest (`public/manifest.json`):** Standalone PWA declaration with brand tokens (`#2A1A12` / `#1C1815`) and deep shortcuts.
+- **Service Worker (`public/sw.js`):** Tri-layer caching strategy (Pre-cache application shell, Network-first + offline fallback for HTML, Cache-first for 8K textures and fonts, API fallback).
+- **Offline Spatial UI (`public/offline.html`, `providers/PWAProvider.tsx`):** Offline status pill indicator and beforeinstallprompt installation prompt.
+- **Next.js 16 Edge Headers (`next.config.mjs`):** 1-year immutable caching for static assets, immediate revalidation for SW/manifest, and enterprise HTTP security headers.
+
+---
+
+## 13. Automated Verification & E2E Validation Matrix
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|
-| **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 56 App Router routes and backend modules | ✅ **0 Errors** |
+| **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 63 App Router routes and backend modules | ✅ **0 Errors** |
+| **Phase 15 PWA & Performance** | `npm.cmd run test:phase15` | Web App Manifest, Service Worker Caching, Offline Fallback, Security Headers | ✅ **41/41 (100%)** |
+| **Phase 14 VIP Trade & RFQ** | `npm.cmd run test:phase14` | Tiered Discounts, RFQ Builder, Swatch Box Order, VIP Concierge, Quotation Generator | ✅ **34/34 (100%)** |
+| **Phase 13 3D AR Configurator** | `npm.cmd run test:phase13` | Three.js Models, PBR Materials, 3D Calipers, Exploded Joinery, AR Intent Bridge | ✅ **42/42 (100%)** |
 | **Phase 12 Notification Suite** | `npm.cmd run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
 | **Phase 11 Payment Suite** | `npm.cmd run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
-| **Asset & Image Integrity** | `npx.cmd tsx tests/verify-all-images.ts` | 37 static luxury visuals, room heroes, product images, and material swatches | ✅ **37/37 (100%)** |
-| **Master Live REST APIs** | `npm.cmd run test:api` | 43 live REST API endpoints across both Edge and Backend environments | ✅ **43/43 (100%)** |
-| **Swagger Live REST APIs** | `npm.cmd run test:swagger` | 19 live REST API endpoints on `http://localhost:3000` | ✅ **19/19 (100%)** |
-| **Live Pages & Order E2E** | `npx.cmd tsx tests/e2e-live-pages-test.ts` | 15 live web pages, cart flow, checkout summary, and GST tax invoice generation | ✅ **15/15 (100%)** |
+| **Direct REST APIs** | `npm.cmd run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
 | **SRS Unit & Integration Tests** | `npm.cmd test` | 33 unit and domain store tests | ✅ **33/33 (100%)** |
 
 ---

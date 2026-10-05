@@ -4,7 +4,7 @@ import { handleApiError, ValidationError } from '@/lib/api/errorHandler';
 import { requirePermission } from '@/lib/auth/session';
 import { getBrands, createBrand } from '@/lib/data/catalogStore';
 
-export async function GET() {
+export async function GET(request?: NextRequest) {
   try {
     const brands = getBrands();
     return successResponse(brands, 200);

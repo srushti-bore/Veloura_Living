@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Veloura Living — Offline Mode</title>
+  <link rel="icon" href="/logo.png">
+  <style>
+    :root {
+      --bg-dark: #1C1815;
+      --card-dark: #2A1A12;
+      --accent-gold: #8B5A2B;
+      --text-cream: #FBF8F3;
+      --text-muted: #D8B486;
+      --border-gold: rgba(139, 90, 43, 0.3);
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-cream);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+    }
+    .card {
+      background: linear-gradient(145deg, #241A14 0%, #171310 100%);
+      border: 1px solid var(--border-gold);
+      border-radius: 20px;
+      padding: 48px 36px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border-gold);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      background: rgba(139, 90, 43, 0.15);
+      border: 1px solid var(--border-gold);
+      padding: 6px 14px;
+      border-radius: 9999px;
+      margin-bottom: 20px;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      background-color: #D97706;
+      border-radius: 50%;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    h1 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: 32px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--text-cream);
+      margin-bottom: 12px;
+      line-height: 1.2;
+    }
+    p {
+      color: #B9AA99;
+      font-size: 15px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    button.retry-btn {
+      background: linear-gradient(135deg, #8B5A2B 0%, #633E1A 100%);
+      color: #FBF8F3;
+      border: none;
+      padding: 14px 28px;
+      font-size: 14px;
+      letter-spacing: 0.05em;
+      font-weight: 500;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(139, 90, 43, 0.3);
+    }
+    button.retry-btn:hover {
+      background: linear-gradient(135deg, #A26B33 0%, #764A20 100%);
+      transform: translateY(-1px);
+    }
+    .links-grid {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .links-grid a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.2s ease;
+    }
+    .links-grid a:hover {
+      color: #FBF8F3;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img src="/logo.png" alt="Veloura Living Logo" class="logo" />
+    <div class="pill">
+      <span class="dot"></span>
+      Spatial Atelier — Offline Mode
+    </div>
+    <h1>Quiet Continuity in Offline Space</h1>
+    <p>
+      You are currently browsing without active network connectivity. Cached pages, material specs, and stored cart items remain fully accessible on your device.
+    </p>
+    <div class="actions">
+      <button class="retry-btn" onclick="window.location.reload()">
+        ⚡ Check Network Connection
+      </button>
+    </div>
+    <div class="links-grid">
+      <a href="/">Atelier Home</a>
+      <a href="/shop">Catalog</a>
+      <a href="/configurator">3D AR Studio</a>
+      <a href="/trade">VIP Trade</a>
+    </div>
+  </div>
+</body>
+</html>

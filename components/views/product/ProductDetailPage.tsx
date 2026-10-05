@@ -16,10 +16,12 @@ import {
   Plus,
   Minus,
   MessageSquare,
-  Compass
+  Compass,
+  Box,
 } from 'lucide-react';
 import { REVIEWS } from '../../../lib/data/mockData';
 import { triggerLuxuryToast } from '../../common/LuxuryToast';
+import { useCurrency } from '@/providers/CurrencyProvider';
 
 interface Props {
   slug: string;
@@ -27,6 +29,7 @@ interface Props {
 
 export const ProductDetailPage: React.FC<Props> = ({ slug }) => {
   const { allProducts, addToCart, isWishlisted, toggleWishlist, navigate, setIsAIOpen, setIsCartOpen } = useStore();
+  const { formatPrice } = useCurrency();
 
   const product = allProducts.find((p) => p.slug === slug) || allProducts[0];
 
@@ -37,8 +40,6 @@ export const ProductDetailPage: React.FC<Props> = ({ slug }) => {
   const [isWishlistBurst, setIsWishlistBurst] = useState(false);
 
   const wishlisted = isWishlisted(product.id);
-
-  const formatPrice = (val: number) => '₹' + val.toLocaleString('en-IN');
 
   const effectivePrice = selectedVariant?.salePrice || selectedVariant?.price || product.salePrice || product.price;
   const originalPrice = selectedVariant?.price || product.price;
@@ -283,6 +284,16 @@ export const ProductDetailPage: React.FC<Props> = ({ slug }) => {
                   className="btn-primary-shimmer w-full py-3.5 rounded-xl font-semibold text-sm shadow-md text-center cursor-pointer active:scale-[0.98]"
                 >
                   Buy Now with White-Glove Installation
+                </button>
+
+                {/* 3D Spatial Configurator CTA */}
+                <button
+                  onClick={() => navigate(`/configurator?slug=${product.slug}`)}
+                  className="btn-brownish-shimmer w-full py-3.5 px-4 rounded-xl font-semibold text-xs tracking-wider uppercase border border-[#D8B486]/50 hover:border-[#D8B486] flex items-center justify-center gap-2.5 transition-all shadow-md cursor-pointer active:scale-[0.98]"
+                >
+                  <Box className="w-4 h-4 text-[#D8B486]" />
+                  <span className="font-semibold tracking-wide">Customize in 3D Spatial Studio & AR</span>
+                  <Sparkles className="w-3.5 h-3.5 text-[#FAF7F2] animate-pulse" />
                 </button>
               </div>
             </div>

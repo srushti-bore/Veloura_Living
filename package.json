@@ -12,6 +12,9 @@
     "test:swagger": "npx -y tsx tests/swagger-live-api-test.ts",
     "test:phase11": "npx -y tsx tests/phase-11-payments-test.ts",
     "test:phase12": "npx -y tsx tests/phase-12-notifications-test.ts",
+    "test:phase13": "npx -y tsx tests/phase-13-configurator-test.ts",
+    "test:phase14": "npx -y tsx tests/phase-14-trade-concierge-test.ts",
+    "test:phase15": "npx -y tsx tests/phase-15-pwa-performance-test.ts",
     "test:api": "npx -y tsx tests/comprehensive-live-api-test.ts",
     "test:api:direct": "npx -y tsx tests/live-api-validation.ts"
   },

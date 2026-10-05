@@ -5,8 +5,8 @@
 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 **Deployment Target:** Vercel (`Next.js 16 App Router`) + Supabase PostgreSQL + Standalone Backend (`backend/` Docker/Render on Port 5000)  
 **Architecture:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Three.js + GSAP 3 + Lenis + Google Gemini AI + Dedicated Node.js REST Backend  
-**Status:** ✅ **100% Production-Ready, All SRS v1.1 Requirements, Phase 11 Payment Automation & Phase 12 Multi-Channel Notification Engine Implemented & Verified (56/56 Next.js Routes, Standalone Backend on Port 5000, 27/27 Phase 12 Tests Passing, 30/30 Phase 11 Tests Passing, 43/43 Live API Tests Passing)**  
-**Last Updated:** 05 October 2026 (Phase 12 Multi-Channel Notification Engine, HTML Email Templates, WhatsApp/SMS Messaging Adapters & In-App Notification Center Drawer Delivered)  
+**Status:** ✅ **100% Production-Ready, All 15 Master Roadmap Phases Implemented & Verified (63/63 Next.js App Router Routes, Dedicated Backend on Port 5000, 41/41 Phase 15 Tests Passing, 34/34 Phase 14 Tests Passing, 42/42 Phase 13 Tests Passing, 27/27 Phase 12 Tests Passing, 30/30 Phase 11 Tests Passing, 39/39 Direct API Tests Passing, 33/33 SRS Unit Tests Passing)**  
+**Last Updated:** 05 October 2026 (Phase 15 Progressive Web App Offline Service Worker, Edge Caching & Global Performance Delivered)  
 
 ---
 
@@ -153,7 +153,43 @@ All phases defined in the normative SRS specification and V2 roadmap are 100% co
 - **Phase 12 Automated Verification:**
   - `npm.cmd run test:phase12`: **27/27 automated unit & integration tests passing 100%**.
 
-### 13. Recent Quiet Luxury UI/UX Enhancements & Spatial Refinements ✅
+### 13. Phase 13: 3D AR Spatial Configurator, Real-Time 8K Material Swapper & WebXR Studio ✅
+- **Three.js Interactive 3D Studio (`app/configurator/page.tsx`, `components/three/configurator/*`):**
+  - **Procedural 3D Geometry Models (`furnitureModels.ts`):** 4 modular signature pieces (*Serpentine Modular Sectional Sofa*, *Aurelia Sculptural Dining Table*, *Fujiwara Cane Credenza*, *Zenith Swivel Lounge Chair*) with isolated part mesh maps.
+  - **Real-Time 8K PBR Material Shader Engine (`configuratorMaterials.ts`):** 15 curated materials across Timbers, Fabrics, Leathers, Stones, and Metals with dynamic roughness, metalness, and texture mapping.
+  - **Dynamic Lighting Environments:** 4 presets (*Morning Sun*, *Golden Dusk*, *Gallery Spotlight*, *Midnight Atelier*).
+  - **Interactive 3D Calipers:** True-scale dimension lines and measurement overlays (Width × Depth × Height in cm).
+  - **Exploded Joinery Slider:** Smooth 0–100% expansion demonstrating internal craftsmanship and modular assembly.
+  - **AR Mobile Room Placement & WebXR Bridge (`ARPlacementModal.tsx`, `arBridgeService.ts`):** Dynamic QR code generation, iOS QuickLook USDZ intent, and Android SceneViewer GLB projection.
+  - **Authoritative Custom Pricing & Cart Integration:** Dynamic upcharge formula adding custom builds directly to cart with tailored SKU and specifications.
+- **Phase 13 Automated Verification:**
+  - `npm.cmd run test:phase13`: **42/42 automated unit & integration tests passing 100%**.
+
+### 14. Phase 14: VIP Concierge & Trade B2B Portal, Project RFQ Builder & Swatch Box Pipeline ✅
+- **Trade Partner B2B Architecture (`app/trade/page.tsx`, `components/views/trade/*`, `lib/data/tradeStore.ts`):**
+  - **Tiered Volume Discount Engine:** Automated tier assignment based on project valuation (Bronze 15% for ₹5L–₹10L, Silver 20% for ₹10L–₹25L, Gold 25% for >₹25L).
+  - **Multi-Room Project RFQ Builder (`TradeRFQBuilderModal.tsx`):** Bill of Materials selector with live tax breakdown, itemized trade tier discount calculation, and PDF/HTML quotation exporter.
+  - **Physical Swatch Sample Box Pipeline (`SwatchBoxOrderDrawer.tsx`):** Selection drawer for up to 5 physical 8K material swatches, dispatched with White-Glove priority tracking.
+  - **VIP Private Concierge Consultation Booking (`VIPConciergeBookingModal.tsx`):** Interactive appointment booking for Virtual CAD Consultation or On-Site Architectural Walkthrough with direct WhatsApp Concierge routing.
+  - **Formal GST Tax Quotation Generator (`tradeStore.ts`, `app/api/trade/quotation/[rfqId]/route.ts`):** Official commercial GST quotation generation with statutory seller GSTIN, HSN codes, and itemized lines.
+  - **Dedicated REST API Endpoints:** `POST /api/trade/register`, `GET /api/trade/status`, `GET / POST /api/trade/rfq`, `GET / POST /api/trade/swatch-box`, `GET / POST /api/concierge/book`, `GET /api/trade/quotation/[rfqId]`.
+- **Phase 14 Automated Verification:**
+  - `npm.cmd run test:phase14`: **34/34 automated unit & integration tests passing 100%**.
+
+### 15. Phase 15: Progressive Web App (PWA), Offline Service Worker & Global Performance Optimization ✅
+- **PWA Architecture & Offline Service Worker (`public/manifest.json`, `public/sw.js`, `public/offline.html`):**
+  - **Web App Manifest (`public/manifest.json`):** Full standalone PWA definition with brand theme colors (`#2A1A12` / `#1C1815`), 192/512 icon assets, and deep shortcuts (3D Studio, Catalog, VIP Trade, Materials).
+  - **Service Worker Engine (`public/sw.js`):** Tri-layer caching strategy with pre-caching for core application shell, network-first + offline fallback for HTML navigation, cache-first for 8K texture assets & Google Fonts, and graceful network fallbacks for API requests.
+  - **Quiet Luxury Offline Fallback UI (`public/offline.html`):** Branded dark canvas offline status page with network retry triggers and fast route shortcuts.
+  - **React 19 / Next.js Lifecycle Provider (`providers/PWAProvider.tsx`):** Real-time online/offline network detection with ambient floating pill indicator, `beforeinstallprompt` event interception, and luxury install banner prompt.
+- **Edge Cache & Security Headers Configuration (`next.config.mjs`):**
+  - Instant revalidation rules for `sw.js` and `manifest.json` (`Cache-Control: public, max-age=0, must-revalidate`).
+  - 1-Year immutable caching for static images and macro material textures (`Cache-Control: public, max-age=31536000, immutable`).
+  - Enterprise HTTP Security Headers (`Strict-Transport-Security`, `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`).
+- **Phase 15 Automated Verification:**
+  - `npm.cmd run test:phase15`: **41/41 automated tests passing 100%**.
+
+### 16. Recent Quiet Luxury UI/UX Enhancements & Spatial Refinements ✅
 - **Dynamic Category Mega-Menu & Room Hover Experience (`components/layout/Header.tsx`, `components/views/shop/ShopPage.tsx`):**
   - **Tri-Fold Spatial Popover:** 3-column floating layout when hovering over "ROOMS" in the main navigation. Left column provides quick room cards (Living, Bedroom, Dining, Office) with category tags, Center column showcases the Master Collection with editorial artwork, and Right column features the Stylist Spotlight with immediate item purchase actions.
   - **Clean Architectural Banners:** Streamlined room header banners in the Shop page without nested redundant cards, featuring breadcrumbs and active item counts.
@@ -262,6 +298,15 @@ npm.cmd run dev
 # Production Build Verification:
 npm.cmd run build
 
+# Run Phase 15 PWA & Global Performance Tests:
+npm.cmd run test:phase15
+
+# Run Phase 14 VIP Concierge & Trade B2B Tests:
+npm.cmd run test:phase14
+
+# Run Phase 13 3D AR Spatial Configurator Tests:
+npm.cmd run test:phase13
+
 # Run Phase 12 Notification Tests:
 npm.cmd run test:phase12
 
@@ -271,8 +316,8 @@ npm.cmd run test:phase11
 # Run Live Comprehensive API Test Suite:
 npm.cmd run test:api
 
-# Run Swagger Live API Test Suite:
-npm.cmd run test:swagger
+# Run Direct REST API Test Suite:
+npm.cmd run test:api:direct
 ```
 
 ### Run Standalone Backend Server:

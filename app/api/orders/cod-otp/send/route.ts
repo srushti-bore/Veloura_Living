@@ -5,10 +5,12 @@ import { sendSuccess, sendError } from '@/lib/api/response';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { phoneOrEmail, amountInINR, postalCode } = body;
+    const phoneOrEmail = body.phoneOrEmail || body.phone || body.email;
+    const amountInINR = body.amountInINR !== undefined ? body.amountInINR : body.amount;
+    const postalCode = body.postalCode;
 
     if (!phoneOrEmail) {
-      return sendError('phoneOrEmail is required for COD verification', 'VALIDATION_ERROR', 400);
+      return sendError('phoneOrEmail (or phone/email) is required for COD verification', 'VALIDATION_ERROR', 400);
     }
 
     // Check cart eligibility if amount is supplied

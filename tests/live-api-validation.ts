@@ -39,6 +39,12 @@ import { GET as getCmsBanners } from '../app/api/cms/banners/route';
 import { GET as getNotifications, DELETE as deleteNotification } from '../app/api/notifications/route';
 import { POST as postMarkRead } from '../app/api/notifications/mark-read/route';
 import { POST as postTestDispatch } from '../app/api/notifications/test-dispatch/route';
+import { POST as postTradeRegister } from '../app/api/trade/register/route';
+import { GET as getTradeStatus } from '../app/api/trade/status/route';
+import { GET as getTradeRfq, POST as postTradeRfq } from '../app/api/trade/rfq/route';
+import { GET as getTradeSwatchBox, POST as postTradeSwatchBox } from '../app/api/trade/swatch-box/route';
+import { GET as getConciergeBook, POST as postConciergeBook } from '../app/api/concierge/book/route';
+import { GET as getTradeQuotation } from '../app/api/trade/quotation/[rfqId]/route';
 import { NextRequest } from 'next/server';
 
 interface TestResult {
@@ -368,6 +374,84 @@ async function runAllApiTests() {
         message: 'Direct API validation passed.',
       })
     )
+  );
+
+  // 12. VIP Concierge & Trade B2B Portal
+  await recordTest('12. VIP Trade & Concierge', 'Register Trade Partner', 'POST', '/api/trade/register', 201, () =>
+    postTradeRegister(
+      makeRequest('http://localhost:3000/api/trade/register', 'POST', {
+        businessName: 'Studio Architrave Milan',
+        contactPerson: 'Elena Bianchi',
+        email: 'trade@studioarchitrave.com',
+        phone: '+91 98200 99881',
+        tradeRole: 'INTERIOR_DESIGNER',
+        gstin: '27AABCS1429B1Z8',
+        websiteOrPortfolio: 'https://studioarchitrave.com',
+      })
+    )
+  );
+  await recordTest('12. VIP Trade & Concierge', 'Get Trade Partner Status', 'GET', '/api/trade/status?email=trade@studioarchitrave.com', 200, () =>
+    getTradeStatus(makeRequest('http://localhost:3000/api/trade/status?email=trade@studioarchitrave.com'))
+  );
+  await recordTest('12. VIP Trade & Concierge', 'Submit Project RFQ', 'POST', '/api/trade/rfq', 201, () =>
+    postTradeRfq(
+      makeRequest('http://localhost:3000/api/trade/rfq', 'POST', {
+        businessName: 'Studio Architrave Milan',
+        contactPerson: 'Elena Bianchi',
+        email: 'trade@studioarchitrave.com',
+        phone: '+91 98200 99881',
+        projectTitle: 'Palazzo Royale Mumbai Penthouse',
+        projectLocation: 'Penthouse 48, Worli Seaface, Mumbai',
+        targetInstallationDate: '2026-11-15',
+        lineItems: [
+          {
+            productId: 'prod-001',
+            productName: 'Serpentine Modular Sectional Sofa',
+            sku: 'SOFA-MOD-01',
+            quantity: 2,
+            unitPrice: 185000,
+          },
+        ],
+      })
+    )
+  );
+  await recordTest('12. VIP Trade & Concierge', 'Get Partner RFQs', 'GET', '/api/trade/rfq?partnerId=trade_partner_001', 200, () =>
+    getTradeRfq(makeRequest('http://localhost:3000/api/trade/rfq?partnerId=trade_partner_001'))
+  );
+  await recordTest('12. VIP Trade & Concierge', 'Order Physical Swatch Box', 'POST', '/api/trade/swatch-box', 201, () =>
+    postTradeSwatchBox(
+      makeRequest('http://localhost:3000/api/trade/swatch-box', 'POST', {
+        businessName: 'Studio Architrave Milan',
+        recipientName: 'Elena Bianchi',
+        shippingAddress: '42 Luxury Way, Worli',
+        city: 'Mumbai',
+        postalCode: '400018',
+        selectedSwatchIds: ['mat-walnut', 'mat-boucle', 'mat-leather'],
+      })
+    )
+  );
+  await recordTest('12. VIP Trade & Concierge', 'Get Swatch Box Orders', 'GET', '/api/trade/swatch-box?partnerId=trade_partner_001', 200, () =>
+    getTradeSwatchBox(makeRequest('http://localhost:3000/api/trade/swatch-box?partnerId=trade_partner_001'))
+  );
+  await recordTest('12. VIP Trade & Concierge', 'Book VIP Concierge Consultation', 'POST', '/api/concierge/book', 201, () =>
+    postConciergeBook(
+      makeRequest('http://localhost:3000/api/concierge/book', 'POST', {
+        clientName: 'Aditya Birla Atelier',
+        email: 'trade@studioarchitrave.com',
+        phone: '+91 98200 99881',
+        serviceType: 'VIRTUAL_CAD',
+        scheduledDate: '2026-10-12',
+        timeSlot: '15:00',
+        locationOrVirtual: 'Virtual Spatial CAD Suite',
+        roomDetails: 'Palazzo Seaface 4-bedroom luxury interior',
+      })
+    )
+  );
+  await recordTest('12. VIP Trade & Concierge', 'Get Concierge Bookings', 'GET', '/api/concierge/book?email=trade@studioarchitrave.com', 200, () =>
+    getConciergeBook(makeRequest('http://localhost:3000/api/concierge/book?email=trade@studioarchitrave.com'))
+  );
+  await recordTest('12. VIP Trade & Concierge', 'Generate Commercial GST Quotation', 'GET', '/api/trade/quotation/rfq_vl_2026_901', 200, () =>
+    getTradeQuotation(makeRequest('http://localhost:3000/api/trade/quotation/rfq_vl_2026_901'), { params: Promise.resolve({ rfqId: 'rfq_vl_2026_901' }) })
   );
 
   // Print Report Grouped by Category

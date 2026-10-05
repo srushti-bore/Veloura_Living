@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * 🏛️ Veloura Living — System Health & Observability Endpoint
  * Reference: docs/Veloura-Living_SRS_Final.md (OBS-001, OBS-003, CON-004)
  * Used by Uptime Monitor & Render keep-alive pings to prevent cold starts.
  */
-export async function GET() {
+export async function GET(request?: NextRequest) {
   const uptimeSeconds = process.uptime();
   const memoryUsage = process.memoryUsage();
 
