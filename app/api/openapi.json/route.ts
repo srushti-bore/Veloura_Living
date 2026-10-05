@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { openapiSpec } from '@/lib/docs/openapiSpec';
 
-export async function GET() {
+export async function GET(request?: NextRequest) {
   return NextResponse.json(openapiSpec, {
     status: 200,
     headers: {
