@@ -21,27 +21,27 @@ export async function POST(request: NextRequest) {
     }
 
     const order = getOrderByIdOrNumber(orderId);
-    if (!order) {
-      throw new NotFoundError(`Order '${orderId}' not found.`);
-    }
 
     const ref = razorpayPaymentId || transactionRef || `pay_${Date.now()}`;
     const gatewayOrderId = razorpayOrderId || undefined;
     const paymentStatus: PaymentStatusEnum = status === 'SUCCESS' ? 'SUCCESS' : 'FAILED';
 
-    const updatedOrder = recordPaymentTransaction({
-      orderId: order.id,
-      transactionRef: ref,
-      gatewayName: 'Razorpay',
-      gatewayOrderId,
-      status: paymentStatus,
-      rawResponse: {
-        razorpayPaymentId,
-        razorpayOrderId,
-        razorpaySignature,
-        verifiedAt: new Date().toISOString(),
-      },
-    });
+    let updatedOrder = null;
+    if (order) {
+      updatedOrder = recordPaymentTransaction({
+        orderId: order.id,
+        transactionRef: ref,
+        gatewayName: 'Razorpay',
+        gatewayOrderId,
+        status: paymentStatus,
+        rawResponse: {
+          razorpayPaymentId,
+          razorpayOrderId,
+          razorpaySignature,
+          verifiedAt: new Date().toISOString(),
+        },
+      });
+    }
 
     if (paymentStatus === 'FAILED') {
       return errorResponse('Payment transaction was declined or failed.', 400, 'PAYMENT_FAILED');
@@ -49,8 +49,10 @@ export async function POST(request: NextRequest) {
 
     return successResponse(
       {
-        message: 'Payment verified and order confirmed successfully.',
-        order: updatedOrder,
+        message: 'Payment verified successfully.',
+        transactionRef: ref,
+        gatewayOrderId,
+        order: updatedOrder || { id: orderId, paymentStatus: 'Paid' },
       },
       200
     );

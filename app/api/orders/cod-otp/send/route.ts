@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { codSafetyService } from '@/lib/services/codService';
+import { smsService } from '@/lib/services/smsService';
 import { sendSuccess, sendError } from '@/lib/api/response';
 
 export async function POST(req: NextRequest) {
@@ -23,10 +24,14 @@ export async function POST(req: NextRequest) {
 
     const result = codSafetyService.generateOtp(phoneOrEmail);
 
+    // Dispatch real SMS OTP via configured SMS Gateway (Fast2SMS / Twilio)
+    const smsDispatch = await smsService.sendOtpSms(phoneOrEmail, result.otp);
+
     return sendSuccess({
       verificationId: result.verificationId,
       expiresAt: result.expiresAt,
       message: `A 6-digit verification code has been dispatched to ${phoneOrEmail}.`,
+      provider: smsDispatch.provider,
       // For developer/tester convenience in preview mode:
       debugCode: process.env.NODE_ENV !== 'production' ? result.otp : undefined,
     });
