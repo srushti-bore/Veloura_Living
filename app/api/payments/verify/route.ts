@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
+import crypto from 'crypto';
 import { successResponse, errorResponse } from '@/lib/api/response';
-import { handleApiError, ValidationError, NotFoundError } from '@/lib/api/errorHandler';
+import { handleApiError, ValidationError } from '@/lib/api/errorHandler';
 import { recordPaymentTransaction, getOrderByIdOrNumber } from '@/lib/data/orderStore';
-import { PaymentStatusEnum } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,28 +12,82 @@ export async function POST(request: NextRequest) {
       razorpayPaymentId,
       razorpayOrderId,
       razorpaySignature,
-      transactionRef,
-      status = 'SUCCESS',
     } = body;
 
-    if (!orderId) {
-      throw new ValidationError('Order ID is required.');
+    if (!razorpayPaymentId || !razorpayOrderId || !razorpaySignature) {
+      throw new ValidationError(
+        'Missing required payment verification parameters: razorpayPaymentId, razorpayOrderId, and razorpaySignature.'
+      );
     }
 
-    const order = getOrderByIdOrNumber(orderId);
+    const keySecret =
+      process.env.RAZORPAY_KEY_SECRET ||
+      process.env.RAZORPAY_SECRET_KEY ||
+      process.env.RAZORPAY_SECRET ||
+      process.env.RAZOR_PAY_KEY_SECRET ||
+      process.env.RZP_KEY_SECRET ||
+      process.env.NEXT_PUBLIC_RAZORPAY_KEY_SECRET ||
+      '';
 
-    const ref = razorpayPaymentId || transactionRef || `pay_${Date.now()}`;
-    const gatewayOrderId = razorpayOrderId || undefined;
-    const paymentStatus: PaymentStatusEnum = status === 'SUCCESS' ? 'SUCCESS' : 'FAILED';
+    if (!keySecret) {
+      return errorResponse(
+        'Server payment gateway secret configuration is missing.',
+        500,
+        'GATEWAY_SECRET_MISSING'
+      );
+    }
 
+    // Server-side cryptographic HMAC-SHA256 signature verification
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
+      .digest('hex');
+
+    const isSignatureValid =
+      expectedSignature.length === razorpaySignature.length &&
+      crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'utf-8'),
+        Buffer.from(razorpaySignature, 'utf-8')
+      );
+
+    if (!isSignatureValid) {
+      if (orderId) {
+        const order = getOrderByIdOrNumber(orderId);
+        if (order) {
+          recordPaymentTransaction({
+            orderId: order.id,
+            transactionRef: razorpayPaymentId,
+            gatewayName: 'Razorpay',
+            gatewayOrderId: razorpayOrderId,
+            status: 'FAILED',
+            rawResponse: {
+              razorpayPaymentId,
+              razorpayOrderId,
+              razorpaySignature,
+              error: 'Invalid HMAC-SHA256 signature',
+              failedAt: new Date().toISOString(),
+            },
+          });
+        }
+      }
+
+      return errorResponse(
+        'Invalid payment signature. Verification failed.',
+        400,
+        'INVALID_PAYMENT_SIGNATURE'
+      );
+    }
+
+    const order = orderId ? getOrderByIdOrNumber(orderId) : null;
     let updatedOrder = null;
+
     if (order) {
       updatedOrder = recordPaymentTransaction({
         orderId: order.id,
-        transactionRef: ref,
+        transactionRef: razorpayPaymentId,
         gatewayName: 'Razorpay',
-        gatewayOrderId,
-        status: paymentStatus,
+        gatewayOrderId: razorpayOrderId,
+        status: 'SUCCESS',
         rawResponse: {
           razorpayPaymentId,
           razorpayOrderId,
@@ -43,15 +97,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    if (paymentStatus === 'FAILED') {
-      return errorResponse('Payment transaction was declined or failed.', 400, 'PAYMENT_FAILED');
-    }
-
     return successResponse(
       {
         message: 'Payment verified successfully.',
-        transactionRef: ref,
-        gatewayOrderId,
+        transactionRef: razorpayPaymentId,
+        gatewayOrderId: razorpayOrderId,
         order: updatedOrder || { id: orderId, paymentStatus: 'Paid' },
       },
       200

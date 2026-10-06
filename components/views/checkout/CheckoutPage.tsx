@@ -223,7 +223,7 @@ export const CheckoutPage: React.FC = () => {
     setPaymentError(null);
 
     try {
-      // 1. Create Payment Order Intent
+      // 1. Create Authentic Razorpay Payment Order Intent
       const intentRes = await fetch('/api/payments/create-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -240,87 +240,73 @@ export const CheckoutPage: React.FC = () => {
       });
 
       const intentData = await intentRes.json();
-      const gatewayOrderId = intentData.data?.gatewayOrderId || null;
-      const razorpayKey = intentData.data?.keyId || 'rzp_test_veloura_living_demo';
-      const referenceId = gatewayOrderId || `order_${Date.now()}`;
+      if (!intentRes.ok || !intentData.success || !intentData.data?.gatewayOrderId) {
+        throw new Error(intentData.error?.message || 'Failed to initialize Razorpay payment order.');
+      }
 
-      // 2. Launch Official Razorpay Modal or Instant Test Simulation
-      if (typeof window !== 'undefined' && (window as any).Razorpay && razorpayKey && !razorpayKey.includes('demo')) {
-        const options: any = {
-          key: razorpayKey,
-          amount: Math.round(effectiveTotal * 100),
-          currency: 'INR',
-          name: 'Veloura Living',
-          description: 'Luxury Curated Furniture Order',
-          image: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=100&auto=format&fit=crop&q=80',
-          prefill: {
-            name: formData.fullName,
-            email: formData.email,
-            contact: formData.phone,
-          },
-          theme: {
-            color: '#1C140E',
-          },
-          handler: async (response: any) => {
-            try {
-              const verifyRes = await fetch('/api/payments/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  orderId: referenceId,
-                  razorpayPaymentId: response.razorpay_payment_id,
-                  razorpayOrderId: response.razorpay_order_id || gatewayOrderId,
-                  razorpaySignature: response.razorpay_signature,
-                  status: 'SUCCESS'
-                }),
-              });
-              const verifyData = await verifyRes.json();
-              finalizeOrder(response.razorpay_payment_id || `pay_rzp_${Date.now()}`, verifyData);
-            } catch (vErr) {
-              finalizeOrder(response.razorpay_payment_id || `pay_rzp_${Date.now()}`);
-            }
-          },
-          modal: {
-            ondismiss: () => {
-              setIsProcessingPayment(false);
-              setPaymentError('Payment window closed. You can retry payment anytime.');
-            }
-          }
-        };
+      const gatewayOrderId = intentData.data.gatewayOrderId;
+      const razorpayKey = intentData.data.keyId;
 
-        if (gatewayOrderId && typeof gatewayOrderId === 'string' && gatewayOrderId.startsWith('order_')) {
-          options.order_id = gatewayOrderId;
-        }
+      // 2. Launch Official Razorpay Modal
+      if (typeof window === 'undefined' || !(window as any).Razorpay) {
+        throw new Error('Razorpay Checkout SDK is still loading. Please check your connection and retry.');
+      }
 
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', (response: any) => {
-          setIsProcessingPayment(false);
-          setPaymentError(response.error?.description || 'Payment transaction failed. Please retry.');
-        });
-        rzp.open();
-      } else {
-        // Fallback smooth confirmation for demo/local testing
-        setTimeout(async () => {
-          const mockPaymentId = `pay_test_${Date.now()}`;
+      const options: any = {
+        key: razorpayKey,
+        amount: intentData.data.amountInPaise || Math.round(effectiveTotal * 100),
+        currency: 'INR',
+        name: 'Veloura Living',
+        description: 'Luxury Curated Furniture Order',
+        image: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=100&auto=format&fit=crop&q=80',
+        order_id: gatewayOrderId,
+        prefill: {
+          name: formData.fullName,
+          email: formData.email,
+          contact: formData.phone,
+        },
+        theme: {
+          color: '#1C140E',
+        },
+        handler: async (response: any) => {
           try {
             const verifyRes = await fetch('/api/payments/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                orderId: referenceId,
-                razorpayPaymentId: mockPaymentId,
-                razorpayOrderId: gatewayOrderId,
-                razorpaySignature: 'sig_test_' + Date.now(),
-                status: 'SUCCESS'
+                orderId: gatewayOrderId,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpayOrderId: response.razorpay_order_id || gatewayOrderId,
+                razorpaySignature: response.razorpay_signature,
               }),
             });
             const verifyData = await verifyRes.json();
-            finalizeOrder(mockPaymentId, verifyData);
-          } catch (simErr) {
-            finalizeOrder(mockPaymentId);
+
+            if (verifyRes.ok && verifyData.success) {
+              finalizeOrder(response.razorpay_payment_id, verifyData);
+            } else {
+              setIsProcessingPayment(false);
+              setPaymentError(verifyData.error?.message || 'Payment signature verification failed. Order not confirmed.');
+            }
+          } catch (vErr: any) {
+            setIsProcessingPayment(false);
+            setPaymentError(vErr.message || 'Payment verification failed.');
           }
-        }, 800);
-      }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessingPayment(false);
+            setPaymentError('Payment window closed. You can retry payment anytime.');
+          }
+        }
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', (response: any) => {
+        setIsProcessingPayment(false);
+        setPaymentError(response.error?.description || response.error?.reason || 'Payment transaction failed. Please retry.');
+      });
+      rzp.open();
     } catch (err: any) {
       setIsProcessingPayment(false);
       setPaymentError(err.message || 'Payment initiation error.');
@@ -1028,21 +1014,9 @@ export const CheckoutPage: React.FC = () => {
                 )}
 
                 {paymentError && (
-                  <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
-                      <span>{paymentError}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsProcessingPayment(true);
-                        setTimeout(() => finalizeOrder(`pay_test_sim_${Date.now()}`), 800);
-                      }}
-                      className="self-start px-3 py-1 bg-[#8B5A2B] text-white rounded-lg font-semibold text-[11px] hover:bg-[#4A2C1A] transition-all cursor-pointer shadow-sm"
-                    >
-                      ⚡ Simulate Instant Test Success
-                    </button>
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span>{paymentError}</span>
                   </div>
                 )}
 

@@ -180,9 +180,25 @@ Unauthenticated visitors and standard `CUSTOMER` accounts navigating to `/admin`
 
 ---
 
-## 8. Phase 11: Payment Automation, Automated Refunds & Multi-Currency Engine
+## 8. Phase 11: Payment Automation, Razorpay Test Mode, Automated Refunds & Multi-Currency Engine
 
-### ⚡ 1. Direct Automated Razorpay Gateway Refund Engine (`RET-007`)
+### 💳 1. Authentic Razorpay Test Mode Order & Cryptographic Signature Engine (`PAY-001`, `PAY-002`)
+- **Server-Side Order Intent Creation (`POST /api/payments/create-intent`):**
+  - Communicates directly with official Razorpay API endpoint: `https://api.razorpay.com/v1/orders`.
+  - Authenticates via Base64 encoded Basic Auth: `Basic Buffer.from(RAZORPAY_KEY_ID + ":" + RAZORPAY_KEY_SECRET).toString('base64')`.
+  - Amount subunit validation: Converts order totals to paise ($₹ \times 100$) with server-side validation ensuring amount $> 0$.
+  - Generates authentic Razorpay order identifiers (e.g., `order_TkWj2PHTG9yxhG`).
+- **Cryptographic HMAC-SHA256 Signature Verification (`POST /api/payments/verify`):**
+  - Computes message digest across concatenated order and payment identifiers:
+    $$\text{Payload} = \text{razorpay\_order\_id} \parallel \text{"|"} \parallel \text{razorpay\_payment\_id}$$
+    $$\text{Signature}_{\text{expected}} = \text{HMAC-SHA256}\left(\text{Payload}, \text{RAZORPAY\_KEY\_SECRET}\right)$$
+  - Employs constant-time byte comparison (`crypto.timingSafeEqual`) to prevent side-channel timing analysis attacks.
+  - Strictly ignores unverified client status strings; only cryptographically matching signatures allow state progression to `PaymentStatus: 'Paid'`.
+- **Zero-Bypass Client Execution:**
+  - Removed all fake payment simulations (`pay_test_*`, `sig_test_*`, `rzp_test_veloura_living_demo`).
+  - Strict requirement of active Razorpay Checkout SDK initialization before launching payment dialog.
+
+### ⚡ 2. Direct Automated Razorpay Gateway Refund Engine (`RET-007`)
 - **Direct Refund Dispatch:** Interacts directly with `POST /v1/payments/:id/refund` transmitting JSON payload:
   ```json
   {

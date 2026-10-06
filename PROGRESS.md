@@ -110,7 +110,12 @@ All phases defined in the normative SRS specification and V2 roadmap are 100% co
   - `npx.cmd tsx tests/verify-all-images.ts`: 37/37 static images & material swatches verified with HTTP 200 OK.
   - `npm.cmd test`: 33/33 unit & integration tests passing 100%.
 
-### 11. Phase 11: Payment Automation, Razorpay Refunds, COD Engine & Multi-Currency Dynamic Pricing ✅
+### 11. Phase 11: Payment Automation, Razorpay Test Mode & Refunds, COD Engine & Multi-Currency Dynamic Pricing ✅
+- **Authentic Razorpay Test Mode & Cryptographic Signature Verification (`PAY-001`, `PAY-002`):**
+  - **Live Test Mode Order Intent (`POST /api/payments/create-intent`):** Generates authentic Razorpay orders via `https://api.razorpay.com/v1/orders` using server-side Basic Auth (`RAZORPAY_KEY_ID:RAZORPAY_KEY_SECRET`). Strict server amount validation, INR currency enforcement, and complete elimination of simulated demo fallbacks.
+  - **Cryptographic HMAC-SHA256 Verification (`POST /api/payments/verify`):** Server computes `crypto.createHmac('sha256', secret).update(orderId + '|' + paymentId).digest('hex')` with timing-safe comparison (`crypto.timingSafeEqual`). Strictly rejects untrusted client statuses and tampered signatures with HTTP 400.
+  - **Zero-Bypass Checkout Flow (`CheckoutPage.tsx`):** Launches official Razorpay modal with authentic `order_id`, and requires verified server response before atomic transition to Order Confirmed state and VIP Gold Coin reward dispatch.
+  - **Environment Variable Security:** Private secret keys isolated to server memory with multi-alias support across Next.js and standalone backend.
 - **Automated Razorpay Refund API (`RET-007`):**
   - Direct gateway refund execution (`POST /v1/payments/:id/refund`) with instant speed preference options (`optimum` / `normal`).
   - Automatic reconciliation between return ledger, refund audit history, `gateway_refund_id`, and `gateway_arn` Acquirer Reference Numbers.
@@ -127,6 +132,7 @@ All phases defined in the normative SRS specification and V2 roadmap are 100% co
   - Dedicated REST endpoints: `GET /api/currency/rates` and `POST /api/currency/convert`.
 - **Phase 11 Automated Test Suite:**
   - `npm.cmd run test:phase11`: 30/30 automated tests passing across FX calculations, COD safety boundaries, OTP validation, direct refund execution, and end-to-end checkout.
+  - `npx.cmd tsx tests/test-razorpay-checkout-flow.ts`: 100% verified authentic test intent generation, fake signature rejection, and cryptographic HMAC verification.
 
 ### 12. Phase 12: Multi-Channel Notification Engine & In-App Notification Center Drawer ✅
 - **Multi-Channel Notification Dispatcher (`lib/services/notificationService.ts` & `backend/src/services/notificationService.ts`):**
