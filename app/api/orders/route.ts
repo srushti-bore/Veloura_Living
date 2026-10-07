@@ -39,9 +39,8 @@ export async function GET(request: NextRequest) {
       return successResponse(orders, 200);
     }
 
-    // Anonymous demo: Return recent orders or empty
-    const all = getAllOrders({ limit: 5 });
-    return successResponse(all.orders, 200);
+    // Unauthenticated: Return empty array for privacy
+    return successResponse([], 200);
   } catch (error) {
     return handleApiError(error);
   }

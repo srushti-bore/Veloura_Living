@@ -61,8 +61,8 @@ export const AdminDashboardPage: React.FC = () => {
   >('overview');
 
   // Admin Security Gate State
-  const [adminEmail, setAdminEmail] = useState('admin@velouraliving.com');
-  const [adminPassword, setAdminPassword] = useState('VelouraAdmin2026!');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -181,22 +181,7 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  const handleQuickFillAndLogin = async (email: string, pass: string) => {
-    setAdminEmail(email);
-    setAdminPassword(pass);
-    setLoginError(null);
-    setIsAuthenticating(true);
-    try {
-      const res = await login({ email, password: pass });
-      if (!res.success) {
-        setLoginError(res.message || 'Authentication failed.');
-      }
-    } catch {
-      setLoginError('Authentication service unreachable.');
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
+
 
   // Order Status Updater
   const handleUpdateOrderStatus = async (orderId: string, newStatus: OrderStatusEnum) => {
@@ -449,38 +434,6 @@ export const AdminDashboardPage: React.FC = () => {
                 )}
               </button>
             </form>
-
-            {/* Quick Demo Fillers for Fast Evaluation */}
-            <div className="pt-4 border-t border-white/10 space-y-3">
-              <p className="text-[11px] font-semibold text-[#A89F91] uppercase tracking-wider text-center">
-                Fast-Access Demo Credentials (1-Click)
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleQuickFillAndLogin('admin@velouraliving.com', 'VelouraAdmin2026!')}
-                  disabled={isAuthenticating}
-                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-[#D4AF37] hover:bg-white/10 text-left transition-all cursor-pointer group text-xs"
-                >
-                  <div className="font-semibold text-white flex items-center gap-1.5">
-                    <span>👑 Master Admin</span>
-                  </div>
-                  <div className="text-[10px] text-[#A89F91] font-mono truncate">admin@velouraliving.com</div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleQuickFillAndLogin('concierge@velouraliving.com', 'VelouraAdmin2026!')}
-                  disabled={isAuthenticating}
-                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-[#D4AF37] hover:bg-white/10 text-left transition-all cursor-pointer group text-xs"
-                >
-                  <div className="font-semibold text-white flex items-center gap-1.5">
-                    <span>👔 Ops Manager</span>
-                  </div>
-                  <div className="text-[10px] text-[#A89F91] font-mono truncate">concierge@velouraliving.com</div>
-                </button>
-              </div>
-            </div>
           </div>
 
           <div className="text-center">

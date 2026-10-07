@@ -6,10 +6,20 @@
 
 import { JWTPayload, UserRoleEnum } from '@/types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'veloura-living-master-luxury-jwt-secret-2026-auth-token';
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL SECURITY ERROR: JWT_SECRET environment variable is missing in production.');
+    }
+    return 'veloura-living-master-luxury-jwt-secret-2026-auth-token';
+  }
+  return secret;
+}
+
 export const ACCESS_TOKEN_EXPIRY_SECONDS = 15 * 60; // 15 minutes (SRS AUTH-004)
 export const REFRESH_TOKEN_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 days (SRS AUTH-004)
-const DEFAULT_EXPIRATION_SECONDS = ACCESS_TOKEN_EXPIRY_SECONDS;
+const DEFAULT_EXPIRATION_SECONDS = REFRESH_TOKEN_EXPIRY_SECONDS;
 
 function base64UrlEncode(data: string | Uint8Array): string {
   let base64 = '';
@@ -52,7 +62,7 @@ async function getCryptoKey(): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   return crypto.subtle.importKey(
     'raw',
-    encoder.encode(JWT_SECRET),
+    encoder.encode(getJwtSecret()),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign', 'verify']
