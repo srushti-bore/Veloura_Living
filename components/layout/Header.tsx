@@ -127,71 +127,76 @@ export const Header: React.FC = () => {
 
   const isRoomsActive = pathname.startsWith('/rooms');
   const isStudioActive = pathname.startsWith('/studio') || pathname.startsWith('/configurator');
+  const isCheckout = pathname?.startsWith('/checkout');
 
   return (
     <header className="w-full z-40 sticky top-0 transition-all duration-300 font-sans">
       {/* ========================================================================= */}
       {/* 1. TOP UTILITY / ANNOUNCEMENT BAR                                         */}
       {/* ========================================================================= */}
-      <div className="bg-[#150E0A] text-[#D8B486]/85 border-b border-[#3D271D]/40 text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 transition-colors">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Left: Warranty / Guarantee Badge */}
-          <div className="flex items-center gap-2 text-[#E8D8C5]/90">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#D8B486] shrink-0" />
-            <span className="hidden sm:inline font-medium tracking-wide">
-              10-Year Generational Warranty & White-Glove Installation
-            </span>
-            <span className="sm:hidden font-medium">10-Yr Warranty & In-Home Assembly</span>
-          </div>
+      {!isCheckout && (
+        <div className="bg-[#150E0A] text-[#D8B486]/85 border-b border-[#3D271D]/40 text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 transition-colors">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            {/* Left: Warranty / Guarantee Badge */}
+            <div className="flex items-center gap-2 text-[#E8D8C5]/90">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#D8B486] shrink-0" />
+              <span className="hidden sm:inline font-medium tracking-wide">
+                10-Year Generational Warranty & White-Glove Installation
+              </span>
+              <span className="sm:hidden font-medium">10-Yr Warranty & In-Home Assembly</span>
+            </div>
 
-          {/* Center: Privilege Code Promo (Desktop) */}
-          <div className="hidden lg:flex items-center gap-2 text-[#D8B486]">
-            <Tag className="w-3 h-3 text-[#D8B486] shrink-0" />
-            <span className="tracking-wider">
-              Complimentary Assembly on All Orders | Code: <strong className="text-[#FAF7F2] font-semibold">LUXE10</strong>
-            </span>
-          </div>
+            {/* Center: Privilege Code Promo (Desktop) */}
+            <div className="hidden lg:flex items-center gap-2 text-[#D8B486]">
+              <Tag className="w-3 h-3 text-[#D8B486] shrink-0" />
+              <span className="tracking-wider">
+                Complimentary Assembly on All Orders | Code: <strong className="text-[#FAF7F2] font-semibold">LUXE10</strong>
+              </span>
+            </div>
 
-          {/* Right: Currency Selector, Install App & Trade Portal */}
-          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-            {/* Currency Selector */}
-            <CurrencySelector minimal={true} />
+            {/* Right: Currency Selector, Install App & Trade Portal */}
+            <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+              {/* Currency Selector */}
+              <CurrencySelector minimal={true} />
 
-            {/* PWA Install Button */}
-            {isInstallable && (
-              <button
-                type="button"
-                onClick={promptInstall}
-                className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#D8B486]/15 hover:bg-[#D8B486]/25 border border-[#D8B486]/30 text-[#D8B486] text-[10px] tracking-wider uppercase font-medium transition-all"
-                title="Install Veloura Living App"
+              {/* PWA Install Button */}
+              {isInstallable && (
+                <button
+                  type="button"
+                  onClick={promptInstall}
+                  className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#D8B486]/15 hover:bg-[#D8B486]/25 border border-[#D8B486]/30 text-[#D8B486] text-[10px] tracking-wider uppercase font-medium transition-all"
+                  title="Install Veloura Living App"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Install App</span>
+                </button>
+              )}
+
+              {/* Trade Portal Link (Moved to Utility Bar per Specification) */}
+              <Link
+                href="/trade"
+                className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold transition-all ${
+                  pathname.startsWith('/trade')
+                    ? 'bg-[#D8B486] text-[#1C140E]'
+                    : 'text-[#D8B486] hover:text-[#FAF7F2] hover:bg-[#2A1A12]/60 border border-[#8B5A2B]/30'
+                }`}
               >
-                <Download className="w-3 h-3" />
-                <span>Install App</span>
-              </button>
-            )}
-
-            {/* Trade Portal Link (Moved to Utility Bar per Specification) */}
-            <Link
-              href="/trade"
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold transition-all ${
-                pathname.startsWith('/trade')
-                  ? 'bg-[#D8B486] text-[#1C140E]'
-                  : 'text-[#D8B486] hover:text-[#FAF7F2] hover:bg-[#2A1A12]/60 border border-[#8B5A2B]/30'
-              }`}
-            >
-              <Briefcase className="w-3 h-3 text-current" />
-              <span>Trade Portal</span>
-            </Link>
+                <Briefcase className="w-3 h-3 text-current" />
+                <span>Trade Portal</span>
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 2. MAIN NAVIGATION HEADER                                                 */}
       {/* ========================================================================= */}
       <div
         className={`w-full transition-all duration-300 ${
-          isScrolled
+          isCheckout
+            ? 'bg-[#F4ECE1] border-b border-[#D9CBC0]/60 py-4'
+            : isScrolled
             ? 'bg-[#150E0A]/95 backdrop-blur-md shadow-2xl border-b border-[#3D271D]/50 py-3'
             : 'bg-[#1C140E]/90 backdrop-blur-sm border-b border-[#3D271D]/30 py-4'
         }`}
@@ -206,32 +211,54 @@ export const Header: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2 -ml-2 text-[#E8D8C5] hover:text-[#D8B486] focus:outline-none transition-colors"
+                className={`lg:hidden p-2 -ml-2 focus:outline-none transition-colors ${
+                  isCheckout ? 'text-[#2B1810]' : 'text-[#E8D8C5] hover:text-[#D8B486]'
+                }`}
                 aria-label="Toggle Navigation Menu"
               >
                 {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
 
               <Link href="/" className="group flex flex-col focus:outline-none">
-                <span className="font-serif text-xl sm:text-2xl lg:text-2xl tracking-[0.2em] font-light text-[#FAF7F2] group-hover:text-[#D8B486] transition-colors">
+                <span
+                  className={`font-serif text-xl sm:text-2xl lg:text-2xl tracking-[0.2em] font-light transition-colors ${
+                    isCheckout
+                      ? 'text-[#2B1810] group-hover:text-[#3B2314]'
+                      : 'text-[#FAF7F2] group-hover:text-[#D8B486]'
+                  }`}
+                >
                   VELOURA
                 </span>
-                <span className="text-[9px] uppercase tracking-[0.3em] text-[#D8B486]/80 -mt-1 font-sans font-light">
+                <span
+                  className={`text-[9px] uppercase tracking-[0.3em] -mt-1 font-sans font-light ${
+                    isCheckout ? 'text-[#7A6B60]' : 'text-[#D8B486]/80'
+                  }`}
+                >
                   LIVING
                 </span>
               </Link>
             </div>
 
             {/* ----------------------------------------------------------------- */}
-            {/* CENTER: CONSOLIDATED 6-ITEM PRIMARY NAVIGATION (Desktop)          */}
+            {/* CENTER: PRIMARY NAVIGATION (Desktop)                              */}
             {/* ----------------------------------------------------------------- */}
-            <nav className="hidden lg:flex items-center gap-1 xl:gap-2 text-[12px] uppercase tracking-[0.18em] font-medium text-[#E8D8C5]">
+            <nav
+              className={`hidden lg:flex items-center gap-1 xl:gap-3 ${
+                isCheckout
+                  ? 'text-[13px] font-sans text-[#2B1810]'
+                  : 'text-[12px] uppercase tracking-[0.18em] font-medium text-[#E8D8C5]'
+              }`}
+            >
               {/* 1. HOME */}
               <Link
                 href="/"
-                className={`px-3 py-2 rounded-md transition-all duration-200 ${
+                className={`px-3 py-1.5 rounded-md transition-all duration-200 ${
                   pathname === '/'
-                    ? 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                    ? isCheckout
+                      ? 'text-[#2B1810] font-semibold bg-[#EFE7DD]'
+                      : 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                    : isCheckout
+                    ? 'hover:text-[#2B1810] hover:bg-[#EFE7DD]'
                     : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/30'
                 }`}
               >
@@ -247,9 +274,13 @@ export const Header: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActiveDropdown(activeDropdown === 'rooms' ? null : 'rooms')}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-md transition-all duration-200 ${
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-md transition-all duration-200 ${
                     isRoomsActive || activeDropdown === 'rooms'
-                      ? 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                      ? isCheckout
+                        ? 'text-[#2B1810] font-semibold bg-[#EFE7DD]'
+                        : 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                      : isCheckout
+                      ? 'hover:text-[#2B1810] hover:bg-[#EFE7DD]'
                       : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/30'
                   }`}
                   aria-expanded={activeDropdown === 'rooms'}
@@ -257,7 +288,9 @@ export const Header: React.FC = () => {
                   <span>Rooms</span>
                   <ChevronDown
                     className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                      activeDropdown === 'rooms' ? 'rotate-180 text-[#D8B486]' : 'text-[#B9AA99]'
+                      activeDropdown === 'rooms'
+                        ? isCheckout ? 'rotate-180 text-[#2B1810]' : 'rotate-180 text-[#D8B486]'
+                        : isCheckout ? 'text-[#7A6B60]' : 'text-[#B9AA99]'
                     }`}
                   />
                 </button>
@@ -352,121 +385,131 @@ export const Header: React.FC = () => {
               {/* 3. SHOP */}
               <Link
                 href="/shop"
-                className={`px-3 py-2 rounded-md transition-all duration-200 ${
+                className={`px-3 py-1.5 rounded-md transition-all duration-200 ${
                   pathname.startsWith('/shop') || pathname.startsWith('/products')
-                    ? 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                    ? isCheckout
+                      ? 'text-[#2B1810] font-semibold bg-[#EFE7DD]'
+                      : 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                    : isCheckout
+                    ? 'hover:text-[#2B1810] hover:bg-[#EFE7DD]'
                     : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/30'
                 }`}
               >
                 Shop
               </Link>
 
-              {/* 4. STUDIO (Consolidated Dropdown: 2D + 3D + AR) */}
-              <div
-                className="relative"
-                onMouseEnter={() => handleMouseEnter('studio')}
-                onMouseLeave={handleMouseLeave}
-              >
-                <button
-                  type="button"
-                  onClick={() => setActiveDropdown(activeDropdown === 'studio' ? null : 'studio')}
-                  className={`flex items-center gap-1 px-3 py-2 rounded-md transition-all duration-200 ${
-                    isStudioActive || activeDropdown === 'studio'
-                      ? 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
-                      : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/30'
-                  }`}
-                  aria-expanded={activeDropdown === 'studio'}
+              {/* 4. STUDIO (Consolidated Dropdown: 2D + 3D + AR) - Hidden on Checkout */}
+              {!isCheckout && (
+                <div
+                  className="relative"
+                  onMouseEnter={() => handleMouseEnter('studio')}
+                  onMouseLeave={handleMouseLeave}
                 >
-                  <span>Studio</span>
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                      activeDropdown === 'studio' ? 'rotate-180 text-[#D8B486]' : 'text-[#B9AA99]'
+                  <button
+                    type="button"
+                    onClick={() => setActiveDropdown(activeDropdown === 'studio' ? null : 'studio')}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-md transition-all duration-200 ${
+                      isStudioActive || activeDropdown === 'studio'
+                        ? 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                        : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/30'
                     }`}
-                  />
-                </button>
+                    aria-expanded={activeDropdown === 'studio'}
+                  >
+                    <span>Studio</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                        activeDropdown === 'studio' ? 'rotate-180 text-[#D8B486]' : 'text-[#B9AA99]'
+                      }`}
+                    />
+                  </button>
 
-                {/* Studio Dropdown Menu */}
-                {activeDropdown === 'studio' && (
-                  <div className="absolute top-full left-0 mt-2 w-80 rounded-xl bg-[#1C140E]/98 border border-[#3D271D] shadow-2xl backdrop-blur-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="px-3 py-2 border-b border-[#3D271D]/40 mb-1">
-                      <span className="text-[10px] uppercase tracking-[0.25em] text-[#D8B486] font-semibold">
-                        Spatial Design Suite
-                      </span>
-                    </div>
+                  {/* Studio Dropdown Menu */}
+                  {activeDropdown === 'studio' && (
+                    <div className="absolute top-full left-0 mt-2 w-80 rounded-xl bg-[#1C140E]/98 border border-[#3D271D] shadow-2xl backdrop-blur-xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="px-3 py-2 border-b border-[#3D271D]/40 mb-1">
+                        <span className="text-[10px] uppercase tracking-[0.25em] text-[#D8B486] font-semibold">
+                          Spatial Design Suite
+                        </span>
+                      </div>
 
-                    {/* 2D Room Planner */}
-                    <Link
-                      href="/studio"
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#FAF7F2] hover:bg-[#2A1A12] hover:text-[#D8B486] transition-colors group"
-                    >
-                      <div className="w-8 h-8 rounded-md bg-[#2A1A12] border border-[#3D271D] flex items-center justify-center text-[#D8B486] group-hover:border-[#D8B486]/40 transition-colors">
-                        <Layers className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold normal-case tracking-normal">2D Room Planner</div>
-                        <div className="text-[11px] text-[#B9AA99] normal-case tracking-normal font-normal">
-                          Plan and arrange floor plan & layouts
-                        </div>
-                      </div>
-                    </Link>
-
-                    {/* Interactive 3D Studio */}
-                    <Link
-                      href="/configurator"
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#FAF7F2] hover:bg-[#2A1A12] hover:text-[#D8B486] transition-colors group"
-                    >
-                      <div className="w-8 h-8 rounded-md bg-[#2A1A12] border border-[#3D271D] flex items-center justify-center text-[#D8B486] group-hover:border-[#D8B486]/40 transition-colors">
-                        <Box className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold normal-case tracking-normal">Interactive 3D Studio</div>
-                        <div className="text-[11px] text-[#B9AA99] normal-case tracking-normal font-normal">
-                          Visualize & customize pieces in 3D
-                        </div>
-                      </div>
-                    </Link>
-
-                    {/* AR Spatial Preview */}
-                    <Link
-                      href="/configurator"
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#FAF7F2] hover:bg-[#2A1A12] hover:text-[#D8B486] transition-colors group"
-                    >
-                      <div className="w-8 h-8 rounded-md bg-[#2A1A12] border border-[#3D271D] flex items-center justify-center text-[#D8B486] group-hover:border-[#D8B486]/40 transition-colors">
-                        <Eye className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold normal-case tracking-normal flex items-center gap-1.5">
-                          <span>AR Spatial Preview</span>
-                          <span className="text-[9px] px-1.5 py-0.2 bg-[#D8B486]/20 text-[#D8B486] rounded-full uppercase tracking-wider font-semibold">
-                            Live AR
-                          </span>
-                        </div>
-                        <div className="text-[11px] text-[#B9AA99] normal-case tracking-normal font-normal">
-                          Preview true-to-scale pieces in your room
-                        </div>
-                      </div>
-                    </Link>
-
-                    {/* Bottom Action Footer */}
-                    <div className="mt-1 pt-2 border-t border-[#3D271D]/40 px-3">
+                      {/* 2D Room Planner */}
                       <Link
                         href="/studio"
-                        className="flex items-center justify-between text-xs text-[#D8B486] hover:text-[#FAF7F2] transition-colors py-1 normal-case font-medium"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#FAF7F2] hover:bg-[#2A1A12] hover:text-[#D8B486] transition-colors group"
                       >
-                        <span>Explore Studio Suite</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <div className="w-8 h-8 rounded-md bg-[#2A1A12] border border-[#3D271D] flex items-center justify-center text-[#D8B486] group-hover:border-[#D8B486]/40 transition-colors">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold normal-case tracking-normal">2D Room Planner</div>
+                          <div className="text-[11px] text-[#B9AA99] normal-case tracking-normal font-normal">
+                            Plan and arrange floor plan & layouts
+                          </div>
+                        </div>
                       </Link>
+
+                      {/* Interactive 3D Studio */}
+                      <Link
+                        href="/configurator"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#FAF7F2] hover:bg-[#2A1A12] hover:text-[#D8B486] transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-md bg-[#2A1A12] border border-[#3D271D] flex items-center justify-center text-[#D8B486] group-hover:border-[#D8B486]/40 transition-colors">
+                          <Box className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold normal-case tracking-normal">Interactive 3D Studio</div>
+                          <div className="text-[11px] text-[#B9AA99] normal-case tracking-normal font-normal">
+                            Visualize & customize pieces in 3D
+                          </div>
+                        </div>
+                      </Link>
+
+                      {/* AR Spatial Preview */}
+                      <Link
+                        href="/configurator"
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#FAF7F2] hover:bg-[#2A1A12] hover:text-[#D8B486] transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-md bg-[#2A1A12] border border-[#3D271D] flex items-center justify-center text-[#D8B486] group-hover:border-[#D8B486]/40 transition-colors">
+                          <Eye className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold normal-case tracking-normal flex items-center gap-1.5">
+                            <span>AR Spatial Preview</span>
+                            <span className="text-[9px] px-1.5 py-0.2 bg-[#D8B486]/20 text-[#D8B486] rounded-full uppercase tracking-wider font-semibold">
+                              Live AR
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-[#B9AA99] normal-case tracking-normal font-normal">
+                            Preview true-to-scale pieces in your room
+                          </div>
+                        </div>
+                      </Link>
+
+                      {/* Bottom Action Footer */}
+                      <div className="mt-1 pt-2 border-t border-[#3D271D]/40 px-3">
+                        <Link
+                          href="/studio"
+                          className="flex items-center justify-between text-xs text-[#D8B486] hover:text-[#FAF7F2] transition-colors py-1 normal-case font-medium"
+                        >
+                          <span>Explore Studio Suite</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* 5. COLLECTIONS */}
               <Link
                 href="/collections"
-                className={`px-3 py-2 rounded-md transition-all duration-200 ${
+                className={`px-3 py-1.5 rounded-md transition-all duration-200 ${
                   pathname.startsWith('/collections')
-                    ? 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                    ? isCheckout
+                      ? 'text-[#2B1810] font-semibold bg-[#EFE7DD]'
+                      : 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                    : isCheckout
+                    ? 'hover:text-[#2B1810] hover:bg-[#EFE7DD]'
                     : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/30'
                 }`}
               >
@@ -476,9 +519,13 @@ export const Header: React.FC = () => {
               {/* 6. JOURNAL */}
               <Link
                 href="/journal"
-                className={`px-3 py-2 rounded-md transition-all duration-200 ${
+                className={`px-3 py-1.5 rounded-md transition-all duration-200 ${
                   pathname.startsWith('/journal')
-                    ? 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                    ? isCheckout
+                      ? 'text-[#2B1810] font-semibold bg-[#EFE7DD]'
+                      : 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                    : isCheckout
+                    ? 'hover:text-[#2B1810] hover:bg-[#EFE7DD]'
                     : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/30'
                 }`}
               >
@@ -490,19 +537,6 @@ export const Header: React.FC = () => {
             {/* RIGHT: CUSTOMER ACTIONS                                           */}
             {/* ----------------------------------------------------------------- */}
             <div className="flex items-center gap-1.5 sm:gap-2.5">
-              {/* AI Consultant Trigger */}
-              <button
-                type="button"
-                onClick={() => setIsAIOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-[#D8B486]/12 hover:bg-[#D8B486]/22 border border-[#D8B486]/35 text-[#D8B486] text-xs font-medium tracking-wide transition-all shadow-sm hover:shadow-md group"
-                aria-label="Open AI Spatial Consultant"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#D8B486] group-hover:rotate-12 transition-transform" />
-                <span className="hidden xl:inline text-[11px] uppercase tracking-wider font-semibold">
-                  AI Consultant
-                </span>
-              </button>
-
               {/* Search Toggle / Input */}
               <div className="relative">
                 {isSearchOpen ? (
@@ -535,7 +569,9 @@ export const Header: React.FC = () => {
                       setIsSearchOpen(true);
                       setTimeout(() => searchInputRef.current?.focus(), 50);
                     }}
-                    className="p-2 text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40 rounded-full transition-colors"
+                    className={`p-2 rounded-full transition-colors ${
+                      isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40'
+                    }`}
                     aria-label="Search Catalog"
                   >
                     <Search className="w-4 h-4" />
@@ -546,7 +582,9 @@ export const Header: React.FC = () => {
               {/* Wishlist Link */}
               <Link
                 href="/account?tab=wishlist"
-                className="relative p-2 text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40 rounded-full transition-colors"
+                className={`relative p-2 rounded-full transition-colors ${
+                  isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40'
+                }`}
                 aria-label="View Wishlist"
               >
                 <Heart className="w-4 h-4" />
@@ -556,19 +594,6 @@ export const Header: React.FC = () => {
                   </span>
                 )}
               </Link>
-
-              {/* Notifications Trigger */}
-              <button
-                type="button"
-                onClick={toggleNotifications}
-                className="relative p-2 text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40 rounded-full transition-colors"
-                aria-label="Notifications"
-              >
-                <Bell className="w-4 h-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-[#D8B486] ring-2 ring-[#1C140E] animate-pulse" />
-                )}
-              </button>
 
               {/* User Account / Auth Dropdown */}
               <div className="relative" ref={accountMenuRef}>
@@ -581,7 +606,9 @@ export const Header: React.FC = () => {
                       openAuthModal('signin');
                     }
                   }}
-                  className="p-2 text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40 rounded-full transition-colors flex items-center gap-1"
+                  className={`p-2 rounded-full transition-colors flex items-center gap-1 ${
+                    isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40'
+                  }`}
                   aria-label="Account Settings"
                 >
                   <User className="w-4 h-4" />
@@ -602,7 +629,7 @@ export const Header: React.FC = () => {
                       className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#FAF7F2] hover:bg-[#2A1A12] hover:text-[#D8B486] transition-colors"
                     >
                       <User className="w-3.5 h-3.5 text-[#D8B486]" />
-                      <span>My Profile & Spaces</span>
+                      <span>My Profile &amp; Spaces</span>
                     </Link>
 
                     <Link
@@ -610,10 +637,10 @@ export const Header: React.FC = () => {
                       className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#FAF7F2] hover:bg-[#2A1A12] hover:text-[#D8B486] transition-colors"
                     >
                       <Clock className="w-3.5 h-3.5 text-[#D8B486]" />
-                      <span>Orders & Logistics</span>
+                      <span>Orders &amp; Logistics</span>
                     </Link>
 
-                    {/* Admin Console Access for Staff/Admins (Cleanly tucked inside authenticated account menu) */}
+                    {/* Admin Console Access for Staff/Admins */}
                     {(isAdmin || isManager) && (
                       <Link
                         href="/admin"
@@ -641,17 +668,20 @@ export const Header: React.FC = () => {
                 )}
               </div>
 
-              {/* Shopping Cart Pill Button (Primary Commerce CTA) */}
+              {/* Shopping Cart Button */}
               <button
                 type="button"
                 onClick={() => setIsCartOpen(true)}
-                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-full bg-[#D8B486] hover:bg-[#E8C599] text-[#1C140E] font-medium transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
+                className={`p-2 rounded-full transition-colors flex items-center gap-1 ${
+                  isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40'
+                }`}
                 aria-label={`Cart with ${cartCount} items`}
               >
-                <ShoppingBag className="w-4 h-4 text-[#1C140E]" />
-                <span className="hidden sm:inline text-xs font-bold tracking-wide">Cart</span>
+                <ShoppingBag className="w-4 h-4" />
                 {cartCount > 0 && (
-                  <span className="bg-[#1C140E] text-[#D8B486] text-[10px] font-bold rounded-full px-1.5 py-0.2 min-w-[18px] text-center">
+                  <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.2 min-w-[18px] text-center ${
+                    isCheckout ? 'bg-[#3B2314] text-[#F5EFE6]' : 'bg-[#D8B486] text-[#1C140E]'
+                  }`}>
                     {cartCount}
                   </span>
                 )}

@@ -19,6 +19,15 @@ import {
   AlertCircle,
   Zap,
   Landmark,
+  Calendar,
+  Clock,
+  Home,
+  PackageCheck,
+  MessageSquare,
+  Gift,
+  Recycle,
+  HelpCircle,
+  Layers,
   User,
   MapPin,
   ClipboardCheck,
@@ -31,25 +40,32 @@ export const CheckoutPage: React.FC = () => {
   const { cart, cartSubtotal, discountAmount, shippingCost, cartTotal, createOrder, navigate } = useStore();
   const { formatPrice, currentCurrency, currencyConfig } = useCurrency();
 
-  // Multi-step checkout state: 1 (Identity) -> 2 (Address) -> 3 (Confirmation) -> 4 (Payment)
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  // 5-Step Luxury Checkout State: 1 (Identity) -> 2 (Address) -> 3 (Staging & Schedule) -> 4 (Order & Vault Review) -> 5 (Payment Engine)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   const [formData, setFormData] = useState({
     fullName: 'Aarav Singhania',
     email: 'aarav.singhania@veloura.live',
     phone: '+91 98201 54321',
+    notificationChannel: 'whatsapp' as 'whatsapp' | 'sms' | 'email',
     address: 'Skyline Penthouse 34A, Worli Sea Face',
     apartment: 'Tower B, 34th Floor',
     city: 'Mumbai',
     state: 'Maharashtra',
     pincode: '400018',
     deliveryNotes: 'Please coordinate with tower concierge for elevator priority access.',
+    stagingSlot: 'morning' as 'morning' | 'afternoon' | 'weekend_vip',
+    roomPlacement: 'living_room' as 'living_room' | 'master_suite' | 'dining_salon' | 'executive_office',
+    elevatorAccess: 'service_elevator' as 'service_elevator' | 'ground_floor' | 'staircase_carriage',
+    ecoDebrisRemoval: true,
+    giftNote: '',
     paymentMethod: 'upi_razorpay' as 'upi_razorpay' | 'credit_card' | 'cod' | 'international_card' | 'netbanking' | 'emi',
     cardNumber: '4532 •••• •••• 8921',
     cardExpiry: '08/29',
     cardCvv: '•••'
   });
 
+  const [hoveredStep, setHoveredStep] = useState<number | null>(null);
   const [selectedBank, setSelectedBank] = useState<string>('HDFC');
 
   // Step Validation Errors
@@ -340,6 +356,12 @@ export const CheckoutPage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const goToStep5 = () => {
+    setStepError(null);
+    setCurrentStep(5);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSubmitOrder = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -451,17 +473,58 @@ export const CheckoutPage: React.FC = () => {
     );
   }
 
-  // Stepper Header Configuration
+  // 5-Step Stepper Header Configuration with Real-Time Data Previews
   const stepsConfig = [
-    { num: 1, label: 'Client Identity', icon: User },
-    { num: 2, label: 'Delivery Address', icon: MapPin },
-    { num: 3, label: 'Order Summary', icon: ClipboardCheck },
-    { num: 4, label: 'Payment Gateway', icon: CreditCard },
+    {
+      num: 1,
+      label: 'Client Identity',
+      shortLabel: 'Identity',
+      icon: User,
+      summary: formData.fullName ? formData.fullName.split(' ')[0] : 'Profile',
+      tooltip: `${formData.fullName || 'Patron'} • ${formData.phone || 'Phone'}`,
+    },
+    {
+      num: 2,
+      label: 'Delivery Destination',
+      shortLabel: 'Address',
+      icon: MapPin,
+      summary: formData.pincode ? `${formData.city || 'City'} ${formData.pincode}` : 'Destination',
+      tooltip: `${formData.address || 'Address'}, ${formData.city || ''} (${formData.pincode || ''})`,
+    },
+    {
+      num: 3,
+      label: 'Atelier Staging',
+      shortLabel: 'Staging',
+      icon: Calendar,
+      summary:
+        formData.stagingSlot === 'morning'
+          ? 'Morning Slot'
+          : formData.stagingSlot === 'afternoon'
+          ? 'Afternoon Slot'
+          : 'Weekend VIP',
+      tooltip: `${formData.stagingSlot === 'morning' ? 'Morning 9am-1pm' : 'Afternoon 2pm-6pm'} • ${formData.roomPlacement.replace('_', ' ')}`,
+    },
+    {
+      num: 4,
+      label: 'Order & Vault Review',
+      shortLabel: 'Review',
+      icon: ClipboardCheck,
+      summary: `${cart.length} Pieces + Coins`,
+      tooltip: `${cart.length} Handcrafted pieces • 10-Yr Warranty Verified`,
+    },
+    {
+      num: 5,
+      label: 'Payment Engine',
+      shortLabel: 'Payment',
+      icon: CreditCard,
+      summary: formData.paymentMethod === 'cod' ? 'Cash on Delivery' : '256-Bit Razorpay',
+      tooltip: '256-Bit Military SSL Tokenized Payment',
+    },
   ];
 
   return (
     <div className="min-h-screen bg-[#FCFAF7] py-10 sm:py-16">
-      <div className="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between mb-8 pb-4 border-b border-[#EEE9E1]">
@@ -477,54 +540,125 @@ export const CheckoutPage: React.FC = () => {
             className="flex items-center gap-2 text-xs font-semibold text-[#8B5A2B] hover:text-[#4A2C1A] transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>{currentStep > 1 ? 'Back to Previous Step' : 'Return to Catalog'}</span>
+            <span>{currentStep > 1 ? `Back to Step 0${currentStep - 1}` : 'Return to Catalog'}</span>
           </button>
-          <span className="text-xs uppercase tracking-widest text-[#9C9287] font-semibold">
-            Bespoke White-Glove Staging & Checkout
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 rounded-full bg-[#D8B486] animate-pulse" />
+            <span className="text-xs uppercase tracking-widest text-[#9C9287] font-semibold">
+              Bespoke White-Glove Staging & Checkout
+            </span>
+          </div>
         </div>
 
-        {/* 🌟 4-STEP LUXURY PROGRESS STEPPER */}
-        <div className="mb-10 bg-white rounded-3xl p-4 sm:p-6 border border-[#4A2C1A]/10 shadow-soft-sm">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 relative">
+        {/* 🌟 5-STEP LUXURY ARCHITECTURAL INTERACTIVE STEPPER */}
+        <div className="mb-10 bg-gradient-to-r from-[#17120E] via-[#221A14] to-[#17120E] rounded-3xl p-5 sm:p-7 border border-[#8B5A2B]/35 shadow-2xl relative overflow-hidden text-[#FAF7F2]">
+          {/* Subtle Golden Ambient Backlight Halo */}
+          <div className="absolute -top-24 -left-24 w-72 h-72 bg-[#D8B486]/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-[#8B5A2B]/15 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Stepper Status Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-[#8B5A2B]/20 relative z-10">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs uppercase font-mono tracking-widest text-[#D8B486] font-bold">
+                Step 0{currentStep} of 05
+              </span>
+              <span className="text-stone-400">•</span>
+              <span className="text-sm font-display font-medium text-white">
+                {stepsConfig[currentStep - 1]?.label}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-32 sm:w-44 h-2 bg-[#2D221A] rounded-full overflow-hidden border border-white/5">
+                <div
+                  className="h-full bg-gradient-to-r from-[#8B5A2B] via-[#D8B486] to-[#FAF7F2] transition-all duration-300 shadow-[0_0_8px_#D8B486]"
+                  style={{ width: `${(currentStep / 5) * 100}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-mono text-[#D8B486] font-semibold">
+                {Math.round((currentStep / 5) * 100)}% Complete
+              </span>
+              <span className="text-[10px] text-stone-400 hidden sm:inline">
+                (~{(6 - currentStep) * 15}s left)
+              </span>
+            </div>
+          </div>
+
+          {/* Interactive 5-Milestones Ribbon Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 relative z-10">
             {stepsConfig.map((s) => {
               const Icon = s.icon;
               const isCompleted = currentStep > s.num;
               const isActive = currentStep === s.num;
+              const isUnlocked = s.num <= currentStep;
+
               return (
-                <button
-                  key={s.num}
-                  type="button"
-                  onClick={() => {
-                    if (s.num < currentStep) setCurrentStep(s.num as any);
-                  }}
-                  disabled={s.num > currentStep}
-                  className={`flex items-center gap-3 p-3 rounded-2xl transition-all text-left ${
-                    isActive
-                      ? 'bg-[#1C140E] text-[#F3E5AB] shadow-md ring-2 ring-[#D8B486]/50'
-                      : isCompleted
-                      ? 'bg-[#FAF7F2] text-[#4A2C1A] cursor-pointer hover:bg-[#F5E6D3]/40'
-                      : 'bg-[#FCFAF7] text-[#9C9287] opacity-60 cursor-not-allowed'
-                  }`}
-                >
-                  <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                <div key={s.num} className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isCompleted) {
+                        setCurrentStep(s.num as any);
+                        setStepError(null);
+                      }
+                    }}
+                    onMouseEnter={() => setHoveredStep(s.num)}
+                    onMouseLeave={() => setHoveredStep(null)}
+                    disabled={!isCompleted && !isActive}
+                    className={`w-full flex flex-col p-3 sm:p-3.5 rounded-2xl transition-all duration-300 text-left border relative ${
                       isActive
-                        ? 'bg-[#D8B486] text-[#1C140E]'
+                        ? 'bg-gradient-to-br from-[#291F18] via-[#35271E] to-[#201813] text-white border-[#D8B486] ring-2 ring-[#D8B486]/50 shadow-[0_0_20px_rgba(216,180,134,0.3)] scale-[1.02]'
                         : isCompleted
-                        ? 'bg-[#557A5A] text-white'
-                        : 'bg-[#EEE9E1] text-[#746B61]'
+                        ? 'bg-[#1D1713]/80 hover:bg-[#28201A] text-stone-200 border-[#557A5A]/50 hover:border-[#D8B486]/60 cursor-pointer'
+                        : 'bg-[#15110E]/60 text-stone-500 border-white/5 opacity-50 cursor-not-allowed'
                     }`}
                   >
-                    {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] uppercase font-mono tracking-wider opacity-75">
-                      Step 0{s.num}
+                    {/* Top Row: Node Badge + Step Number */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div
+                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
+                          isActive
+                            ? 'bg-[#D8B486] text-[#1C140E] shadow-[0_0_10px_#D8B486]'
+                            : isCompleted
+                            ? 'bg-[#557A5A] text-white'
+                            : 'bg-[#261E18] text-stone-500'
+                        }`}
+                      >
+                        {isCompleted ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" /> : <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                      </div>
+
+                      <span
+                        className={`text-[10px] font-mono uppercase tracking-wider font-semibold ${
+                          isActive ? 'text-[#D8B486]' : isCompleted ? 'text-emerald-400' : 'text-stone-500'
+                        }`}
+                      >
+                        {isCompleted ? '✓ Saved' : isActive ? 'Active' : `0${s.num}`}
+                      </span>
                     </div>
-                    <div className="text-xs font-bold truncate">{s.label}</div>
-                  </div>
-                </button>
+
+                    {/* Step Title & Live Value Preview */}
+                    <div className="min-w-0">
+                      <div className="text-[11px] sm:text-xs font-bold truncate leading-tight text-white">
+                        {s.label}
+                      </div>
+                      <div
+                        className={`text-[10px] font-medium truncate mt-0.5 ${
+                          isActive ? 'text-[#D8B486]' : isCompleted ? 'text-stone-300' : 'text-stone-500'
+                        }`}
+                      >
+                        {s.summary}
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Interactive Quick-Peek Hover Popover for Completed Steps */}
+                  {isCompleted && hoveredStep === s.num && (
+                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 z-30 pointer-events-none whitespace-nowrap bg-[#120E0B] text-white text-[10px] px-3 py-1.5 rounded-lg border border-[#D8B486]/40 shadow-xl flex items-center gap-1.5 animate-fadeIn">
+                      <Edit3 className="w-3 h-3 text-[#D8B486]" />
+                      <span>{s.tooltip} (Click to edit)</span>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -548,8 +682,8 @@ export const CheckoutPage: React.FC = () => {
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6 animate-fadeIn">
                 <div className="flex items-center justify-between border-b border-[#EEE9E1] pb-4">
                   <div>
-                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 1 of 4</span>
-                    <h2 className="font-display font-bold text-xl text-[#4A2C1A]">Client Identification</h2>
+                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 1 of 5</span>
+                    <h2 className="font-display font-bold text-xl text-[#4A2C1A]">Client Identification & VIP Profile</h2>
                   </div>
                   <User className="w-6 h-6 text-[#8B5A2B]" />
                 </div>
@@ -597,6 +731,42 @@ export const CheckoutPage: React.FC = () => {
                       />
                     </div>
                   </div>
+
+                  {/* Real-time Staging Notification Channel Selector */}
+                  <div className="pt-2">
+                    <label className="text-xs font-semibold text-[#514A43] block mb-2">
+                      Preferred Real-Time Dispatch & Staging Updates:
+                    </label>
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {[
+                        { id: 'whatsapp', label: 'WhatsApp Concierge', icon: MessageSquare, badge: 'Recommended' },
+                        { id: 'sms', label: 'SMS Alerts', icon: Sparkles },
+                        { id: 'email', label: 'Email Dossier', icon: User },
+                      ].map((ch) => {
+                        const isSel = formData.notificationChannel === ch.id;
+                        return (
+                          <button
+                            type="button"
+                            key={ch.id}
+                            onClick={() => setFormData({ ...formData, notificationChannel: ch.id as any })}
+                            className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1 ${
+                              isSel
+                                ? 'bg-[#1C140E] text-[#F3E5AB] border-[#8B5A2B] shadow-sm'
+                                : 'bg-[#FCFAF7] text-stone-600 border-[#EEE9E1] hover:border-[#8B5A2B]/50'
+                            }`}
+                          >
+                            <ch.icon className="w-3.5 h-3.5 text-[#D8B486]" />
+                            <span className="text-[11px] font-semibold">{ch.label}</span>
+                            {ch.badge && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#D8B486]/20 text-[#D8B486] font-mono">
+                                {ch.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="pt-4 flex justify-end">
@@ -605,7 +775,7 @@ export const CheckoutPage: React.FC = () => {
                     onClick={goToStep2}
                     className="px-8 py-3.5 bg-[#1C140E] hover:bg-[#8B5A2B] text-white rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md"
                   >
-                    <span>Proceed to Delivery Address</span>
+                    <span>Proceed to Delivery Destination</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -617,7 +787,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6 animate-fadeIn">
                 <div className="flex items-center justify-between border-b border-[#EEE9E1] pb-4">
                   <div>
-                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 2 of 4</span>
+                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 2 of 5</span>
                     <h2 className="font-display font-bold text-xl text-[#4A2C1A]">White-Glove Delivery Destination</h2>
                   </div>
                   <Truck className="w-6 h-6 text-[#8B5A2B]" />
@@ -626,7 +796,7 @@ export const CheckoutPage: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="text-xs font-semibold text-[#514A43] block mb-1">
-                      Street Address & Building <span className="text-red-500">*</span>
+                      Street Address & Landmark <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -690,9 +860,17 @@ export const CheckoutPage: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Serviceability Badge */}
+                  <div className="p-3 bg-[#557A5A]/10 border border-[#557A5A]/30 rounded-2xl flex items-center gap-2.5 text-xs text-[#557A5A]">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>
+                      Pincode <strong>{formData.pincode}</strong> verified: Eligible for Guaranteed White-Glove Installation & Free Transit Insurance.
+                    </span>
+                  </div>
+
                   <div>
                     <label className="text-xs font-semibold text-[#514A43] block mb-1">
-                      White-Glove Staging & Delivery Instructions
+                      White-Glove Staging & Delivery Notes
                     </label>
                     <textarea
                       rows={2}
@@ -709,59 +887,215 @@ export const CheckoutPage: React.FC = () => {
                     onClick={() => setCurrentStep(1)}
                     className="px-6 py-3 border border-[#4A2C1A]/20 text-[#4A2C1A] rounded-full font-semibold text-xs hover:bg-[#FCFAF7] cursor-pointer"
                   >
-                    Back
+                    Back to Client Info
                   </button>
                   <button
                     type="button"
                     onClick={goToStep3}
                     className="px-8 py-3.5 bg-[#1C140E] hover:bg-[#8B5A2B] text-white rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md"
                   >
-                    <span>Proceed to Order Review</span>
+                    <span>Proceed to Atelier Staging</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ---------------- STEP 3: ORDER REVIEW & SPECIFICATIONS ---------------- */}
+            {/* ---------------- STEP 3: ATELIER STAGING & SCHEDULING (NEW STEP!) ---------------- */}
             {currentStep === 3 && (
               <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6 animate-fadeIn">
                 <div className="flex items-center justify-between border-b border-[#EEE9E1] pb-4">
                   <div>
-                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 3 of 4</span>
-                    <h2 className="font-display font-bold text-xl text-[#4A2C1A]">Order & Staging Review</h2>
+                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 3 of 5</span>
+                    <h2 className="font-display font-bold text-xl text-[#4A2C1A]">Atelier Staging & Installation Schedule</h2>
+                  </div>
+                  <Calendar className="w-6 h-6 text-[#8B5A2B]" />
+                </div>
+
+                {/* Staging Time Window Selection */}
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold text-[#514A43] block">
+                    1. Preferred White-Glove Installation Window:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { id: 'morning', label: 'Morning Salon', time: '09:00 - 13:00', icon: '🌅', desc: 'Daylight orientation' },
+                      { id: 'afternoon', label: 'Afternoon Staging', time: '14:00 - 18:00', icon: '🌇', desc: 'Evening illumination' },
+                      { id: 'weekend_vip', label: 'Weekend VIP', time: 'Sat/Sun Dedicated', icon: '✨', desc: 'Dedicated Concierge' },
+                    ].map((slot) => {
+                      const isSel = formData.stagingSlot === slot.id;
+                      return (
+                        <button
+                          type="button"
+                          key={slot.id}
+                          onClick={() => setFormData({ ...formData, stagingSlot: slot.id as any })}
+                          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                            isSel
+                              ? 'bg-[#1C140E] text-[#F3E5AB] border-[#8B5A2B] ring-2 ring-[#D8B486]/40 shadow-md'
+                              : 'bg-[#FCFAF7] text-[#4A2C1A] border-[#EEE9E1] hover:border-[#8B5A2B]/40'
+                          }`}
+                        >
+                          <div className="text-xl mb-1">{slot.icon}</div>
+                          <div className="font-bold text-xs">{slot.label}</div>
+                          <div className="text-[10px] font-mono opacity-80">{slot.time}</div>
+                          <div className="text-[10px] text-stone-400 mt-1">{slot.desc}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Target Room Placement */}
+                <div className="space-y-3 pt-2 border-t border-[#EEE9E1]">
+                  <label className="text-xs font-semibold text-[#514A43] block">
+                    2. Designated Architectural Placement Room:
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {[
+                      { id: 'living_room', label: 'Living Salon', icon: '🛋️' },
+                      { id: 'master_suite', label: 'Master Suite', icon: '🛏️' },
+                      { id: 'executive_office', label: 'Executive Study', icon: '💼' },
+                      { id: 'dining_salon', label: 'Dining Salon', icon: '🍷' },
+                    ].map((rm) => {
+                      const isSel = formData.roomPlacement === rm.id;
+                      return (
+                        <button
+                          type="button"
+                          key={rm.id}
+                          onClick={() => setFormData({ ...formData, roomPlacement: rm.id as any })}
+                          className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                            isSel
+                              ? 'bg-[#F5E6D3] text-[#4A2C1A] border-[#8B5A2B] font-bold shadow-sm'
+                              : 'bg-[#FCFAF7] text-stone-600 border-[#EEE9E1] hover:border-[#8B5A2B]/40'
+                          }`}
+                        >
+                          <span className="text-lg block mb-0.5">{rm.icon}</span>
+                          <span className="text-xs">{rm.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Building Access & Elevator Assessment */}
+                <div className="space-y-3 pt-2 border-t border-[#EEE9E1]">
+                  <label className="text-xs font-semibold text-[#514A43] block">
+                    3. Residence Access & Freight Handling:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {[
+                      { id: 'service_elevator', label: 'Service Elevator Available', desc: 'Freight elevator for modular pieces' },
+                      { id: 'ground_floor', label: 'Ground Floor Direct Access', desc: 'Direct zero-elevation transfer' },
+                      { id: 'staircase_carriage', label: 'Stairwell Carriage', desc: '4-Porter architectural team' },
+                    ].map((acc) => {
+                      const isSel = formData.elevatorAccess === acc.id;
+                      return (
+                        <button
+                          type="button"
+                          key={acc.id}
+                          onClick={() => setFormData({ ...formData, elevatorAccess: acc.id as any })}
+                          className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                            isSel
+                              ? 'bg-[#1C140E] text-[#F3E5AB] border-[#8B5A2B] font-semibold'
+                              : 'bg-[#FCFAF7] text-stone-600 border-[#EEE9E1] hover:border-[#8B5A2B]/40'
+                          }`}
+                        >
+                          <div className="text-xs font-bold">{acc.label}</div>
+                          <div className="text-[10px] opacity-75 mt-0.5">{acc.desc}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Complimentary Packaging Recycling */}
+                <div className="p-3.5 bg-[#FAF7F2] rounded-2xl border border-[#D8B486]/40 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <Recycle className="w-4 h-4 text-[#557A5A]" />
+                    <div>
+                      <span className="font-bold text-[#4A2C1A] block">Zero-Waste Packaging & Crate Removal</span>
+                      <span className="text-[11px] text-stone-500">Our staging crew removes all wooden crates & recyclable foam upon setup.</span>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.ecoDebrisRemoval}
+                    onChange={(e) => setFormData({ ...formData, ecoDebrisRemoval: e.target.checked })}
+                    className="accent-[#8B5A2B] w-4 h-4 cursor-pointer"
+                  />
+                </div>
+
+                <div className="pt-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(2)}
+                    className="px-6 py-3 border border-[#4A2C1A]/20 text-[#4A2C1A] rounded-full font-semibold text-xs hover:bg-[#FCFAF7] cursor-pointer"
+                  >
+                    Back to Address
+                  </button>
+                  <button
+                    type="button"
+                    onClick={goToStep4}
+                    className="px-8 py-3.5 bg-[#1C140E] hover:bg-[#8B5A2B] text-white rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md"
+                  >
+                    <span>Proceed to Order & Vault Review</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ---------------- STEP 4: ORDER & VAULT REVIEW ---------------- */}
+            {currentStep === 4 && (
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6 animate-fadeIn">
+                <div className="flex items-center justify-between border-b border-[#EEE9E1] pb-4">
+                  <div>
+                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 4 of 5</span>
+                    <h2 className="font-display font-bold text-xl text-[#4A2C1A]">Order & Staging Specifications Review</h2>
                   </div>
                   <ClipboardCheck className="w-6 h-6 text-[#8B5A2B]" />
                 </div>
 
-                {/* Client & Address Confirmation Box */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 bg-[#FAF7F2] rounded-2xl border border-[#D8B486]/30 text-xs space-y-1 relative">
+                {/* Client, Destination, & Staging Confirmation Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 bg-[#FAF7F2] rounded-2xl border border-[#D8B486]/30 text-xs space-y-1 relative">
                     <button
                       type="button"
                       onClick={() => setCurrentStep(1)}
-                      className="absolute top-3 right-3 text-[#8B5A2B] hover:text-[#4A2C1A] flex items-center gap-1 text-[11px] font-semibold cursor-pointer"
+                      className="absolute top-2.5 right-2.5 text-[#8B5A2B] hover:text-[#4A2C1A] flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
                     >
                       <Edit3 className="w-3 h-3" /> Edit
                     </button>
-                    <span className="font-bold text-[#4A2C1A] block">Client Contact</span>
-                    <p className="font-semibold text-[#211E1B]">{formData.fullName}</p>
-                    <p className="text-[#746B61]">{formData.email}</p>
-                    <p className="text-[#746B61]">{formData.phone}</p>
+                    <span className="font-bold text-[#4A2C1A] block text-[11px]">Client Contact</span>
+                    <p className="font-semibold text-[#211E1B] truncate">{formData.fullName}</p>
+                    <p className="text-[#746B61] text-[11px] truncate">{formData.email}</p>
+                    <p className="text-[#746B61] text-[11px]">{formData.phone}</p>
                   </div>
 
-                  <div className="p-4 bg-[#FAF7F2] rounded-2xl border border-[#D8B486]/30 text-xs space-y-1 relative">
+                  <div className="p-3.5 bg-[#FAF7F2] rounded-2xl border border-[#D8B486]/30 text-xs space-y-1 relative">
                     <button
                       type="button"
                       onClick={() => setCurrentStep(2)}
-                      className="absolute top-3 right-3 text-[#8B5A2B] hover:text-[#4A2C1A] flex items-center gap-1 text-[11px] font-semibold cursor-pointer"
+                      className="absolute top-2.5 right-2.5 text-[#8B5A2B] hover:text-[#4A2C1A] flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
                     >
                       <Edit3 className="w-3 h-3" /> Edit
                     </button>
-                    <span className="font-bold text-[#4A2C1A] block">Delivery Location</span>
-                    <p className="text-[#211E1B]">{formData.address}</p>
-                    <p className="text-[#746B61]">{formData.apartment}</p>
-                    <p className="text-[#746B61]">{formData.city}, {formData.state} - {formData.pincode}</p>
+                    <span className="font-bold text-[#4A2C1A] block text-[11px]">Delivery Location</span>
+                    <p className="text-[#211E1B] truncate">{formData.address}</p>
+                    <p className="text-[#746B61] text-[11px]">{formData.city} - {formData.pincode}</p>
+                  </div>
+
+                  <div className="p-3.5 bg-[#FAF7F2] rounded-2xl border border-[#D8B486]/30 text-xs space-y-1 relative">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(3)}
+                      className="absolute top-2.5 right-2.5 text-[#8B5A2B] hover:text-[#4A2C1A] flex items-center gap-1 text-[10px] font-semibold cursor-pointer"
+                    >
+                      <Edit3 className="w-3 h-3" /> Edit
+                    </button>
+                    <span className="font-bold text-[#4A2C1A] block text-[11px]">Staging Protocol</span>
+                    <p className="text-[#211E1B] font-medium capitalize">{formData.stagingSlot.replace('_', ' ')} Slot</p>
+                    <p className="text-[#746B61] text-[11px] capitalize">{formData.roomPlacement.replace('_', ' ')}</p>
                   </div>
                 </div>
 
@@ -799,17 +1133,31 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Bespoke Gift & Monogram Notes */}
+                <div>
+                  <label className="text-xs font-semibold text-[#514A43] block mb-1">
+                    Bespoke Hand-Calligraphed Monogram / Gift Note (Optional):
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Enter bespoke inscription for our master packaging..."
+                    value={formData.giftNote}
+                    onChange={(e) => setFormData({ ...formData, giftNote: e.target.value })}
+                    className="w-full bg-[#FCFAF7] border border-[#DED7CD] rounded-xl px-3 py-2 text-xs text-[#211E1B] focus:outline-none focus:border-[#8B5A2B]"
+                  />
+                </div>
+
                 <div className="pt-4 flex items-center justify-between">
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(2)}
+                    onClick={() => setCurrentStep(3)}
                     className="px-6 py-3 border border-[#4A2C1A]/20 text-[#4A2C1A] rounded-full font-semibold text-xs hover:bg-[#FCFAF7] cursor-pointer"
                   >
-                    Back
+                    Back to Staging
                   </button>
                   <button
                     type="button"
-                    onClick={goToStep4}
+                    onClick={goToStep5}
                     className="px-8 py-3.5 bg-[#1C140E] hover:bg-[#8B5A2B] text-white rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer shadow-md"
                   >
                     <span>Proceed to Payment Engine</span>
@@ -819,12 +1167,12 @@ export const CheckoutPage: React.FC = () => {
               </div>
             )}
 
-            {/* ---------------- STEP 4: PAYMENT ENGINE & GATEWAY ---------------- */}
-            {currentStep === 4 && (
+            {/* ---------------- STEP 5: PAYMENT ENGINE & GATEWAY ---------------- */}
+            {currentStep === 5 && (
               <form onSubmit={handleSubmitOrder} className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6 animate-fadeIn">
                 <div className="flex items-center justify-between border-b border-[#EEE9E1] pb-4">
                   <div>
-                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 4 of 4</span>
+                    <span className="text-[10px] uppercase font-mono tracking-widest text-[#8B5A2B] font-bold">Step 5 of 5</span>
                     <h2 className="font-display font-bold text-xl text-[#4A2C1A]">Payment Engine & Authorization</h2>
                   </div>
                   <span className="text-[11px] text-[#557A5A] font-semibold flex items-center gap-1">
@@ -1024,7 +1372,7 @@ export const CheckoutPage: React.FC = () => {
                 <div className="pt-4 flex items-center justify-between">
                   <button
                     type="button"
-                    onClick={() => setCurrentStep(3)}
+                    onClick={() => setCurrentStep(4)}
                     className="px-6 py-3 border border-[#4A2C1A]/20 text-[#4A2C1A] rounded-full font-semibold text-xs hover:bg-[#FCFAF7] cursor-pointer"
                   >
                     Back to Review
@@ -1059,7 +1407,6 @@ export const CheckoutPage: React.FC = () => {
                 </div>
               </form>
             )}
-
           </div>
 
           {/* ================= RIGHT COLUMN: STICKY ORDER SUMMARY (5 Cols) ================= */}

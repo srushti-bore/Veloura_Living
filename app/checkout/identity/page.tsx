@@ -7,7 +7,7 @@ export const metadata = {
   description: 'Provide your client contact details for bespoke white-glove delivery tracking.',
 };
 
-export default function CheckoutPage() {
+export default function IdentityPage() {
   return (
     <CheckoutLayout currentStepNum={1} backHref="/shop" backLabel="Return to Catalog">
       <IdentityStep />

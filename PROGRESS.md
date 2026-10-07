@@ -346,5 +346,24 @@ docker build -t veloura-backend .
 docker run -p 5000:5000 veloura-backend
 ```
 
+### 16. Phase 16: Premium Multi-Step Checkout UX & Editorial UI Reference Architecture ✅
+- **Dedicated Multi-Page Route Architecture (`app/checkout/*`):**
+  - `/checkout` (Root redirect / default entrypoint ➔ `/checkout/identity`)
+  - `/checkout/identity` (Step 01 — Client Identity & VIP Profile: First Name, Last Name, Email, Phone, News/Offers opt-in, Guest vs Account)
+  - `/checkout/delivery` (Step 02 — White-Glove Delivery Destination & Pincode serviceability verification: Address Line 1 & 2, City, State, PIN, Country)
+  - `/checkout/atelier` (Step 03 — Atelier Staging: Delivery method radios, Additional assembly/removal services, Special instructions)
+  - `/checkout/review` (Step 04 — Order & Vault Review: Itemized pieces, Client Identity with [Edit], Delivery Destination with [Edit], Atelier Staging with [Edit])
+  - `/checkout/payment` (Step 05 — Payment Engine & Gateway Authorization: Clean payment cards, NetBanking bank selector, COD SMS OTP verification, Backend-authoritative Razorpay integration)
+  - `/checkout/success` (Order Confirmed Experience: 2-column layout with check icon, order number, payment status, 7-10 days ETA, [Track Your Order] and high-res furniture imagery)
+- **Refined Editorial Stepper Rail (`components/commerce/checkout/CheckoutStepper.tsx`):**
+  - Lightweight vertical step system matching the reference without heavy dark cards.
+  - Subtle circular indicators (`✓ Completed`, `● Active Focus`, `○ Upcoming`).
+  - Warm Ivory (`#FBF8F3`) background, sharp Cormorant Garamond serif headings, and clean DM Sans body text.
+- **Editorial Order Summary (`components/commerce/checkout/CheckoutSummary.tsx`):**
+  - Clean itemized thumbnail, variant finish, quantity, subtotal, shipping, and total payable breakdown without distracting badges.
+- **Production Build:** Verified with `npm.cmd run build` (0 errors across all 70 static & dynamic routes).
+
+---
+
 👉 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 👉 **Live Frontend Deployment:** Import `Veloura_Living` on [Vercel](https://vercel.com/new) -> Framework Preset `Next.js` -> Deploy.

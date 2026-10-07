@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { GoogleSignInButton } from './GoogleSignInButton';
 
 interface SignInFormProps {
   onSubmit: (credentials: { email: string; password: string }) => Promise<{ success: boolean; message?: string }>;
@@ -143,6 +144,18 @@ export function SignInForm({
         </button>
       </div>
 
+      {/* Divider */}
+      <div className="relative flex items-center justify-center my-2">
+        <div className="border-t border-[#D8C4AD]/60 w-full" />
+        <span className="bg-[#FBF8F3] px-3 text-[10px] uppercase tracking-widest text-[#735E4E] font-sans shrink-0">
+          or
+        </span>
+        <div className="border-t border-[#D8C4AD]/60 w-full" />
+      </div>
+
+      {/* Google OAuth Button */}
+      <GoogleSignInButton returnUrl="/account" label="Sign In with Google" />
+
       {/* Secondary Switch to Sign Up */}
       <div className="pt-2 text-center">
         <p className="text-xs font-sans text-[#735E4E] font-light">
@@ -159,3 +172,4 @@ export function SignInForm({
     </form>
   );
 }
+

@@ -238,3 +238,65 @@ export function createEmailVerificationToken(email: string): string | undefined 
   saveUserRecord(record);
   return token;
 }
+
+export interface GoogleUserProfile {
+  googleId: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+}
+
+/**
+ * Find or create a user via Google OAuth 2.0.
+ */
+export async function findOrCreateGoogleUser(profile: GoogleUserProfile): Promise<UserRecord> {
+  await initAuthStore();
+  const email = profile.email.toLowerCase().trim();
+  let record = findUserByEmail(email);
+
+  if (record) {
+    // If user exists, sync profile avatar and verify email if needed
+    if (profile.avatarUrl && (!record.profile.avatar_url || record.profile.avatar_url.includes('placeholder'))) {
+      record.profile.avatar_url = profile.avatarUrl;
+    }
+    if (!record.user.is_email_verified) {
+      record.user.is_email_verified = true;
+    }
+    saveUserRecord(record);
+    return record;
+  }
+
+  // Create brand new Google User
+  const userId = crypto.randomUUID();
+  const dummyHash = await hashPassword(crypto.randomUUID() + '_google_oauth_auth_2026');
+
+  record = {
+    user: {
+      id: userId,
+      email,
+      password_hash: dummyHash,
+      status: 'ACTIVE',
+      is_email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['CUSTOMER'],
+    profile: {
+      user_id: userId,
+      first_name: profile.firstName || 'Client',
+      last_name: profile.lastName || '',
+      phone: '',
+      avatar_url: profile.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+      preferred_currency: 'INR',
+      interior_style_preference: 'Warm Minimalist',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+
+  saveUserRecord(record);
+  return record;
+}
+

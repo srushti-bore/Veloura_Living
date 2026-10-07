@@ -19,6 +19,7 @@ import {
 export interface ThreeStudioViewportHandle {
   captureSnapshot: () => string | null;
   resetCamera: () => void;
+  focusSection: (section: 'overview' | 'materials' | 'lighting' | 'joinery') => void;
 }
 
 interface Props {
@@ -115,7 +116,7 @@ export const ThreeStudioViewport = forwardRef<ThreeStudioViewportHandle, Props>(
     const currentTargetYRef = useRef(initialPreset.targetY);
     const destTargetYRef = useRef(initialPreset.targetY);
 
-    // Expose Snapshot and Camera Reset handles
+    // Expose Snapshot, Camera Reset, and Scroll-Focus handles
     useImperativeHandle(ref, () => ({
       captureSnapshot: () => {
         if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return null;
@@ -135,6 +136,43 @@ export const ThreeStudioViewport = forwardRef<ThreeStudioViewportHandle, Props>(
           phi: preset.phi,
         };
         destTargetYRef.current = preset.targetY;
+      },
+      focusSection: (section: 'overview' | 'materials' | 'lighting' | 'joinery') => {
+        const preset = PIECE_CAMERA_PRESETS[piece.id] || {
+          radius: 6.5,
+          theta: Math.PI / 4.2,
+          phi: Math.PI / 2.7,
+          targetY: 0,
+        };
+        if (section === 'materials') {
+          targetSphericalRef.current = {
+            radius: preset.radius * 0.88,
+            theta: preset.theta + 0.18,
+            phi: Math.PI / 2.58,
+          };
+          destTargetYRef.current = preset.targetY + 0.12;
+        } else if (section === 'lighting') {
+          targetSphericalRef.current = {
+            radius: preset.radius * 1.05,
+            theta: preset.theta - 0.28,
+            phi: Math.PI / 2.8,
+          };
+          destTargetYRef.current = preset.targetY;
+        } else if (section === 'joinery') {
+          targetSphericalRef.current = {
+            radius: preset.radius * 0.94,
+            theta: preset.theta + 0.42,
+            phi: Math.PI / 2.4,
+          };
+          destTargetYRef.current = preset.targetY + 0.22;
+        } else {
+          targetSphericalRef.current = {
+            radius: preset.radius,
+            theta: preset.theta,
+            phi: preset.phi,
+          };
+          destTargetYRef.current = preset.targetY;
+        }
       },
     }));
 

@@ -162,11 +162,11 @@ export const ConfiguratorStudioPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0E0C0A] text-[#FAF7F2] flex flex-col">
+    <div className="min-h-screen lg:h-[calc(100vh-80px)] lg:max-h-[calc(100vh-80px)] bg-[#0E0C0A] text-[#FAF7F2] flex flex-col lg:overflow-hidden">
       {/* 3D Studio Main Workspace */}
-      <div className="flex-1 flex flex-col lg:flex-row relative">
-        {/* Left: Sticky 3D Viewport */}
-        <section className="flex-1 relative min-h-[520px] lg:min-h-[calc(100vh-130px)] lg:sticky lg:top-20 bg-radial from-[#281C15]/55 via-[#130F0C] to-[#0A0807] flex items-center justify-center select-none overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row relative lg:h-full lg:overflow-hidden">
+        {/* Left: Stable 3D Sofa Viewport (Fixed & Stable in view) */}
+        <section className="flex-1 relative h-[48vh] sm:h-[55vh] lg:h-full min-h-[320px] lg:min-h-0 bg-radial from-[#281C15]/55 via-[#130F0C] to-[#0A0807] flex items-center justify-center select-none overflow-hidden sticky top-16 lg:static z-10">
           {/* Floating Top Bar Controls inside Canvas */}
           <div className="absolute top-5 inset-x-6 z-20 flex items-center justify-between pointer-events-none">
             <Link
@@ -197,7 +197,7 @@ export const ConfiguratorStudioPage: React.FC = () => {
           />
         </section>
 
-        {/* Right: Configurator Sidebar */}
+        {/* Right: Configurator Sidebar (3D Spatial Atelier Card) */}
         <ConfiguratorSidebar
           pieces={CONFIGURABLE_PIECES}
           activePiece={activePiece}
@@ -216,6 +216,7 @@ export const ConfiguratorStudioPage: React.FC = () => {
           onOpenARModal={() => setIsARModalOpen(true)}
           onCaptureSnapshot={handleCaptureSnapshot}
           onAddToCart={handleAddToCart}
+          onSectionFocusChange={(section) => viewportRef.current?.focusSection(section)}
         />
       </div>
 

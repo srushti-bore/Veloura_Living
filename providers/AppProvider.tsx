@@ -35,6 +35,19 @@ const INITIAL_AI_MESSAGES: AIMessage[] = [
   }
 ];
 
+const INITIAL_DEMO_CART: CartItem[] = [
+  {
+    id: 'prod-br-01-var-br01-king-oat',
+    productId: 'prod-br-01',
+    variantId: 'var-br01-king-oat',
+    quantity: 1,
+    selectedColor: 'Oak Linen',
+    selectedMaterial: 'Solid Ash Subframe',
+    price: 122000,
+    product: PRODUCTS.find(p => p.id === 'prod-br-01') || PRODUCTS[0]
+  }
+];
+
 export function useVelouraStore() {
   const router = useRouter();
   const pathname = usePathname();
@@ -54,7 +67,7 @@ export function useVelouraStore() {
     }
   };
 
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(INITIAL_DEMO_CART);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -62,7 +75,10 @@ export function useVelouraStore() {
     try {
       const savedCart = localStorage.getItem('veloura_cart');
       if (savedCart) {
-        setCart(JSON.parse(savedCart));
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCart(parsed);
+        }
       }
       const savedWishlist = localStorage.getItem('veloura_wishlist');
       if (savedWishlist) {
