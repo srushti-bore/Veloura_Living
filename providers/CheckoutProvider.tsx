@@ -79,34 +79,34 @@ export interface CheckoutContextType {
 }
 
 const DEFAULT_IDENTITY: CheckoutIdentityState = {
-  firstName: 'Aarav',
-  lastName: 'Singhania',
-  fullName: 'Aarav Singhania',
-  email: 'aarav.singhania@veloura.live',
-  phone: '+91 98201 54321',
+  firstName: '',
+  lastName: '',
+  fullName: '',
+  email: '',
+  phone: '',
   keepUpdated: true,
   isGuest: false,
   notificationChannel: 'whatsapp',
 };
 
 const DEFAULT_DELIVERY: CheckoutDeliveryState = {
-  address: 'Skyline Penthouse 34A, Worli Sea Face',
-  apartment: 'Tower B, 34th Floor',
-  city: 'Mumbai',
-  state: 'Maharashtra',
-  pincode: '400018',
+  address: '',
+  apartment: '',
+  city: '',
+  state: '',
+  pincode: '',
   country: 'India',
-  deliveryNotes: 'Please coordinate with tower concierge for priority elevator access.',
+  deliveryNotes: '',
 };
 
 const DEFAULT_ATELIER: CheckoutAtelierState = {
   deliveryMethod: 'white_glove',
-  additionalServices: ['Professional Assembly', 'Installation Support'],
+  additionalServices: ['Professional Assembly'],
   stagingSlot: 'morning',
   roomPlacement: 'living_room',
   elevatorAccess: 'service_elevator',
   ecoDebrisRemoval: true,
-  specialInstructions: 'White-glove team to assemble and place modular sofa and verify joinery alignment.',
+  specialInstructions: '',
 };
 
 const DEFAULT_REVIEW: CheckoutReviewState = {
@@ -116,10 +116,10 @@ const DEFAULT_REVIEW: CheckoutReviewState = {
 
 const DEFAULT_PAYMENT: CheckoutPaymentState = {
   paymentMethod: 'upi_razorpay',
-  selectedBank: 'HDFC',
-  cardNumber: '4532 •••• •••• 8921',
-  cardExpiry: '08/29',
-  cardCvv: '•••',
+  selectedBank: '',
+  cardNumber: '',
+  cardExpiry: '',
+  cardCvv: '',
 };
 
 const CheckoutContext = createContext<CheckoutContextType | undefined>(undefined);
@@ -196,17 +196,17 @@ export const CheckoutProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Pre-fill user information if authenticated and not already customized
   useEffect(() => {
     if (user && !localStorage.getItem(STORAGE_KEY)) {
-      const fName = profile?.first_name || user.profile?.firstName || 'Aarav';
-      const lName = profile?.last_name || user.profile?.lastName || 'Singhania';
-      const uPhone = profile?.phone || '+91 98201 54321';
+      const fName = profile?.first_name || user.profile?.firstName || '';
+      const lName = profile?.last_name || user.profile?.lastName || '';
+      const uPhone = profile?.phone || '';
 
       setIdentity((prev) => ({
         ...prev,
-        fullName: `${fName} ${lName}`.trim(),
+        fullName: `${fName} ${lName}`.trim() || user.email.split('@')[0],
         firstName: fName,
         lastName: lName,
         email: user.email || prev.email,
-        phone: uPhone,
+        phone: uPhone || prev.phone,
       }));
 
       if (addresses && addresses.length > 0) {

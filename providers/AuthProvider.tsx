@@ -112,6 +112,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           message: data.error?.message || 'Login failed. Please verify credentials.',
         };
       }
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('veloura_checkout_state');
+      }
       await refreshUser();
       closeAuthModal();
       return { success: true };
@@ -158,7 +161,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAddresses([]);
       setPermissions([]);
       if (typeof window !== 'undefined') {
-        window.location.reload();
+        localStorage.removeItem('veloura_cart');
+        localStorage.removeItem('veloura_wishlist');
+        localStorage.removeItem('veloura_orders');
+        localStorage.removeItem('veloura_checkout_state');
+        window.location.href = '/';
       }
     }
   };

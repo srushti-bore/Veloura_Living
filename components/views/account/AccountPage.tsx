@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 
 export const AccountPage: React.FC = () => {
-  const { orders, wishlist, allProducts, navigate } = useStore();
+  const { wishlist, allProducts, navigate } = useStore();
   const {
     user,
     profile,
@@ -39,6 +39,27 @@ export const AccountPage: React.FC = () => {
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'addresses' | 'ai-consultations'>('orders');
+  const [userOrders, setUserOrders] = useState<any[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      setIsLoadingOrders(true);
+      fetch('/api/orders')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.data)) {
+            setUserOrders(data.data);
+          } else {
+            setUserOrders([]);
+          }
+        })
+        .catch(() => setUserOrders([]))
+        .finally(() => setIsLoadingOrders(false));
+    } else {
+      setUserOrders([]);
+    }
+  }, [isAuthenticated]);
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [newFullName, setNewFullName] = useState('');
   const [newPhone, setNewPhone] = useState('');
@@ -171,7 +192,7 @@ export const AccountPage: React.FC = () => {
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 border-b border-[#EEE9E1] pb-1 overflow-x-auto">
           {[
-            { id: 'orders', label: 'White-Glove Orders', count: orders.length, icon: Package },
+            { id: 'orders', label: 'White-Glove Orders', count: userOrders.length, icon: Package },
             { id: 'wishlist', label: 'Space Palette', count: wishlist.length, icon: Heart },
             { id: 'addresses', label: 'Delivery Destinations', count: addresses.length, icon: MapPin },
             { id: 'ai-consultations', label: 'AI Spatial Archives', count: 2, icon: Sparkles },
@@ -206,98 +227,125 @@ export const AccountPage: React.FC = () => {
         {/* Tab 1: Orders */}
         {activeTab === 'orders' && (
           <div className="space-y-6 animate-fadeIn">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#EEE9E1]">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span className="font-serif font-bold text-lg text-[#211E1B]">
-                        Order #{order.orderNumber}
-                      </span>
-                      <span className="bg-[#EBF3ED] text-[#2D5A34] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
-                        {order.status}
+            {isLoadingOrders ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-[#EEE9E1] shadow-soft-sm">
+                <span className="inline-block w-6 h-6 border-2 border-[#4A2C1A]/20 border-t-[#4A2C1A] rounded-full animate-spin mb-3" />
+                <p className="text-xs text-[#746B61] font-sans font-light">Loading your private order vault...</p>
+              </div>
+            ) : userOrders.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-[#EEE9E1] shadow-soft-sm space-y-3">
+                <div className="w-16 h-16 rounded-full bg-[#F5E6D3] text-[#8B5A2B] flex items-center justify-center mx-auto">
+                  <Package className="w-8 h-8 opacity-60" />
+                </div>
+                <h3 className="font-serif font-bold text-xl text-[#211E1B]">
+                  No white-glove orders placed yet.
+                </h3>
+                <p className="text-xs text-[#746B61]">
+                  Your bespoke orders and delivery tracking will appear here once placed.
+                </p>
+                <button
+                  onClick={() => navigate('/shop')}
+                  className="btn-primary-shimmer active:scale-[0.98] text-white px-6 py-2.5 rounded-full text-xs font-semibold cursor-pointer shadow-md"
+                >
+                  Discover The Collection
+                </button>
+              </div>
+            ) : (
+              userOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="bg-white rounded-3xl p-6 sm:p-8 border border-[#4A2C1A]/10 shadow-soft-sm space-y-6"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[#EEE9E1]">
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-serif font-bold text-lg text-[#211E1B]">
+                          Order #{order.orderNumber}
+                        </span>
+                        <span className="bg-[#EBF3ED] text-[#2D5A34] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full">
+                          {order.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#746B61] mt-1">
+                        Placed on {order.createdAt} • Estimated White-Glove Delivery: {order.estimatedDeliveryDate}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-serif font-bold text-xl text-[#4A2C1A]">
+                        ₹{Number(order.total || 0).toLocaleString('en-IN')}
+                      </div>
+                      <span className="text-[11px] text-[#557A5A] font-semibold flex items-center sm:justify-end gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5" /> 10-Year Timber Warranty Active
                       </span>
                     </div>
-                    <p className="text-xs text-[#746B61] mt-1">
-                      Placed on {order.createdAt} • Estimated White-Glove Delivery: {order.estimatedDeliveryDate}
-                    </p>
                   </div>
 
-                  <div className="text-right">
-                    <div className="font-serif font-bold text-xl text-[#4A2C1A]">
-                      ₹{order.total.toLocaleString('en-IN')}
-                    </div>
-                    <span className="text-[11px] text-[#557A5A] font-semibold flex items-center sm:justify-end gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" /> 10-Year Timber Warranty Active
-                    </span>
-                  </div>
-                </div>
-
-                {/* Items */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {order.items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-4 p-3 rounded-2xl bg-[#FCFAF7] border border-[#EEE9E1]"
-                    >
-                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shrink-0 border border-[#EEE9E1]">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-serif font-bold text-sm text-[#211E1B] truncate">
-                          {item.name}
-                        </h4>
-                        <p className="text-[11px] text-[#746B61]">
-                          Finish: {item.selectedColor} • Spec: {item.selectedMaterial}
-                        </p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs font-semibold text-[#4A2C1A]">
-                            ₹{item.price.toLocaleString('en-IN')} × {item.quantity}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Delivery Timeline Track */}
-                <div className="pt-4 border-t border-[#EEE9E1]">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[#746B61] mb-4">
-                    White-Glove Progress Tracking ({order.trackingNumber})
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                    {order.timeline.map((step, sIdx) => (
+                  {/* Items */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {order.items.map((item: any, idx: number) => (
                       <div
-                        key={sIdx}
-                        className={`p-3 rounded-xl border text-xs space-y-1 ${
-                          step.completed
-                            ? 'bg-[#FCFAF7] border-[#8B5A2B]/30 text-[#211E1B]'
-                            : 'bg-white border-[#EEE9E1] text-[#9C9287]'
-                        }`}
+                        key={idx}
+                        className="flex items-center gap-4 p-3 rounded-2xl bg-[#FCFAF7] border border-[#EEE9E1]"
                       >
-                        <div className="flex items-center gap-1.5 font-bold">
-                          {step.completed ? (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-[#557A5A]" />
-                          ) : (
-                            <Clock className="w-3.5 h-3.5 text-[#9C9287]" />
-                          )}
-                          <span>{step.status}</span>
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white shrink-0 border border-[#EEE9E1]">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                        <p className="text-[10px] text-[#746B61]">{step.date}</p>
-                        <p className="text-[11px]">{step.description}</p>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-serif font-bold text-sm text-[#211E1B] truncate">
+                            {item.name}
+                          </h4>
+                          <p className="text-[11px] text-[#746B61]">
+                            Finish: {item.selectedColor} • Spec: {item.selectedMaterial}
+                          </p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-xs font-semibold text-[#4A2C1A]">
+                              ₹{Number(item.price || 0).toLocaleString('en-IN')} × {item.quantity}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
+
+                  {/* Delivery Timeline Track */}
+                  {order.timeline && order.timeline.length > 0 && (
+                    <div className="pt-4 border-t border-[#EEE9E1]">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-[#746B61] mb-4">
+                        White-Glove Progress Tracking ({order.trackingNumber})
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                        {order.timeline.map((step: any, sIdx: number) => (
+                          <div
+                            key={sIdx}
+                            className={`p-3 rounded-xl border text-xs space-y-1 ${
+                              step.completed
+                                ? 'bg-[#FCFAF7] border-[#8B5A2B]/30 text-[#211E1B]'
+                                : 'bg-white border-[#EEE9E1] text-[#9C9287]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 font-bold">
+                              {step.completed ? (
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#557A5A]" />
+                              ) : (
+                                <Clock className="w-3.5 h-3.5 text-[#9C9287]" />
+                              )}
+                              <span>{step.status}</span>
+                            </div>
+                            <p className="text-[10px] text-[#746B61]">{step.date}</p>
+                            <p className="text-[11px]">{step.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         )}
 

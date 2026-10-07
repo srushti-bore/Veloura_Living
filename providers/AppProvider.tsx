@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, CartItem, Order, Coupon, AIMessage, RoomType, ProductVariant, Room } from '@/types';
 import { useRouter, usePathname } from 'next/navigation';
-import { PRODUCTS, ROOMS, COUPONS, INITIAL_ORDERS } from '@/lib/data/mockData';
+import { PRODUCTS, ROOMS, COUPONS } from '@/lib/data/mockData';
 
 export interface FilterState {
   room: RoomType | 'all';
@@ -35,19 +35,6 @@ const INITIAL_AI_MESSAGES: AIMessage[] = [
   }
 ];
 
-const INITIAL_DEMO_CART: CartItem[] = [
-  {
-    id: 'prod-br-01-var-br01-king-oat',
-    productId: 'prod-br-01',
-    variantId: 'var-br01-king-oat',
-    quantity: 1,
-    selectedColor: 'Oak Linen',
-    selectedMaterial: 'Solid Ash Subframe',
-    price: 122000,
-    product: PRODUCTS.find(p => p.id === 'prod-br-01') || PRODUCTS[0]
-  }
-];
-
 export function useVelouraStore() {
   const router = useRouter();
   const pathname = usePathname();
@@ -67,7 +54,7 @@ export function useVelouraStore() {
     }
   };
 
-  const [cart, setCart] = useState<CartItem[]>(INITIAL_DEMO_CART);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -82,11 +69,17 @@ export function useVelouraStore() {
       }
       const savedWishlist = localStorage.getItem('veloura_wishlist');
       if (savedWishlist) {
-        setWishlist(JSON.parse(savedWishlist));
+        const parsed = JSON.parse(savedWishlist);
+        if (Array.isArray(parsed)) {
+          setWishlist(parsed);
+        }
       }
       const savedOrders = localStorage.getItem('veloura_orders');
       if (savedOrders) {
-        setOrders(JSON.parse(savedOrders));
+        const parsed = JSON.parse(savedOrders);
+        if (Array.isArray(parsed)) {
+          setOrders(parsed);
+        }
       }
     } catch (e) {
       console.error('Storage initialization error:', e);
@@ -105,7 +98,7 @@ export function useVelouraStore() {
     }
   }, [cart, isMounted]);
 
-  const [wishlist, setWishlist] = useState<string[]>(['prod-lr-01', 'prod-br-01']);
+  const [wishlist, setWishlist] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isMounted) return;
@@ -203,7 +196,7 @@ export function useVelouraStore() {
     return { success: true, message: `Applied: ${found.description}` };
   };
 
-  const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
+  const [orders, setOrders] = useState<Order[]>([]);
 
   const createOrder = (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'trackingNumber' | 'timeline'>): Order => {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
