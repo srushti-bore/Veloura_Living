@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { GoogleSignInButton } from './GoogleSignInButton';
 
 interface SignInFormProps {
@@ -11,6 +11,8 @@ interface SignInFormProps {
   isLoading: boolean;
   errorMessage: string | null;
   clearError: () => void;
+  successMessage?: string | null;
+  initialEmail?: string;
 }
 
 export function SignInForm({
@@ -20,11 +22,19 @@ export function SignInForm({
   isLoading,
   errorMessage,
   clearError,
+  successMessage,
+  initialEmail,
 }: SignInFormProps) {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(initialEmail || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialEmail) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +63,14 @@ export function SignInForm({
           Enter your private concierge credentials to access your spaces and orders.
         </p>
       </div>
+
+      {/* Success Notification Banner (e.g., after successful registration) */}
+      {successMessage && !validationError && !errorMessage && (
+        <div className="p-3 bg-[#F2F7F2] border-l-2 border-[#3A724B] text-[#244C31] text-xs font-sans rounded-sm animate-fade-in flex items-center gap-2.5">
+          <CheckCircle2 className="w-4 h-4 text-[#3A724B] shrink-0" />
+          <p className="font-medium">{successMessage}</p>
+        </div>
+      )}
 
       {/* Validation or API Error Banner */}
       {(validationError || errorMessage) && (

@@ -14,6 +14,8 @@ export function AuthExperience() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [prefilledEmail, setPrefilledEmail] = useState<string>('');
 
   // Close on Escape key
   useEffect(() => {
@@ -48,10 +50,15 @@ export function AuthExperience() {
   }) => {
     setIsLoading(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
     const res = await register(data);
     setIsLoading(false);
     if (!res.success) {
       setErrorMessage(res.message || 'Registration failed. Please verify your details.');
+    } else {
+      setPrefilledEmail(data.email);
+      setSuccessMessage('Account created successfully. Please sign in with your credentials.');
+      openAuthModal('signin');
     }
     return res;
   };
@@ -119,6 +126,7 @@ export function AuthExperience() {
                   activeTab={authModalView}
                   onTabChange={(tab) => {
                     setErrorMessage(null);
+                    if (tab !== 'signin') setSuccessMessage(null);
                     openAuthModal(tab);
                   }}
                 />
@@ -131,15 +139,19 @@ export function AuthExperience() {
                     onSubmit={handleSignIn}
                     onForgotPassword={() => {
                       setErrorMessage(null);
+                      setSuccessMessage(null);
                       openAuthModal('forgot');
                     }}
                     onSwitchToSignUp={() => {
                       setErrorMessage(null);
+                      setSuccessMessage(null);
                       openAuthModal('signup');
                     }}
                     isLoading={isLoading}
                     errorMessage={errorMessage}
                     clearError={() => setErrorMessage(null)}
+                    successMessage={successMessage}
+                    initialEmail={prefilledEmail}
                   />
                 )}
 

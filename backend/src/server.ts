@@ -177,7 +177,6 @@ const server = http.createServer(async (req, res) => {
       };
 
       saveUserRecord(userRecord);
-      const token = await signToken(userId, email, ['CUSTOMER']);
 
       return sendJson(res, 201, formatSuccessResponse({
         user: {
@@ -187,7 +186,7 @@ const server = http.createServer(async (req, res) => {
           status: 'ACTIVE',
           profile: { firstName, lastName },
         },
-        token,
+        message: 'Account registered successfully. Please sign in.',
       }));
     }
 

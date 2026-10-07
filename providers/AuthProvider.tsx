@@ -140,9 +140,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           message: data.error?.message || 'Registration failed.',
         };
       }
-      await refreshUser();
-      closeAuthModal();
-      return { success: true };
+      return {
+        success: true,
+        message: 'Account created successfully. Please sign in.',
+      };
     } catch {
       return { success: false, message: 'Network error during registration.' };
     }
