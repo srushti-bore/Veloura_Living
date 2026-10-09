@@ -113,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
       if (typeof window !== 'undefined') {
+        localStorage.removeItem('veloura_multi_step_checkout_state');
         localStorage.removeItem('veloura_checkout_state');
       }
       await refreshUser();
@@ -143,6 +144,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           message: data.error?.message || 'Registration failed.',
         };
       }
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('veloura_multi_step_checkout_state');
+        localStorage.removeItem('veloura_checkout_state');
+      }
       return {
         success: true,
         message: 'Account created successfully. Please sign in.',
@@ -164,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem('veloura_cart');
         localStorage.removeItem('veloura_wishlist');
         localStorage.removeItem('veloura_orders');
+        localStorage.removeItem('veloura_multi_step_checkout_state');
         localStorage.removeItem('veloura_checkout_state');
         window.location.href = '/';
       }

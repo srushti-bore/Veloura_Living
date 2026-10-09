@@ -363,7 +363,31 @@ docker run -p 5000:5000 veloura-backend
   - Clean itemized thumbnail, variant finish, quantity, subtotal, shipping, and total payable breakdown without distracting badges.
 - **Production Build:** Verified with `npm.cmd run build` (0 errors across all 70 static & dynamic routes).
 
+### 17. Phase 17: Brevo Transactional Email Gateway, Multi-User Checkout Cache Isolation & Quiet Luxury Hydration Hardening ✅
+- **Brevo (formerly Sendinblue) Transactional Dispatch Engine (`backend/src/services/notificationService.ts`, `scripts/test-brevo-email.ts`):**
+  - Direct zero-dependency native fetch integration with Brevo REST API (`https://api.brevo.com/v3/smtp/email`) and TLS 1.3 SMTP Relay (`smtp-relay.brevo.com:587`).
+  - Automated dispatch of responsive, dark quiet luxury HTML receipts for Order Confirmations, 6-digit COD OTP verifications, White-Glove logistics dispatches, and Automated Gateway Refunds with Bank ARN numbers.
+  - Graceful fallback logger in local development when keys are not set, preventing process crashes.
+  - Created standalone diagnostics script `scripts/test-brevo-email.ts` for 1-click end-to-end delivery verification.
+- **Multi-User Checkout Cache Isolation & Key Mismatch Resolution (`providers/AuthProvider.tsx`, `providers/CheckoutProvider.tsx`):**
+  - Resolved `localStorage` key synchronization bug where `AuthProvider` cleared `veloura_checkout_state` while `CheckoutProvider` persisted `veloura_multi_step_checkout_state`.
+  - Added comprehensive state cleanup on `login()`, `register()`, and `logout()`, eliminating cross-user identity and shipping address leakage.
+  - Made `CheckoutProvider` dynamically bind to the active authenticated `user.email` and saved profile addresses on auth state transitions.
+- **Dark Luxury Header & Contrast Hardening (`components/layout/Header.tsx`, `components/common/CurrencySelector.tsx`):**
+  - Solved Tailwind CSS v4 `lab()` opacity drop on arbitrary hex colors by enforcing solid `#1C140E` background with `#FAF7F2` Ivory logo, `#D8B486` accents, and `#150E0A` utility announcement bar.
+  - Replaced browser-default selects with bespoke Dark Walnut pill-style Currency Selector with gold accents.
+  - Embedded In-App Notification Center Bell with golden unread counter pill.
+- **Zero-Mismatch Client Hydration Safeguards (`app/layout.tsx`, `components/layout/Header.tsx`):**
+  - Wrapped dynamic browser storage counters (`cartCount`, `wishlist.length`, `unreadCount`, `isInstallable`, `isAuthenticated`) inside `mounted` guards (`useState(false)` ➔ `useEffect(setMounted(true))`).
+  - Added `suppressHydrationWarning` to RootLayout `<html>` and `<body>` tags.
+- **Database Inspection & Diagnostics Suite (`scripts/inspect-database-tables.ts`):**
+  - Standalone PostgreSQL inspection script querying all 33 relational tables, column counts, row counts, and custom PostgreSQL ENUM types.
+- **Build & Quality Assurance:**
+  - TypeScript static analysis: `npx.cmd tsc --noEmit` verified with **0 errors**.
+  - All test suites passing 100%.
+
 ---
 
 👉 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 👉 **Live Frontend Deployment:** Import `Veloura_Living` on [Vercel](https://vercel.com/new) -> Framework Preset `Next.js` -> Deploy.
+

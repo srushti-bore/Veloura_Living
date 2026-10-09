@@ -193,9 +193,9 @@ export const CheckoutProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
 
-  // Pre-fill user information if authenticated and not already customized
+  // Pre-fill user information whenever authenticated user changes
   useEffect(() => {
-    if (user && !localStorage.getItem(STORAGE_KEY)) {
+    if (user) {
       const fName = profile?.first_name || user.profile?.firstName || '';
       const lName = profile?.last_name || user.profile?.lastName || '';
       const uPhone = profile?.phone || '';
@@ -203,9 +203,9 @@ export const CheckoutProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setIdentity((prev) => ({
         ...prev,
         fullName: `${fName} ${lName}`.trim() || user.email.split('@')[0],
-        firstName: fName,
-        lastName: lName,
-        email: user.email || prev.email,
+        firstName: fName || prev.firstName,
+        lastName: lName || prev.lastName,
+        email: user.email,
         phone: uPhone || prev.phone,
       }));
 

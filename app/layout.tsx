@@ -71,7 +71,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${instrumentSerif.variable} ${instrumentSans.variable} ${cormorant.variable} ${dmsans.variable}`}>
+    <html 
+      lang="en" 
+      suppressHydrationWarning
+      className={`${instrumentSerif.variable} ${instrumentSans.variable} ${cormorant.variable} ${dmsans.variable}`}
+    >
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -79,7 +83,10 @@ export default function RootLayout({
         <meta name="theme-color" content="#2A1A12" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className="bg-[#FBF8F3] text-[#4A2C1A] font-sans antialiased selection:bg-[#F7F0E7] selection:text-[#3B2418]">
+      <body 
+        suppressHydrationWarning
+        className="bg-[#FBF8F3] text-[#4A2C1A] font-sans antialiased selection:bg-[#F7F0E7] selection:text-[#3B2418]"
+      >
         <AuthProvider>
           <CurrencyProvider>
             <NotificationProvider>

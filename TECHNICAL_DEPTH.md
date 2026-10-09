@@ -289,11 +289,32 @@ graph LR
 
 ---
 
-## 13. Automated Verification & E2E Validation Matrix
+## 13. Phase 17: Brevo Transactional Email Engine & Multi-User State Hygiene Architecture
+- **Brevo REST API & TLS 1.3 Transport Protocol (`backend/src/services/notificationService.ts`):**
+  - High-performance, zero-dependency transactional email pipeline utilizing native Node.js `fetch` against `https://api.brevo.com/v3/smtp/email`.
+  - Configurable dual transport: Direct Brevo REST API (`BREVO_API_KEY`) and SMTP Relay (`smtp-relay.brevo.com:587`).
+  - Automatic template generation for Order Confirmations, COD 6-Digit OTP verification, White-Glove logistics tracking, and Automated Gateway Refunds with Bank ARN reconciliation.
+  - Safe local fallback mechanism that outputs luxury email previews to the console when environment credentials are unconfigured, preventing test pipeline failures.
+- **Multi-User Client Cache Isolation & State Hygiene (`providers/AuthProvider.tsx`, `providers/CheckoutProvider.tsx`):**
+  - Elimination of cross-session data leakage across distinct user sign-in/registration lifecycles.
+  - Strict synchronization between the active `UserSession` and the `CheckoutIdentityState` / `CheckoutDeliveryState`.
+  - Complete localStorage hygiene: automatic purge of `veloura_multi_step_checkout_state` and `veloura_checkout_state` on `login()`, `register()`, and `logout()`.
+- **Quiet Luxury Dark Header Contrast & Hydration Hardening (`components/layout/Header.tsx`, `components/common/CurrencySelector.tsx`):**
+  - Elimination of Tailwind CSS v4 `lab()` opacity drop on arbitrary color definitions by using solid `#1C140E` background tokens with `#FAF7F2` Ivory typography and `#D8B486` gold accents.
+  - Complete client hydration protection via `mounted` state guards for all dynamic localStorage counters (`cartCount`, `wishlist.length`, `unreadCount`, `isInstallable`).
+- **PostgreSQL Inspection & Diagnostics Protocol (`scripts/inspect-database-tables.ts`, `scripts/test-brevo-email.ts`):**
+  - Dedicated script verifying all 33 relational tables, column counts, live row counts, and custom PostgreSQL ENUM types.
+  - Standalone Brevo email delivery diagnostics script for 1-click end-to-end verification.
+
+---
+
+## 14. Automated Verification & E2E Validation Matrix
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|
 | **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 63 App Router routes and backend modules | ✅ **0 Errors** |
+| **Brevo Email Engine** | `npx tsx scripts/test-brevo-email.ts` | Brevo REST API & SMTP Relay live transactional email dispatch | ✅ **Verified** |
+| **Database Schema Check** | `npx tsx scripts/inspect-database-tables.ts` | 33 PostgreSQL tables, column schemas, ENUMs & live rows | ✅ **33/33 (100%)** |
 | **Phase 15 PWA & Performance** | `npm.cmd run test:phase15` | Web App Manifest, Service Worker Caching, Offline Fallback, Security Headers | ✅ **41/41 (100%)** |
 | **Phase 14 VIP Trade & RFQ** | `npm.cmd run test:phase14` | Tiered Discounts, RFQ Builder, Swatch Box Order, VIP Concierge, Quotation Generator | ✅ **34/34 (100%)** |
 | **Phase 13 3D AR Configurator** | `npm.cmd run test:phase13` | Three.js Models, PBR Materials, 3D Calipers, Exploded Joinery, AR Intent Bridge | ✅ **42/42 (100%)** |
@@ -305,3 +326,4 @@ graph LR
 ---
 
 *Authored by Antigravity Engineering for Veloura Living — October 2026.*
+

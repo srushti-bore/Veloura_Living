@@ -64,6 +64,7 @@ export const Header: React.FC = () => {
   const { isInstallable, promptInstall } = usePWA();
 
   // Local Header UI State
+  const [mounted, setMounted] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -74,6 +75,10 @@ export const Header: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Scroll detection for sticky header transformation
   useEffect(() => {
@@ -130,20 +135,22 @@ export const Header: React.FC = () => {
   const isCheckout = pathname?.startsWith('/checkout');
 
   return (
-    <header className="w-full z-40 sticky top-0 transition-all duration-300 font-sans">
+    <header className="w-full z-40 sticky top-0 transition-all duration-300 font-sans shadow-md">
       {/* ========================================================================= */}
       {/* 1. TOP UTILITY / ANNOUNCEMENT BAR                                         */}
       {/* ========================================================================= */}
       {!isCheckout && (
-        <div className="bg-[#150E0A] text-[#D8B486]/85 border-b border-[#3D271D]/40 text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 transition-colors">
+        <div 
+          className="text-[#D8B486] border-b border-[#3D271D]/60 text-[11px] py-1.5 px-4 sm:px-6 lg:px-8 transition-colors"
+          style={{ backgroundColor: '#150E0A' }}
+        >
           <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
             {/* Left: Warranty / Guarantee Badge */}
-            <div className="flex items-center gap-2 text-[#E8D8C5]/90">
+            <div className="flex items-center gap-2 text-[#E8D8C5]">
               <ShieldCheck className="w-3.5 h-3.5 text-[#D8B486] shrink-0" />
-              <span className="hidden sm:inline font-medium tracking-wide">
-                10-Year Generational Warranty & White-Glove Installation
+              <span className="font-medium tracking-wide">
+                10-Year Generational Warranty &amp; White-Glove Installation
               </span>
-              <span className="sm:hidden font-medium">10-Yr Warranty & In-Home Assembly</span>
             </div>
 
             {/* Center: Privilege Code Promo (Desktop) */}
@@ -160,11 +167,11 @@ export const Header: React.FC = () => {
               <CurrencySelector minimal={true} />
 
               {/* PWA Install Button */}
-              {isInstallable && (
+              {mounted && isInstallable && (
                 <button
                   type="button"
                   onClick={promptInstall}
-                  className="hidden md:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#D8B486]/15 hover:bg-[#D8B486]/25 border border-[#D8B486]/30 text-[#D8B486] text-[10px] tracking-wider uppercase font-medium transition-all"
+                  className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#D8B486]/15 hover:bg-[#D8B486]/25 border border-[#D8B486]/30 text-[#D8B486] text-[10px] tracking-wider uppercase font-medium transition-all"
                   title="Install Veloura Living App"
                 >
                   <Download className="w-3 h-3" />
@@ -178,7 +185,7 @@ export const Header: React.FC = () => {
                 className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] uppercase tracking-wider font-semibold transition-all ${
                   pathname.startsWith('/trade')
                     ? 'bg-[#D8B486] text-[#1C140E]'
-                    : 'text-[#D8B486] hover:text-[#FAF7F2] hover:bg-[#2A1A12]/60 border border-[#8B5A2B]/30'
+                    : 'text-[#D8B486] hover:text-[#FAF7F2] hover:bg-[#2A1A12] border border-[#8B5A2B]/40'
                 }`}
               >
                 <Briefcase className="w-3 h-3 text-current" />
@@ -193,13 +200,20 @@ export const Header: React.FC = () => {
       {/* 2. MAIN NAVIGATION HEADER                                                 */}
       {/* ========================================================================= */}
       <div
-        className={`w-full transition-all duration-300 ${
+        className={`w-full transition-all duration-300 border-b border-[#3D271D]/40 ${
           isCheckout
-            ? 'bg-[#F4ECE1] border-b border-[#D9CBC0]/60 py-4'
+            ? 'py-4 shadow-sm'
             : isScrolled
-            ? 'bg-[#150E0A]/95 backdrop-blur-md shadow-2xl border-b border-[#3D271D]/50 py-3'
-            : 'bg-[#1C140E]/90 backdrop-blur-sm border-b border-[#3D271D]/30 py-4'
+            ? 'py-3 shadow-2xl backdrop-blur-md'
+            : 'py-3.5 shadow-lg backdrop-blur-sm'
         }`}
+        style={{
+          backgroundColor: isCheckout
+            ? '#F4ECE1'
+            : isScrolled
+            ? 'rgba(21, 14, 10, 0.98)'
+            : 'rgba(28, 20, 14, 0.96)'
+        }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4">
@@ -221,17 +235,18 @@ export const Header: React.FC = () => {
 
               <Link href="/" className="group flex flex-col focus:outline-none">
                 <span
-                  className={`font-serif text-xl sm:text-2xl lg:text-2xl tracking-[0.2em] font-light transition-colors ${
+                  className={`font-serif text-2xl sm:text-2xl lg:text-3xl tracking-[0.22em] font-light transition-colors ${
                     isCheckout
                       ? 'text-[#2B1810] group-hover:text-[#3B2314]'
                       : 'text-[#FAF7F2] group-hover:text-[#D8B486]'
                   }`}
+                  style={{ letterSpacing: '0.22em' }}
                 >
                   VELOURA
                 </span>
                 <span
-                  className={`text-[9px] uppercase tracking-[0.3em] -mt-1 font-sans font-light ${
-                    isCheckout ? 'text-[#7A6B60]' : 'text-[#D8B486]/80'
+                  className={`text-[9px] uppercase tracking-[0.35em] -mt-1 font-sans font-medium ${
+                    isCheckout ? 'text-[#7A6B60]' : 'text-[#D8B486]'
                   }`}
                 >
                   LIVING
@@ -243,7 +258,7 @@ export const Header: React.FC = () => {
             {/* CENTER: PRIMARY NAVIGATION (Desktop)                              */}
             {/* ----------------------------------------------------------------- */}
             <nav
-              className={`hidden lg:flex items-center gap-1 xl:gap-3 ${
+              className={`hidden lg:flex items-center gap-1 xl:gap-2.5 ${
                 isCheckout
                   ? 'text-[13px] font-sans text-[#2B1810]'
                   : 'text-[12px] uppercase tracking-[0.18em] font-medium text-[#E8D8C5]'
@@ -256,10 +271,10 @@ export const Header: React.FC = () => {
                   pathname === '/'
                     ? isCheckout
                       ? 'text-[#2B1810] font-semibold bg-[#EFE7DD]'
-                      : 'text-[#D8B486] font-semibold bg-[#2A1A12]/40'
+                      : 'text-[#D8B486] font-semibold bg-[#2A1A12] border border-[#8B5A2B]/40'
                     : isCheckout
                     ? 'hover:text-[#2B1810] hover:bg-[#EFE7DD]'
-                    : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/30'
+                    : 'hover:text-[#FAF7F2] hover:bg-[#2A1A12]/60'
                 }`}
               >
                 Home
@@ -583,17 +598,35 @@ export const Header: React.FC = () => {
               <Link
                 href="/account?tab=wishlist"
                 className={`relative p-2 rounded-full transition-colors ${
-                  isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40'
+                  isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]'
                 }`}
                 aria-label="View Wishlist"
               >
                 <Heart className="w-4 h-4" />
-                {wishlist.length > 0 && (
-                  <span className="absolute 0 top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#D8B486] text-[#1C140E] text-[10px] font-bold flex items-center justify-center shadow">
+                {mounted && wishlist.length > 0 && (
+                  <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#D8B486] text-[#1C140E] text-[10px] font-bold flex items-center justify-center shadow">
                     {wishlist.length}
                   </span>
                 )}
               </Link>
+
+              {/* Notification Center Bell */}
+              {!isCheckout && (
+                <button
+                  type="button"
+                  onClick={toggleNotifications}
+                  className="relative p-2 rounded-full text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12] transition-colors"
+                  aria-label="Notifications"
+                  title="Notification Center"
+                >
+                  <Bell className="w-4 h-4" />
+                  {mounted && unreadCount > 0 && (
+                    <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-[#8B5A2B] text-white text-[10px] font-bold flex items-center justify-center shadow ring-1 ring-[#FAF7F2]/20 animate-pulse">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
 
               {/* User Account / Auth Dropdown */}
               <div className="relative" ref={accountMenuRef}>
@@ -607,7 +640,7 @@ export const Header: React.FC = () => {
                     }
                   }}
                   className={`p-2 rounded-full transition-colors flex items-center gap-1 ${
-                    isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40'
+                    isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]'
                   }`}
                   aria-label="Account Settings"
                 >
@@ -616,7 +649,10 @@ export const Header: React.FC = () => {
 
                 {/* Account Menu Popover */}
                 {isAccountMenuOpen && isAuthenticated && (
-                  <div className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-[#1C140E]/98 border border-[#3D271D] shadow-2xl backdrop-blur-xl p-2 z-50 animate-in fade-in duration-150 text-xs">
+                  <div 
+                    className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-[#3D271D] shadow-2xl backdrop-blur-xl p-2 z-50 animate-in fade-in duration-150 text-xs"
+                    style={{ backgroundColor: '#1C140E' }}
+                  >
                     <div className="px-3 py-2 border-b border-[#3D271D]/40 mb-1">
                       <div className="font-medium text-[#FAF7F2] truncate">{user?.email}</div>
                       <div className="text-[10px] text-[#D8B486] capitalize font-serif tracking-wider">
@@ -644,7 +680,7 @@ export const Header: React.FC = () => {
                     {(isAdmin || isManager) && (
                       <Link
                         href="/admin"
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#D8B486] bg-[#2A1A12]/60 hover:bg-[#2A1A12] font-medium transition-colors border border-[#8B5A2B]/20 my-1"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[#D8B486] bg-[#2A1A12] hover:bg-[#3D271D] font-medium transition-colors border border-[#8B5A2B]/30 my-1"
                       >
                         <ShieldAlert className="w-3.5 h-3.5 text-[#D8B486]" />
                         <span>Admin Console</span>
@@ -673,13 +709,13 @@ export const Header: React.FC = () => {
                 type="button"
                 onClick={() => setIsCartOpen(true)}
                 className={`p-2 rounded-full transition-colors flex items-center gap-1 ${
-                  isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]/40'
+                  isCheckout ? 'text-[#2B1810] hover:bg-[#EFE7DD]' : 'text-[#E8D8C5] hover:text-[#D8B486] hover:bg-[#2A1A12]'
                 }`}
-                aria-label={`Cart with ${cartCount} items`}
+                aria-label={mounted && cartCount > 0 ? `Cart with ${cartCount} items` : 'Shopping Cart'}
               >
                 <ShoppingBag className="w-4 h-4" />
-                {cartCount > 0 && (
-                  <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.2 min-w-[18px] text-center ${
+                {mounted && cartCount > 0 && (
+                  <span className={`text-[10px] font-bold rounded-full px-1.5 py-0.2 min-w-[18px] text-center shadow ${
                     isCheckout ? 'bg-[#3B2314] text-[#F5EFE6]' : 'bg-[#D8B486] text-[#1C140E]'
                   }`}>
                     {cartCount}
@@ -875,7 +911,7 @@ export const Header: React.FC = () => {
                   className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#2A1A12]/40 text-[#FAF7F2] text-xs hover:bg-[#2A1A12]"
                 >
                   <Heart className="w-4 h-4 text-[#D8B486]" />
-                  <span>Wishlist ({wishlist.length})</span>
+                  <span>Wishlist {mounted && wishlist.length > 0 ? `(${wishlist.length})` : ''}</span>
                 </Link>
 
                 <button
@@ -891,7 +927,7 @@ export const Header: React.FC = () => {
                   className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-[#2A1A12]/40 text-[#FAF7F2] text-xs hover:bg-[#2A1A12]"
                 >
                   <User className="w-4 h-4 text-[#D8B486]" />
-                  <span>{isAuthenticated ? 'Account' : 'Sign In'}</span>
+                  <span>{mounted && isAuthenticated ? 'Account' : 'Sign In'}</span>
                 </button>
               </div>
             </div>

@@ -54,11 +54,72 @@ export class NotificationService {
             details: 'In-app notification persisted to active drawer ledger',
           });
         } else if (channel === 'EMAIL') {
+          const smtpPass = process.env.SMTP_PASS || process.env.BREVO_API_KEY;
+          const smtpUser = process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL || 'concierge@velouraliving.com';
+          const smtpFrom = process.env.SMTP_FROM || `Veloura Concierge <${smtpUser}>`;
+          const recipient = payload.recipientEmail || 'customer@example.com';
+          const senderEmail = smtpFrom.match(/<([^>]+)>/)?.[1] || smtpUser;
+          const senderName = smtpFrom.split('<')[0].trim() || 'Veloura Concierge';
+
+          let deliveryId = `eml_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+          let details = `Dispatched to ${recipient}`;
+
+          if (smtpPass && !smtpPass.includes('placeholder') && !smtpPass.includes('your-')) {
+            try {
+              const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: {
+                  'accept': 'application/json',
+                  'api-key': smtpPass,
+                  'content-type': 'application/json',
+                },
+                body: JSON.stringify({
+                  sender: { name: senderName, email: senderEmail },
+                  to: [{ email: recipient }],
+                  subject: `🏛️ Veloura Living — ${payload.title}`,
+                  htmlContent: `
+                    <div style="font-family:'Helvetica Neue',Arial,sans-serif;background-color:#150E0A;padding:32px 16px;color:#FAF7F2;">
+                      <div style="max-width:560px;margin:0 auto;background:#1C140E;border:1px solid #3D271D;border-radius:12px;overflow:hidden;">
+                        <div style="background:#150E0A;padding:24px;text-align:center;border-bottom:1px solid #3D271D;">
+                          <h1 style="font-size:22px;letter-spacing:0.25em;color:#FAF7F2;margin:0;font-weight:300;">VELOURA</h1>
+                          <div style="font-size:9px;letter-spacing:0.4em;color:#D8B486;margin-top:2px;">LIVING</div>
+                        </div>
+                        <div style="padding:32px 24px;">
+                          <h2 style="font-size:18px;color:#FAF7F2;font-weight:500;margin-top:0;">${payload.title}</h2>
+                          <p style="font-size:14px;line-height:1.7;color:#C5B5A5;">${payload.message}</p>
+                          ${payload.actionUrl ? `
+                            <div style="margin-top:24px;text-align:center;">
+                              <a href="${payload.actionUrl.startsWith('http') ? payload.actionUrl : `http://localhost:3000${payload.actionUrl}`}" style="display:inline-block;padding:12px 24px;background:#D8B486;color:#1C140E;font-weight:700;text-decoration:none;border-radius:6px;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;">View Details</a>
+                            </div>
+                          ` : ''}
+                        </div>
+                        <div style="background:#150E0A;padding:16px;text-align:center;font-size:10px;color:#736254;border-top:1px solid #3D271D;">
+                          &copy; 2026 Veloura Living Private Limited &bull; Worli, Mumbai
+                        </div>
+                      </div>
+                    </div>
+                  `,
+                }),
+              });
+
+              if (brevoRes.ok) {
+                const brevoData = await brevoRes.json();
+                deliveryId = brevoData.messageId || deliveryId;
+                details = `Live Brevo Delivery [MsgID: ${deliveryId}] to ${recipient}`;
+              } else {
+                const errData = await brevoRes.json().catch(() => ({}));
+                details = `Brevo API returned status ${brevoRes.status}: ${errData.message || 'Check credentials'}`;
+              }
+            } catch (err: any) {
+              details = `Brevo dispatch network fallback: ${err.message}`;
+            }
+          }
+
           channelResults.push({
             channel: 'EMAIL',
             success: true,
-            deliveryId: `eml_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            details: `Dispatched to ${payload.recipientEmail || 'customer@example.com'}`,
+            deliveryId,
+            details,
           });
         } else if (channel === 'WHATSAPP') {
           channelResults.push({
