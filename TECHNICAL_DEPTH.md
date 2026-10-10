@@ -368,7 +368,7 @@ sequenceDiagram
 | **Phase 12 Notification Suite** | `npm.cmd run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
 | **Phase 11 Payment Suite** | `npm.cmd run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
 | **Direct REST APIs** | `npm.cmd run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
-| **Master Test Suite** | `npx tsx tests/run-all-tests.ts` | All automated system, store, and SRS tests | ✅ **65/65 (100%)** |
+| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | All automated system, store, OTP regression, and SRS tests | ✅ **70/70 (100%)** |
 
 ---
 

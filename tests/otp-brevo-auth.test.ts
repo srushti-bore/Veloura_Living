@@ -271,6 +271,50 @@ export async function runOtpBrevoTestSuite() {
   assert(fakeTokenRes === null, 'Tampered or unverified token is rejected with null');
 
   // --------------------------------------------------------------------------
+  // SUITE 7: SECURITY REGRESSION TESTS (BYPASS PREVENTION & TYPE ISOLATION)
+  // --------------------------------------------------------------------------
+  console.log('\n📦 [7/7] Security Regression Tests (Password Bypass & Challenge Isolation):');
+
+  // Regression Test 1: Invalid challenge token in resend does NOT create a login challenge
+  const invalidResend = await resendOtpChallenge({
+    email: 'victim@example.com',
+    challengeToken: 'chal_fake_token_attacker_bypass',
+  });
+  assert(invalidResend.success === false, 'REGRESSION: Invalid challenge token cannot trigger resend (Password bypass prevented)');
+
+  // Regression Test 2: Mismatched email in resend is strictly rejected
+  const mismatchedEmailResend = await resendOtpChallenge({
+    email: 'wrong_email@example.com',
+    challengeToken: freshChallenge.challengeToken,
+  });
+  assert(mismatchedEmailResend.success === false, 'REGRESSION: Mismatched email in resend request is rejected');
+
+  // Regression Test 3: Challenge type separation (REGISTER challenge rejected when expectedType is LOGIN)
+  const regChallenge = await createOtpChallenge({
+    email: `register_test_${timestamp}@example.com`,
+    type: 'REGISTER',
+    userId: 'test_uuid',
+  });
+  const regStored = getChallengeForTesting(regChallenge.challengeToken)!;
+  const crossTypeVerify = await verifyOtpChallenge({
+    email: `register_test_${timestamp}@example.com`,
+    challengeToken: regChallenge.challengeToken,
+    otp: regStored.otp,
+    expectedType: 'LOGIN',
+  });
+  assert(crossTypeVerify.success === false, 'REGRESSION: Register challenge rejected when expecting Login flow (Type boundary isolation)');
+  assert(crossTypeVerify.code === 'INVALID_CHALLENGE', 'Returns INVALID_CHALLENGE error on cross-flow verification');
+
+  // Clean verify with correct expectedType succeeds
+  const correctTypeVerify = await verifyOtpChallenge({
+    email: `register_test_${timestamp}@example.com`,
+    challengeToken: regChallenge.challengeToken,
+    otp: regStored.otp,
+    expectedType: 'REGISTER',
+  });
+  assert(correctTypeVerify.success === true, 'Matching expectedType REGISTER verification succeeds');
+
+  // --------------------------------------------------------------------------
   // SUMMARY REPORT
   // --------------------------------------------------------------------------
   console.log('\n🏛️  ================================================================');

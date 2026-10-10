@@ -5,8 +5,8 @@
 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 **Deployment Target:** Vercel (`Next.js 16 App Router`) + Supabase PostgreSQL + Standalone Backend (`backend/` Docker/Render on Port 5000)  
 **Architecture:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Three.js + GSAP 3 + Lenis + Google Gemini AI + Dedicated Node.js REST Backend  
-**Status:** ✅ **100% Production-Ready, All 18 Master Roadmap Phases Implemented & Verified (Mandatory 6-Digit OTP Email Authentication, Unverified User Database Isolation, Brevo Env-Driven Transactional Engine, Dedicated Standalone Backend on Port 5000, 63/63 Next.js App Router Routes, 65/65 Automated Test Suite Passing, Zero-Conflict Registration Lifecycle)**  
-**Last Updated:** 10 October 2026 (Phase 18 Mandatory 6-Digit OTP Verification, Unverified User Database Isolation, Clean:Users Script & Brevo Env-Driven Delivery Engine Delivered)  
+**Status:** ✅ **100% Production-Ready, All 18 Master Roadmap Phases Implemented & Verified (Mandatory 6-Digit OTP Email Authentication, Salted Cryptographic Hash Storage, Password Bypass Prevention, Terminal Log Hygiene, Unverified User Database Isolation, Brevo Env-Driven Transactional Engine, Dedicated Standalone Backend on Port 5000, 63/63 Next.js App Router Routes, 70/70 Automated Test Suite Passing, Zero-Conflict Registration Lifecycle)**  
+**Last Updated:** 10 October 2026 (Phase 18 Security Hardening: Password Bypass Prevention, Salted OTP Hashing, Terminal Hygiene, Clean-Users Dry-Run Mode & 70/70 Tests Passing)  
 
 ---
 
@@ -389,19 +389,22 @@ docker run -p 5000:5000 veloura-backend
 ### 18. Phase 18: Mandatory 6-Digit OTP Email Verification, Unverified User Database Isolation & Brevo Env-Driven Delivery Engine ✅
 - **Mandatory 6-Digit OTP Authentication & Isolation (`app/api/auth/register/route.ts`, `app/api/auth/verify-otp/route.ts`, `lib/auth/otpService.ts`):**
   - **Zero Unverified Database Contamination:** Registration requests strictly do *not* write unverified user records into the database until the 6-digit OTP is verified. The pending user record is stored safely in OTP challenge metadata (`metadata: { pendingRecord }`) with cryptographic tokens (`chal_...`).
+  - **Password Bypass Prevention & Salted Hashing:** Strictly reject invalid, expired, or mismatched challenge tokens in `resendOtpChallenge`. Prevented silent creation of unverified login challenges. OTP codes are stored as salted SHA-256 hashes (`.data/otp_challenges.json`) with constant-time comparison, disk persistence across restarts, and single-use replay protection.
+  - **Resend Cooldown & Attempt Guards:** Enforced 30-second cooldown, max 3 resends per session, and preserved failed attempt counters across resends to prevent brute-force cycling.
   - **Conflict Resolution for Unverified Registrations:** Modified duplicate email check to only reject if `existing && existing.user.is_email_verified`. If a user enters an email from an earlier unverified session, the system automatically regenerates and dispatches a fresh 6-digit OTP challenge rather than blocking them with a 409 Conflict.
   - **Single-Use Commit:** Upon successful OTP verification at `POST /api/auth/verify-otp`, `is_email_verified` is set to `true`, the account is saved to `.data/users_store.json` (and PostgreSQL), and the authenticated JWT session is issued.
 - **Brevo Env-Driven Transactional Delivery Engine (`lib/services/brevoEmailService.ts`, `backend/src/services/brevoEmailService.ts`, `backend/src/server.ts`):**
   - Completely environment-driven architecture powered by `.env` (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`).
   - Dynamic Dual-Path `.env` loading: Added native Node.js `process.loadEnvFile` resolution for both local and root `.env` files in `backend/src/server.ts`.
-  - **Development Terminal OTP Dispatch:** When running in local development mode without live Brevo credentials (simulation mode), the 6-digit OTP code is cleanly logged to the developer terminal (`🔐 [DEV OTP VERIFICATION CODE]: XXXXXX`) for instant local testing without waiting for email delivery.
+  - **Terminal & Log Hygiene:** Completely stripped plaintext OTP codes from developer terminal logs and email subject lines, protecting sensitive verification credentials.
 - **Automated Database Maintenance & User Cleanup CLI (`scripts/clean-users.ts`, `package.json`):**
   - Created CLI cleanup script `scripts/clean-users.ts` and registered `"clean:users": "npx -y tsx scripts/clean-users.ts"` in `package.json`.
+  - Added safe `--dry-run` default mode, dynamic parameterized PostgreSQL placeholders (`$1, $2, $3`), and explicit `--confirm` safeguards for destructive execution.
   - Safely deletes test registration accounts while preserving canonical baseline accounts (`admin@velouraliving.com`, `concierge@velouraliving.com`, `client@example.com`).
 - **User Repository Cache Synchronization (`lib/data/userRepository.ts`):**
   - Synchronized in-memory cache directly with `.data/users_store.json` on read operations.
   - Fixed `saveToDisk()` by removing undefined variable reference.
-  - Verified 100% test suite completion (65/65 automated tests passing).
+  - Verified 100% test suite completion (70/70 automated tests passing).
 
 ---
 

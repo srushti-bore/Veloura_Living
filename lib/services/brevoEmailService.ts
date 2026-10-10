@@ -226,13 +226,9 @@ export class BrevoEmailService {
 </html>
     `.trim();
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log(`\n==================================================\n🔐 [DEV OTP VERIFICATION CODE]: ${otp} (for ${email})\n==================================================\n`);
-    }
-
     return this.sendEmail({
       to: [{ email, name: options?.name }],
-      subject: `🏛️ Veloura Living — ${isRegister ? 'Activate Your Account' : 'Security Verification Code'} [${otp.slice(0, 3)}...]`,
+      subject: `🏛️ Veloura Living — ${isRegister ? 'Activate Your Account' : 'Security Verification Code'}`,
       htmlContent,
       tags: ['auth-otp', isRegister ? 'register-otp' : 'login-otp'],
     });

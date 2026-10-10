@@ -11,9 +11,13 @@ export interface OtpChallenge {
   email: string;
   userId?: string;
   otp: string;
+  otpHash: string;
+  salt: string;
   type: 'LOGIN' | 'REGISTER';
   attempts: number;
   maxAttempts: number;
+  resends: number;
+  maxResends: number;
   createdAt: number;
   expiresAt: number;
   lastSentAt: number;
@@ -55,9 +59,14 @@ const emailToChallengeMap = new Map<string, string>();
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const RESEND_COOLDOWN_MS = 30 * 1000; // 30 seconds
 const MAX_ATTEMPTS = 5;
+const MAX_RESENDS = 3;
 
 function generateSecureOtp(): string {
   return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashOtp(otp: string, salt: string): string {
+  return crypto.createHash('sha256').update(`${salt}:${otp.trim()}`).digest('hex');
 }
 
 export async function createOtpChallenge(params: {
@@ -76,6 +85,8 @@ export async function createOtpChallenge(params: {
   }
 
   const otp = generateSecureOtp();
+  const salt = crypto.randomBytes(16).toString('hex');
+  const otpHash = hashOtp(otp, salt);
   const challengeId = crypto.randomUUID();
   const challengeToken = `chal_${crypto.randomUUID().replace(/-/g, '')}`;
 
@@ -85,9 +96,13 @@ export async function createOtpChallenge(params: {
     email: normalizedEmail,
     userId: params.userId,
     otp,
+    otpHash,
+    salt,
     type: params.type,
     attempts: 0,
     maxAttempts: MAX_ATTEMPTS,
+    resends: 0,
+    maxResends: MAX_RESENDS,
     createdAt: now,
     expiresAt: now + OTP_EXPIRY_MS,
     lastSentAt: now,
@@ -103,6 +118,19 @@ export async function createOtpChallenge(params: {
     type: params.type,
   });
 
+  if (!dispatchResult.success) {
+    activeChallenges.delete(challengeToken);
+    emailToChallengeMap.delete(normalizedEmail);
+    return {
+      challengeToken: '',
+      email: normalizedEmail,
+      expiresInSeconds: 0,
+      cooldownSeconds: 0,
+      emailDispatched: false,
+      message: dispatchResult.error || 'Failed to dispatch verification email.',
+    };
+  }
+
   return {
     challengeToken,
     email: normalizedEmail,
@@ -117,6 +145,7 @@ export async function verifyOtpChallenge(params: {
   email: string;
   challengeToken: string;
   otp: string;
+  expectedType?: 'LOGIN' | 'REGISTER';
 }): Promise<VerifyOtpResult> {
   const normalizedEmail = params.email.toLowerCase().trim();
   const challenge = activeChallenges.get(params.challengeToken);
@@ -125,6 +154,14 @@ export async function verifyOtpChallenge(params: {
     return {
       success: false,
       error: 'Invalid or expired verification session. Please initiate login again.',
+      code: 'INVALID_CHALLENGE',
+    };
+  }
+
+  if (params.expectedType && challenge.type !== params.expectedType) {
+    return {
+      success: false,
+      error: 'Challenge type mismatch. Please initiate the correct authentication flow.',
       code: 'INVALID_CHALLENGE',
     };
   }
@@ -160,12 +197,13 @@ export async function verifyOtpChallenge(params: {
     };
   }
 
-  const submittedOtpBuf = Buffer.from(params.otp.trim(), 'utf-8');
-  const expectedOtpBuf = Buffer.from(challenge.otp, 'utf-8');
+  const submittedHash = hashOtp(params.otp, challenge.salt);
+  const submittedHashBuf = Buffer.from(submittedHash, 'utf-8');
+  const expectedHashBuf = Buffer.from(challenge.otpHash, 'utf-8');
 
   const isMatch =
-    submittedOtpBuf.length === expectedOtpBuf.length &&
-    crypto.timingSafeEqual(submittedOtpBuf, expectedOtpBuf);
+    submittedHashBuf.length === expectedHashBuf.length &&
+    crypto.timingSafeEqual(submittedHashBuf, expectedHashBuf);
 
   if (!isMatch) {
     const remaining = challenge.maxAttempts - challenge.attempts;
@@ -197,22 +235,49 @@ export async function resendOtpChallenge(params: {
   const normalizedEmail = params.email.toLowerCase().trim();
   const challenge = activeChallenges.get(params.challengeToken);
 
+  // VULNERABILITY FIX: Never silently create a new challenge for unknown/mismatched tokens!
   if (!challenge || challenge.email !== normalizedEmail) {
-    const newChallenge = await createOtpChallenge({
-      email: normalizedEmail,
-      type: 'LOGIN',
-    });
     return {
-      success: true,
-      challengeToken: newChallenge.challengeToken,
-      cooldownSeconds: 30,
-      message: 'New verification code dispatched to your email.',
+      success: false,
+      error: 'Invalid or expired verification session. Please initiate authentication again.',
+    };
+  }
+
+  if (challenge.isVerified) {
+    return {
+      success: false,
+      error: 'This verification session has already been completed.',
     };
   }
 
   const now = Date.now();
-  const elapsed = now - challenge.lastSentAt;
+  if (now > challenge.expiresAt) {
+    activeChallenges.delete(params.challengeToken);
+    emailToChallengeMap.delete(normalizedEmail);
+    return {
+      success: false,
+      error: 'Verification session has expired. Please initiate authentication again.',
+    };
+  }
 
+  if (challenge.attempts >= challenge.maxAttempts) {
+    activeChallenges.delete(params.challengeToken);
+    emailToChallengeMap.delete(normalizedEmail);
+    return {
+      success: false,
+      error: 'Maximum verification attempts exceeded. Session locked for security.',
+    };
+  }
+
+  const currentResends = challenge.resends || 0;
+  if (currentResends >= (challenge.maxResends || MAX_RESENDS)) {
+    return {
+      success: false,
+      error: 'Maximum resend limit reached for this session. Please initiate a new login or registration.',
+    };
+  }
+
+  const elapsed = now - challenge.lastSentAt;
   if (elapsed < RESEND_COOLDOWN_MS) {
     const remainingSec = Math.ceil((RESEND_COOLDOWN_MS - elapsed) / 1000);
     return {
@@ -223,14 +288,24 @@ export async function resendOtpChallenge(params: {
   }
 
   const newOtp = generateSecureOtp();
+  const newSalt = crypto.randomBytes(16).toString('hex');
+  challenge.salt = newSalt;
+  challenge.otpHash = hashOtp(newOtp, newSalt);
   challenge.otp = newOtp;
   challenge.lastSentAt = now;
   challenge.expiresAt = now + OTP_EXPIRY_MS;
-  challenge.attempts = 0;
+  challenge.resends = currentResends + 1;
 
-  await brevoEmailService.sendOtpEmail(normalizedEmail, newOtp, {
+  const dispatchResult = await brevoEmailService.sendOtpEmail(normalizedEmail, newOtp, {
     type: challenge.type,
   });
+
+  if (!dispatchResult.success) {
+    return {
+      success: false,
+      error: dispatchResult.error || 'Failed to dispatch verification email.',
+    };
+  }
 
   return {
     success: true,
