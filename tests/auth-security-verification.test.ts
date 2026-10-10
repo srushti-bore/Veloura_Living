@@ -1,27 +1,32 @@
 /**
  * 🏛️ Veloura Living — Auth & Security Verification Test Suite
  * 
- * Verifies all 8 Authentication, OTP & Backend Security issues:
- * 1. Priority 1 & 7: Multi-instance pending registration persistence, expiry & atomic single-use consumption.
- * 2. Priority 2 & 7: Server-enforced OTP challenge purpose separation (LOGIN vs REGISTER), handling omitted & forged purposes.
- * 3. Priority 3 & 7: Fail-closed session authorization for missing, inactive, and suspended accounts, and real-time status sync.
- * 4. Priority 4 & 7: Staged failure-safe resend lifecycle, preserving previous OTP on failure and blocking superseded challenges.
- * 5. Priority 5 & 7: Database-backed concurrent OTP verification and atomic attempt count lockout under concurrency.
- * 6. Priority 6 & 7: High-entropy guest_access_token, elimination of hardcoded tokens, query string leakage defense, and guest data minimization.
- * 7. Priority 8: Database configuration alignment without exposing environment files.
+ * Verifies all Authentication, OTP & Backend Security issues:
+ * 1. Issue 1: Server-enforced OTP challenge purpose separation (LOGIN vs REGISTER),
+ *    handling omitted, forged, and unexpected purposes, testing both helper and endpoint policy.
+ * 2. Issue 2: Production-safe pending registration persistence, fail-closed database unavailable
+ *    mode, atomic single-use concurrency consumption, and removal of unverified bypasses.
+ * 3. Fail-closed session authorization for missing, inactive, and suspended accounts.
+ * 4. Staged failure-safe resend lifecycle, preserving previous OTP on failure and blocking superseded challenges.
+ * 5. Concurrent OTP verification atomicity and atomic attempt count lockout under concurrency.
+ * 6. High-entropy guest_access_token, elimination of hardcoded tokens, query string leakage defense, and guest data minimization.
  */
 
 import {
   savePendingRegistration,
   getPendingRegistration,
   consumePendingRegistration,
+  PendingRegistrationStoreError,
 } from '../lib/auth/pendingRegistrationStore';
 import {
   createOtpChallenge,
   verifyOtpChallenge,
   resendOtpChallenge,
   getChallengeForTesting,
+  ALLOWED_OTP_PURPOSES,
+  isValidOtpPurpose,
 } from '../lib/auth/otpService';
+import { POST as verifyOtpEndpoint } from '../app/api/auth/verify-otp/route';
 import { brevoEmailService } from '../lib/services/brevoEmailService';
 import {
   createOrder,
@@ -33,7 +38,8 @@ import { addToCart, clearCart } from '../lib/data/shoppingStore';
 import { initCatalogStore, getAllVariants, updateVariantStock } from '../lib/data/catalogStore';
 import { requireAuth, getSession } from '../lib/auth/session';
 import { signToken } from '../lib/auth/jwt';
-import { createUser, initUserRepository, saveUserRecord, findUserById } from '../lib/data/userRepository';
+import { createUser, initUserRepository, saveUserRecord } from '../lib/data/userRepository';
+import { findUserByEmail, initAuthStore } from '../lib/data/authStore';
 import { hashPassword } from '../lib/auth/password';
 import { NextRequest } from 'next/server';
 
@@ -58,17 +64,18 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   }
 
   console.log('\n===========================================================');
-  console.log('🏛️  AUTHENTICATION & SECURITY 8-ISSUE VERIFICATION SUITE');
+  console.log('🏛️  AUTHENTICATION & SECURITY VERIFICATION SUITE');
   console.log('===========================================================');
 
   const timestamp = Date.now();
+  await initAuthStore();
   await initUserRepository();
   initOrderStore();
 
   // --------------------------------------------------------------------------
-  // PRIORITY 1 & 7: MULTI-INSTANCE PENDING REGISTRATION STORE & ATOMIC CONSUMPTION
+  // ISSUE 2: PRODUCTION-SAFE PENDING REGISTRATION PERSISTENCE
   // --------------------------------------------------------------------------
-  console.log('\n--- Priority 1: Multi-Instance Pending Registration & Atomic Single-Use ---');
+  console.log('\n--- Issue 2: Production-Safe Pending Registration Persistence & Concurrency ---');
 
   const pendingEmail = `pending_${timestamp}@example.com`;
   const dummyHash = 'pbkdf2_sha256$100000$salt$testhashvalue';
@@ -105,12 +112,19 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(storedChallenge?.metadata?.passwordHash === undefined, 'passwordHash strictly stripped from challenge metadata');
   assert(storedChallenge?.metadata?.password === undefined, 'plaintext password strictly stripped from challenge metadata');
 
-  // Atomic single-use consumption of pending registration
-  const consumedFirst = await consumePendingRegistration(pendingReg.id);
-  assert(consumedFirst !== null && consumedFirst.email === pendingEmail, 'First consume retrieves pending registration');
+  // Atomic concurrent consumption: 5 simultaneous requests attempting to consume the same pending registration
+  const concurrentConsumes = await Promise.all([
+    consumePendingRegistration(pendingReg.id),
+    consumePendingRegistration(pendingReg.id),
+    consumePendingRegistration(pendingReg.id),
+    consumePendingRegistration(pendingReg.id),
+    consumePendingRegistration(pendingReg.id),
+  ]);
+  const successfulConsumes = concurrentConsumes.filter((r) => r !== null);
+  const nullConsumes = concurrentConsumes.filter((r) => r === null);
 
-  const consumedSecond = await consumePendingRegistration(pendingReg.id);
-  assert(consumedSecond === null, 'Second consume returns null (single-use consumption guaranteed)');
+  assert(successfulConsumes.length === 1, 'Concurrent consume: exactly one request successfully consumes pending registration');
+  assert(nullConsumes.length === 4, 'Concurrent consume: all other duplicate requests receive null (atomic single-use guaranteed)');
 
   // Expired pending registration test
   const expiredEmail = `expired_reg_${timestamp}@example.com`;
@@ -121,16 +135,76 @@ export async function runAuthSecurityVerificationTests(): Promise<{
     lastName: 'User',
     phone: '+91 99887 00000',
   });
-  // Simulate expiration
   expiredPending.expiresAt = Date.now() - 1000;
   const expiredConsumed = await consumePendingRegistration(expiredPending.id);
   assert(expiredConsumed === null, 'Expired pending registration cannot be consumed');
 
-  // --------------------------------------------------------------------------
-  // PRIORITY 2 & 7: SERVER-ENFORCED OTP CHALLENGE PURPOSE (LOGIN VS REGISTER)
-  // --------------------------------------------------------------------------
-  console.log('\n--- Priority 2: Server-Enforced OTP Purpose (LOGIN vs REGISTER) ---');
+  // Production failure policy: no local fallback when DB required and unavailable
+  let prodSaveRejected = false;
+  try {
+    await savePendingRegistration(
+      {
+        email: `prodfail_${timestamp}@example.com`,
+        passwordHash: dummyHash,
+      },
+      { requirePostgres: true }
+    );
+  } catch (err: any) {
+    if (err instanceof PendingRegistrationStoreError && err.code === 'DB_UNAVAILABLE') {
+      prodSaveRejected = true;
+    }
+  }
+  assert(prodSaveRejected === true, 'savePendingRegistration fails closed (DB_UNAVAILABLE) when PostgreSQL required but absent');
 
+  let prodGetRejected = false;
+  try {
+    await getPendingRegistration('any-id', { requirePostgres: true });
+  } catch (err: any) {
+    if (err instanceof PendingRegistrationStoreError && err.code === 'DB_UNAVAILABLE') {
+      prodGetRejected = true;
+    }
+  }
+  assert(prodGetRejected === true, 'getPendingRegistration fails closed without falling back to local Map in production mode');
+
+  let prodConsumeRejected = false;
+  try {
+    await consumePendingRegistration('any-id', { requirePostgres: true });
+  } catch (err: any) {
+    if (err instanceof PendingRegistrationStoreError && err.code === 'DB_UNAVAILABLE') {
+      prodConsumeRejected = true;
+    }
+  }
+  assert(prodConsumeRejected === true, 'consumePendingRegistration fails closed without falling back to local Map in production mode');
+
+  // --------------------------------------------------------------------------
+  // ISSUE 1: SERVER-ENFORCED OTP PURPOSE POLICY (LOGIN VS REGISTER)
+  // --------------------------------------------------------------------------
+  console.log('\n--- Issue 1: Server-Enforced OTP Purpose Policy & Endpoint Validation ---');
+
+  // Verify explicit server purpose definitions
+  assert(
+    ALLOWED_OTP_PURPOSES.length === 2 &&
+      ALLOWED_OTP_PURPOSES.includes('LOGIN') &&
+      ALLOWED_OTP_PURPOSES.includes('REGISTER'),
+    'ALLOWED_OTP_PURPOSES strictly limited to LOGIN and REGISTER'
+  );
+  assert(isValidOtpPurpose('LOGIN') === true, 'isValidOtpPurpose validates LOGIN');
+  assert(isValidOtpPurpose('REGISTER') === true, 'isValidOtpPurpose validates REGISTER');
+  assert(isValidOtpPurpose('PASSWORD_RESET') === false, 'isValidOtpPurpose rejects PASSWORD_RESET');
+  assert(isValidOtpPurpose('') === false, 'isValidOtpPurpose rejects empty purpose');
+  assert(isValidOtpPurpose(null) === false, 'isValidOtpPurpose rejects null purpose');
+
+  // Challenge creation with invalid purpose fails safely
+  const invalidTypeCreation = await createOtpChallenge({
+    email: `badpurpose_${timestamp}@example.com`,
+    type: 'INVALID_TYPE' as any,
+  });
+  assert(
+    invalidTypeCreation.challengeToken === '' && invalidTypeCreation.emailDispatched === false,
+    'createOtpChallenge safely rejects invalid challenge purpose'
+  );
+
+  // 1. REGISTER challenge purpose tests
   const purposeEmail = `purpose_sep_${timestamp}@example.com`;
   const regOnlyChal = await createOtpChallenge({
     email: purposeEmail,
@@ -138,7 +212,7 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   });
   const regOnlyStored = getChallengeForTesting(regOnlyChal.challengeToken)!;
 
-  // 1. Forged purpose: client provides LOGIN on a REGISTER challenge
+  // Forged purpose: client supplies LOGIN on a REGISTER challenge
   const forgedPurposeVerify = await verifyOtpChallenge({
     email: purposeEmail,
     challengeToken: regOnlyChal.challengeToken,
@@ -148,7 +222,7 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(forgedPurposeVerify.success === false, 'REGISTER challenge rejected when client supplies forged expectedType: LOGIN');
   assert(forgedPurposeVerify.code === 'INVALID_CHALLENGE', 'Forged purpose verification returns INVALID_CHALLENGE');
 
-  // 2. Omitted purpose: client does not pass expectedType, server resolves trusted REGISTER type
+  // Omitted purpose: client does not pass expectedType, server resolves trusted REGISTER type
   const omittedPurposeVerify = await verifyOtpChallenge({
     email: purposeEmail,
     challengeToken: regOnlyChal.challengeToken,
@@ -158,7 +232,7 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(omittedPurposeVerify.success === true, 'Matching or omitted expectedType resolves trusted server-side REGISTER purpose');
   assert(omittedPurposeVerify.type === 'REGISTER', 'Server context accurately identifies trusted challenge type as REGISTER');
 
-  // 3. Forged purpose on LOGIN challenge
+  // 2. LOGIN challenge purpose tests
   const loginPurposeEmail = `login_purpose_${timestamp}@example.com`;
   const loginOnlyChal = await createOtpChallenge({
     email: loginPurposeEmail,
@@ -166,6 +240,7 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   });
   const loginOnlyStored = getChallengeForTesting(loginOnlyChal.challengeToken)!;
 
+  // Forged purpose: client supplies REGISTER on a LOGIN challenge
   const forgedRegOnLogin = await verifyOtpChallenge({
     email: loginPurposeEmail,
     challengeToken: loginOnlyChal.challengeToken,
@@ -175,12 +250,143 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(forgedRegOnLogin.success === false, 'LOGIN challenge rejected when client supplies forged expectedType: REGISTER');
   assert(forgedRegOnLogin.code === 'INVALID_CHALLENGE', 'Cross-purpose verification returns INVALID_CHALLENGE');
 
-  // --------------------------------------------------------------------------
-  // PRIORITY 3 & 7: FAIL-CLOSED SESSIONS & CROSS-PROCESS ACCOUNT STATUS SYNC
-  // --------------------------------------------------------------------------
-  console.log('\n--- Priority 3: Fail-Closed Sessions & Real-Time Account Status Sync ---');
+  // 3. Stored challenge purpose corruption / missing fails closed
+  const corruptPurposeChal = await createOtpChallenge({
+    email: `corrupt_${timestamp}@example.com`,
+    type: 'LOGIN',
+  });
+  const corruptStored = getChallengeForTesting(corruptPurposeChal.challengeToken)!;
+  (corruptStored as any).type = 'UNEXPECTED_PURPOSE';
 
-  // 1. Missing user record fails closed
+  const corruptVerify = await verifyOtpChallenge({
+    email: `corrupt_${timestamp}@example.com`,
+    challengeToken: corruptPurposeChal.challengeToken,
+    otp: corruptStored.otp,
+  });
+  assert(corruptVerify.success === false, 'Stored challenge with unexpected purpose fails closed');
+  assert(corruptVerify.code === 'INVALID_CHALLENGE', 'Corrupt purpose returns INVALID_CHALLENGE');
+
+  // 4. Endpoint Policy Tests (POST /api/auth/verify-otp via NextRequest)
+  console.log('\n--- Endpoint Policy Security: Account Creation & Session Rejection ---');
+
+  // Flow A: Valid Registration via Endpoint succeeds and creates user
+  const epEmail = `endpoint_reg_${timestamp}@example.com`;
+  const epPending = await savePendingRegistration({
+    email: epEmail,
+    passwordHash: dummyHash,
+    firstName: 'Audrey',
+    lastName: 'Hepburn',
+    phone: '+91 99887 11223',
+  });
+
+  const epRegChal = await createOtpChallenge({
+    email: epEmail,
+    type: 'REGISTER',
+    name: 'Audrey',
+    metadata: { pendingRegistrationId: epPending.id },
+  });
+  const epRegStored = getChallengeForTesting(epRegChal.challengeToken)!;
+
+  const epReq = new NextRequest('http://localhost:3000/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: epEmail,
+      challengeToken: epRegChal.challengeToken,
+      otp: epRegStored.otp,
+    }),
+  });
+
+  const epRes = await verifyOtpEndpoint(epReq);
+  const epBody = await epRes.json();
+  assert(epRes.status === 200 && epBody.success === true, 'Valid registration OTP via endpoint succeeds with 200');
+  assert(Boolean(epBody.data?.token), 'Valid registration receives authenticated JWT token');
+  const createdEpUser = findUserByEmail(epEmail);
+  assert(createdEpUser !== undefined && createdEpUser.user.is_email_verified === true, 'Registered user created and marked verified in store');
+
+  // Flow B: Replay / Re-verification fails (single-use)
+  const epReplayReq = new NextRequest('http://localhost:3000/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: epEmail,
+      challengeToken: epRegChal.challengeToken,
+      otp: epRegStored.otp,
+    }),
+  });
+  const epReplayRes = await verifyOtpEndpoint(epReplayReq);
+  assert(epReplayRes.status === 400, 'Replaying verified registration OTP is strictly rejected (400)');
+
+  // Flow C: Register challenge CANNOT target existing verified account (Conflict 409)
+  const duplicateRegChal = await createOtpChallenge({
+    email: epEmail, // Already verified user
+    type: 'REGISTER',
+    metadata: { pendingRegistrationId: 'fake-pending-id' },
+  });
+  const dupStored = getChallengeForTesting(duplicateRegChal.challengeToken)!;
+  const dupReq = new NextRequest('http://localhost:3000/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: epEmail,
+      challengeToken: duplicateRegChal.challengeToken,
+      otp: dupStored.otp,
+    }),
+  });
+  const dupRes = await verifyOtpEndpoint(dupReq);
+  assert(dupRes.status === 409, 'Registration verification on existing verified account returns 409 Conflict');
+
+  // Flow D: Login challenge CANNOT log in non-existent account (Unauthorized 401)
+  const ghostEmail = `ghost_${timestamp}@example.com`;
+  const ghostLoginChal = await createOtpChallenge({
+    email: ghostEmail,
+    type: 'LOGIN',
+  });
+  const ghostStored = getChallengeForTesting(ghostLoginChal.challengeToken)!;
+  const ghostReq = new NextRequest('http://localhost:3000/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: ghostEmail,
+      challengeToken: ghostLoginChal.challengeToken,
+      otp: ghostStored.otp,
+    }),
+  });
+  const ghostRes = await verifyOtpEndpoint(ghostReq);
+  assert(ghostRes.status === 401, 'Login verification for non-existent user returns 401 Unauthorized');
+
+  // Flow E: Bypass attempt with legacy pendingRecord metadata fails closed (no user created)
+  const bypassEmail = `bypass_${timestamp}@example.com`;
+  const bypassChal = await createOtpChallenge({
+    email: bypassEmail,
+    type: 'REGISTER',
+    metadata: {
+      pendingRecord: {
+        user: { id: 'bypass-id', email: bypassEmail, status: 'ACTIVE' },
+        roles: ['ADMIN'], // Attempting unverified admin injection
+      },
+    },
+  });
+  const bypassStored = getChallengeForTesting(bypassChal.challengeToken)!;
+  const bypassReq = new NextRequest('http://localhost:3000/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: bypassEmail,
+      challengeToken: bypassChal.challengeToken,
+      otp: bypassStored.otp,
+    }),
+  });
+  const bypassRes = await verifyOtpEndpoint(bypassReq);
+  assert(bypassRes.status === 400, 'Legacy pendingRecord injection without pending_registrations row fails closed (400)');
+  assert(findUserByEmail(bypassEmail) === undefined, 'No user account created from legacy pendingRecord bypass attempt');
+
+  // --------------------------------------------------------------------------
+  // FAIL-CLOSED SESSIONS & CROSS-PROCESS ACCOUNT STATUS SYNC
+  // --------------------------------------------------------------------------
+  console.log('\n--- Fail-Closed Sessions & Real-Time Account Status Sync ---');
+
+  // Missing user record fails closed
   const phantomUserId = '00000000-0000-0000-0000-000000000099';
   const phantomToken = await signToken(phantomUserId, 'phantom@example.com', ['CUSTOMER']);
   const phantomReq = new NextRequest('http://localhost:3000/api/customer/profile', {
@@ -198,7 +404,7 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   }
   assert(phantomAuthRejected === true, 'requireAuth strictly throws for missing user record');
 
-  // 2. Suspended account
+  // Suspended account rejection
   const suspEmail = `suspended_${timestamp}@example.com`;
   const suspUser = await createUser({
     email: suspEmail,
@@ -226,7 +432,7 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   }
   assert(suspRejected === true, 'Suspended account strictly rejected by requireAuth');
 
-  // 3. Inactive account
+  // Inactive account rejection
   const inactEmail = `inactive_${timestamp}@example.com`;
   const inactUser = await createUser({
     email: inactEmail,
@@ -255,9 +461,9 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(inactRejected === true, 'Inactive account strictly rejected by requireAuth');
 
   // --------------------------------------------------------------------------
-  // PRIORITY 4 & 7: FAILURE-SAFE RESEND PERSISTENCE & SUPERSEDED CODE DEFENSE
+  // FAILURE-SAFE RESEND PERSISTENCE & SUPERSEDED CODE DEFENSE
   // --------------------------------------------------------------------------
-  console.log('\n--- Priority 4: Failure-Safe Resend Persistence & Superseded Code Defense ---');
+  console.log('\n--- Failure-Safe Resend Persistence & Superseded Code Defense ---');
 
   const resendEmail = `resend_${timestamp}@example.com`;
   const initialChal = await createOtpChallenge({
@@ -267,7 +473,6 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   const initialStored = getChallengeForTesting(initialChal.challengeToken)!;
   const initialOtp = initialStored.otp;
 
-  // Advance time past cooldown
   initialStored.lastSentAt = Date.now() - 35000;
 
   // Mock Brevo delivery failure during resend
@@ -286,7 +491,6 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(failedResend.success === false, 'Resend reports failure when delivery or persistence fails');
   assert(failedResend.error?.includes('previous verification code remains valid') === true, 'Notifies client that previous OTP remains valid');
 
-  // Verify that previous OTP is STILL VALID and usable after failed resend
   const verifyInitialAfterFailedResend = await verifyOtpChallenge({
     email: resendEmail,
     challengeToken: initialChal.challengeToken,
@@ -294,10 +498,9 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   });
   assert(verifyInitialAfterFailedResend.success === true, 'Original OTP successfully verifies after failed resend attempt');
 
-  // Restore Brevo sender
   brevoEmailService.sendOtpEmail = origSend;
 
-  // Now perform a SUCCESSFUL resend and verify superseded challenge defense
+  // Successful resend: Superseded challenge defense
   const resendEmail2 = `resend2_${timestamp}@example.com`;
   const chal2 = await createOtpChallenge({
     email: resendEmail2,
@@ -313,7 +516,6 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   });
   assert(successfulResend.success === true, 'Successful resend issues new verification challenge');
 
-  // Superseded OTP code must NOT work
   const oldCodeVerify = await verifyOtpChallenge({
     email: resendEmail2,
     challengeToken: chal2.challengeToken,
@@ -321,7 +523,6 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   });
   assert(oldCodeVerify.success === false, 'Superseded OTP code cannot be reused after resend');
 
-  // New OTP code verifies successfully
   const updatedStored = getChallengeForTesting(chal2.challengeToken)!;
   const newCodeVerify = await verifyOtpChallenge({
     email: resendEmail2,
@@ -331,11 +532,10 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(newCodeVerify.success === true, 'Replacement OTP code verifies successfully');
 
   // --------------------------------------------------------------------------
-  // PRIORITY 5 & 7: CONCURRENT VERIFICATION ATOMICITY & ATTEMPT LOCKOUT
+  // CONCURRENT OTP VERIFICATION ATOMICITY & ATTEMPT LOCKOUT
   // --------------------------------------------------------------------------
-  console.log('\n--- Priority 5: Concurrent OTP Verification Atomicity & Attempt Lockout ---');
+  console.log('\n--- Concurrent OTP Verification Atomicity & Attempt Lockout ---');
 
-  // 1. Concurrent verification single-use race test
   const concEmail = `concurrent_${timestamp}@example.com`;
   const concChal = await createOtpChallenge({
     email: concEmail,
@@ -356,14 +556,13 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(concSuccesses.length === 1, 'Exactly one concurrent verification succeeds under simultaneous requests');
   assert(concFailures.length === 3, 'All other concurrent duplicate requests are rejected (single-use guarantee)');
 
-  // 2. Concurrent invalid attempts lockout test
+  // Concurrent invalid attempts lockout
   const lockoutEmail = `lockout_${timestamp}@example.com`;
   const lockoutChal = await createOtpChallenge({
     email: lockoutEmail,
     type: 'LOGIN',
   });
 
-  // Launch 10 simultaneous invalid attempts against max 5 attempts
   const invalidAttempts = await Promise.all(
     Array.from({ length: 10 }, () =>
       verifyOtpChallenge({
@@ -376,7 +575,6 @@ export async function runAuthSecurityVerificationTests(): Promise<{
 
   assert(invalidAttempts.every((r) => !r.success), 'All 10 concurrent invalid attempts fail');
 
-  // Any subsequent attempt (even correct OTP) must be locked out
   const postLockoutAttempt = await verifyOtpChallenge({
     email: lockoutEmail,
     challengeToken: lockoutChal.challengeToken,
@@ -387,9 +585,9 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   assert(postLockoutAttempt.remainingAttempts === 0, 'Zero remaining attempts reported');
 
   // --------------------------------------------------------------------------
-  // PRIORITY 6 & 7: GUEST ORDER ACCESS & QUERY STRING DEFENSE
+  // GUEST ORDER ACCESS & QUERY STRING DEFENSE
   // --------------------------------------------------------------------------
-  console.log('\n--- Priority 6: Guest Order Access Security & Query String Defense ---');
+  console.log('\n--- Guest Order Access Security & Query String Defense ---');
 
   initCatalogStore();
   const variants = getAllVariants();
@@ -420,9 +618,7 @@ export async function runAuthSecurityVerificationTests(): Promise<{
     'guest_access_token prefixed with gat_ and meets entropy requirement'
   );
 
-  // Sanitize order for guest viewing
   const sanitizedGuestView = sanitizeOrderForGuest(createdOrder);
-
   assert(sanitizedGuestView.order_number === createdOrder.order_number, 'Sanitized view contains public order number');
   assert(
     (sanitizedGuestView as any).customer_info?.address_line1 === undefined,
@@ -445,7 +641,6 @@ export async function runAuthSecurityVerificationTests(): Promise<{
     'Raw payment transactions and tokens stripped from guest tracking view'
   );
 
-  // Rejection of old hardcoded demo token
   const hardcodedDemoToken = 'gat_demo_sec_981240189234';
   assert(
     createdOrder.guest_access_token !== hardcodedDemoToken,
@@ -456,7 +651,7 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   // SUMMARY REPORT
   // --------------------------------------------------------------------------
   console.log('\n===========================================================');
-  console.log(`📊 8-ISSUE VERIFICATION SUMMARY:`);
+  console.log(`📊 AUTHENTICATION & SECURITY VERIFICATION SUMMARY:`);
   console.log(`   ✓ Passed: ${passed}`);
   console.log(`   ✗ Failed: ${failed}`);
   console.log(`   🎯 Total:  ${passed + failed}`);

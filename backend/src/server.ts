@@ -28,7 +28,7 @@ import { hashPassword, verifyPassword } from './auth/password';
 import { signToken, verifyToken } from './auth/jwt';
 import { parseAuthToken } from './auth/session';
 import { hasAnyRole } from './auth/rbac';
-import { createOtpChallenge, verifyOtpChallenge, resendOtpChallenge } from './auth/otpService';
+import { createOtpChallenge, verifyOtpChallenge, resendOtpChallenge, isValidOtpPurpose } from './auth/otpService';
 import { savePendingRegistration, consumePendingRegistration } from './auth/pendingRegistrationStore';
 import { generateGstInvoiceForOrder } from './services/invoiceService';
 import { formatSuccessResponse, formatErrorResponse } from './api/response';
@@ -185,13 +185,18 @@ const server = http.createServer(async (req, res) => {
       };
 
       // Do NOT save to DB yet — only persist upon successful OTP verification
-      const pending = await savePendingRegistration({
-        email: userRecord.user.email,
-        passwordHash,
-        firstName: firstName || '',
-        lastName: lastName || '',
-        phone: phone || '',
-      });
+      let pending;
+      try {
+        pending = await savePendingRegistration({
+          email: userRecord.user.email,
+          passwordHash,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          phone: phone || '',
+        });
+      } catch (err: any) {
+        return sendJson(res, 503, formatErrorResponse('Registration database is unavailable. Registration aborted.', 'SERVICE_UNAVAILABLE'));
+      }
 
       const challenge = await createOtpChallenge({
         email: userRecord.user.email,
@@ -264,51 +269,63 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, formatErrorResponse(verifyResult.error || 'Invalid OTP code.', verifyResult.code || 'OTP_ERROR'));
       }
 
+      // Authoritative Server-Side Purpose Validation:
+      // Missing, invalid, or unexpected challenge purposes fail closed immediately.
+      if (!verifyResult.type || !isValidOtpPurpose(verifyResult.type)) {
+        return sendJson(res, 401, formatErrorResponse('Invalid or unsupported authentication challenge purpose.', 'UNAUTHORIZED'));
+      }
+
       let record: UserRecord | undefined = findUserByEmail(email);
       if (verifyResult.type === 'REGISTER') {
+        // Registration verification cannot complete a login flow, and cannot target an already verified account.
         if (record && record.user.is_email_verified) {
           return sendJson(res, 409, formatErrorResponse('This account is already registered and verified. Please sign in instead.', 'CONFLICT'));
         }
         const pendingId = verifyResult.metadata?.pendingRegistrationId;
-        const pending = pendingId ? await consumePendingRegistration(pendingId) : null;
-        if (pending) {
-          const now = new Date().toISOString();
-          const userId = crypto.randomUUID();
-          const newRecord: UserRecord = {
-            user: {
-              id: userId,
-              email: pending.email.toLowerCase().trim(),
-              password_hash: pending.passwordHash,
-              status: 'ACTIVE',
-              is_email_verified: true,
-              created_at: now,
-              updated_at: now,
-            },
-            roles: ['CUSTOMER'],
-            profile: {
-              user_id: userId,
-              first_name: pending.firstName,
-              last_name: pending.lastName,
-              phone: pending.phone,
-              preferred_currency: 'INR',
-              created_at: now,
-              updated_at: now,
-            },
-            addresses: [],
-          };
-          saveUserRecord(newRecord);
-          record = newRecord;
-        } else if (!record && verifyResult.metadata?.pendingRecord) {
-          const pr = verifyResult.metadata.pendingRecord as UserRecord;
-          pr.user.is_email_verified = true;
-          pr.user.created_at = new Date().toISOString();
-          pr.user.updated_at = new Date().toISOString();
-          saveUserRecord(pr);
-          record = pr;
-        } else {
+        if (!pendingId) {
+          return sendJson(res, 400, formatErrorResponse('Pending registration identifier missing from challenge.', 'VALIDATION_ERROR'));
+        }
+        let pending;
+        try {
+          pending = await consumePendingRegistration(pendingId);
+        } catch (err: any) {
+          return sendJson(res, 503, formatErrorResponse('Registration database is unavailable. Verification aborted.', 'SERVICE_UNAVAILABLE'));
+        }
+        if (!pending) {
           return sendJson(res, 400, formatErrorResponse('Pending registration expired or not found. Please register again.', 'VALIDATION_ERROR'));
         }
+        if (pending.email.toLowerCase().trim() !== email.toLowerCase().trim()) {
+          return sendJson(res, 401, formatErrorResponse('Registration email does not match verified challenge.', 'UNAUTHORIZED'));
+        }
+
+        const now = new Date().toISOString();
+        const userId = crypto.randomUUID();
+        const newRecord: UserRecord = {
+          user: {
+            id: userId,
+            email: pending.email.toLowerCase().trim(),
+            password_hash: pending.passwordHash,
+            status: 'ACTIVE',
+            is_email_verified: true,
+            created_at: now,
+            updated_at: now,
+          },
+          roles: ['CUSTOMER'],
+          profile: {
+            user_id: userId,
+            first_name: pending.firstName,
+            last_name: pending.lastName,
+            phone: pending.phone,
+            preferred_currency: 'INR',
+            created_at: now,
+            updated_at: now,
+          },
+          addresses: [],
+        };
+        saveUserRecord(newRecord);
+        record = newRecord;
       } else if (verifyResult.type === 'LOGIN') {
+        // Login verification cannot complete a registration challenge, create accounts, or consume pending registrations.
         if (!record) {
           return sendJson(res, 401, formatErrorResponse('User profile not found for this login session.', 'UNAUTHORIZED'));
         }
@@ -326,6 +343,9 @@ const server = http.createServer(async (req, res) => {
           record.user.updated_at = new Date().toISOString();
           saveUserRecord(record);
         }
+      } else {
+        // Explicit fail-closed policy
+        return sendJson(res, 401, formatErrorResponse('Unsupported or invalid verification purpose.', 'UNAUTHORIZED'));
       }
 
       if (!record) {

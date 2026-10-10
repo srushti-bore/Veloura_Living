@@ -5,7 +5,7 @@ import { handleApiError, ValidationError, UnauthorizedError, ConflictError } fro
 import { signToken } from '@/lib/auth/jwt';
 import { AUTH_COOKIE_NAME } from '@/lib/auth/session';
 import { initAuthStore, findUserByEmail, saveUserRecord, resetFailedLogin, UserRecord } from '@/lib/data/authStore';
-import { verifyOtpChallenge } from '@/lib/auth/otpService';
+import { verifyOtpChallenge, isValidOtpPurpose } from '@/lib/auth/otpService';
 import { consumePendingRegistration } from '@/lib/auth/pendingRegistrationStore';
 import { AuthResponseData } from '@/types';
 
@@ -34,55 +34,62 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Authoritative Server-Side Purpose Validation:
+    // Missing, invalid, or unexpected challenge purposes fail closed immediately.
+    if (!verifyResult.type || !isValidOtpPurpose(verifyResult.type)) {
+      throw new UnauthorizedError('Invalid or unsupported authentication challenge purpose.');
+    }
+
     let record: UserRecord | undefined = findUserByEmail(email);
 
     if (verifyResult.type === 'REGISTER') {
+      // Registration verification cannot complete a login flow, and cannot target an already verified account.
       if (record && record.user.is_email_verified) {
         throw new ConflictError('This account is already registered and verified. Please sign in instead.');
       }
 
       const pendingId = verifyResult.metadata?.pendingRegistrationId;
-      const pending = pendingId ? await consumePendingRegistration(pendingId) : null;
+      if (!pendingId) {
+        throw new ValidationError('Pending registration identifier missing from challenge.');
+      }
 
-      if (pending) {
-        const now = new Date().toISOString();
-        const userId = crypto.randomUUID();
-        const newRecord: UserRecord = {
-          user: {
-            id: userId,
-            email: pending.email.toLowerCase().trim(),
-            password_hash: pending.passwordHash,
-            status: 'ACTIVE',
-            is_email_verified: true,
-            created_at: now,
-            updated_at: now,
-          },
-          roles: ['CUSTOMER'],
-          profile: {
-            user_id: userId,
-            first_name: pending.firstName,
-            last_name: pending.lastName,
-            phone: pending.phone,
-            preferred_currency: 'INR',
-            created_at: now,
-            updated_at: now,
-          },
-          addresses: [],
-        };
-        saveUserRecord(newRecord);
-        record = newRecord;
-      } else if (!record && verifyResult.metadata?.pendingRecord) {
-        // Safe backward-compatibility fallback for tests mocking pendingRecord
-        const pr = verifyResult.metadata.pendingRecord as UserRecord;
-        pr.user.is_email_verified = true;
-        pr.user.created_at = new Date().toISOString();
-        pr.user.updated_at = new Date().toISOString();
-        saveUserRecord(pr);
-        record = pr;
-      } else {
+      const pending = await consumePendingRegistration(pendingId);
+      if (!pending) {
         throw new ValidationError('Pending registration expired or not found. Please register again.');
       }
+
+      if (pending.email.toLowerCase().trim() !== email.toLowerCase().trim()) {
+        throw new UnauthorizedError('Registration email does not match verified challenge.');
+      }
+
+      const now = new Date().toISOString();
+      const userId = crypto.randomUUID();
+      const newRecord: UserRecord = {
+        user: {
+          id: userId,
+          email: pending.email.toLowerCase().trim(),
+          password_hash: pending.passwordHash,
+          status: 'ACTIVE',
+          is_email_verified: true,
+          created_at: now,
+          updated_at: now,
+        },
+        roles: ['CUSTOMER'],
+        profile: {
+          user_id: userId,
+          first_name: pending.firstName,
+          last_name: pending.lastName,
+          phone: pending.phone,
+          preferred_currency: 'INR',
+          created_at: now,
+          updated_at: now,
+        },
+        addresses: [],
+      };
+      saveUserRecord(newRecord);
+      record = newRecord;
     } else if (verifyResult.type === 'LOGIN') {
+      // Login verification cannot complete a registration challenge, create accounts, or consume pending registrations.
       if (!record) {
         throw new UnauthorizedError('User profile not found for this login session.');
       }
@@ -100,6 +107,9 @@ export async function POST(request: NextRequest) {
         record.user.updated_at = new Date().toISOString();
         saveUserRecord(record);
       }
+    } else {
+      // Explicit fail-closed policy
+      throw new UnauthorizedError('Unsupported or invalid verification purpose.');
     }
 
     if (!record) {

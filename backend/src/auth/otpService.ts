@@ -12,6 +12,13 @@ import path from 'path';
 import { brevoEmailService } from '../services/brevoEmailService';
 import { queryPostgres, isPostgresAvailable } from '../db/postgres';
 
+export const ALLOWED_OTP_PURPOSES = ['LOGIN', 'REGISTER'] as const;
+export type OtpChallengeType = (typeof ALLOWED_OTP_PURPOSES)[number];
+
+export function isValidOtpPurpose(purpose: any): purpose is OtpChallengeType {
+  return typeof purpose === 'string' && (ALLOWED_OTP_PURPOSES as readonly string[]).includes(purpose);
+}
+
 export interface OtpChallenge {
   challengeId: string;
   challengeToken: string;
@@ -20,7 +27,7 @@ export interface OtpChallenge {
   otp: string;
   otpHash: string;
   salt: string;
-  type: 'LOGIN' | 'REGISTER';
+  type: OtpChallengeType;
   attempts: number;
   maxAttempts: number;
   resends: number;
@@ -47,7 +54,7 @@ export interface VerifyOtpResult {
   code?: 'INVALID_CHALLENGE' | 'EXPIRED_OTP' | 'TOO_MANY_ATTEMPTS' | 'INVALID_OTP' | 'ALREADY_USED';
   userId?: string;
   email?: string;
-  type?: 'LOGIN' | 'REGISTER';
+  type?: OtpChallengeType;
   remainingAttempts?: number;
   metadata?: Record<string, any>;
 }
@@ -242,7 +249,7 @@ export function hashOtp(otp: string, salt: string): string {
 
 export async function createOtpChallenge(params: {
   email: string;
-  type: 'LOGIN' | 'REGISTER';
+  type: OtpChallengeType;
   userId?: string;
   name?: string;
   metadata?: Record<string, any>;
@@ -250,6 +257,17 @@ export async function createOtpChallenge(params: {
 }): Promise<CreateChallengeResult> {
   const normalizedEmail = params.email.toLowerCase().trim();
   const now = Date.now();
+
+  if (!isValidOtpPurpose(params.type)) {
+    return {
+      challengeToken: '',
+      email: normalizedEmail,
+      expiresInSeconds: 0,
+      cooldownSeconds: 0,
+      emailDispatched: false,
+      message: `Invalid challenge purpose: ${params.type}. Expected LOGIN or REGISTER.`,
+    };
+  }
 
   const isProduction = process.env.NODE_ENV === 'production';
   const requireDb = isProduction || params.requirePostgres === true;
@@ -402,12 +420,24 @@ export async function verifyOtpChallenge(params: {
         };
       }
 
-      if (params.expectedType && row.type !== params.expectedType) {
+      // Enforce authoritative purpose policy on stored challenge
+      if (!row.type || !isValidOtpPurpose(row.type)) {
         return {
           success: false,
-          error: 'Challenge purpose mismatch. This verification code cannot be used for this purpose.',
+          error: 'Invalid or missing challenge purpose. Session terminated for security.',
           code: 'INVALID_CHALLENGE',
         };
+      }
+
+      // If client supplied expectedType, strictly validate against stored authoritative purpose
+      if (params.expectedType !== undefined) {
+        if (!isValidOtpPurpose(params.expectedType) || row.type !== params.expectedType) {
+          return {
+            success: false,
+            error: 'Challenge purpose mismatch. This verification code cannot be used for this purpose.',
+            code: 'INVALID_CHALLENGE',
+          };
+        }
       }
 
       if (row.is_verified) {
@@ -555,12 +585,24 @@ export async function verifyOtpChallenge(params: {
     };
   }
 
-  if (params.expectedType && challenge.type !== params.expectedType) {
+  // Enforce authoritative purpose policy on stored challenge
+  if (!challenge.type || !isValidOtpPurpose(challenge.type)) {
     return {
       success: false,
-      error: 'Challenge purpose mismatch. This verification code cannot be used for this purpose.',
+      error: 'Invalid or missing challenge purpose. Session terminated for security.',
       code: 'INVALID_CHALLENGE',
     };
+  }
+
+  // If client supplied expectedType, strictly validate against stored authoritative purpose
+  if (params.expectedType !== undefined) {
+    if (!isValidOtpPurpose(params.expectedType) || challenge.type !== params.expectedType) {
+      return {
+        success: false,
+        error: 'Challenge purpose mismatch. This verification code cannot be used for this purpose.',
+        code: 'INVALID_CHALLENGE',
+      };
+    }
   }
 
   if (challenge.isVerified) {
