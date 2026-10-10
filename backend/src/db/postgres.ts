@@ -1,5 +1,5 @@
 /**
- * 🏛️ Veloura Living — PostgreSQL Database Connection Pool
+ * 🏛️ Veloura Living — PostgreSQL Database Connection Pool (Backend Standalone)
  * Supports: Local PostgreSQL, Supabase PostgreSQL, and cloud relational databases.
  * Reference: docs/Veloura_Living_SRS.md
  */
@@ -58,20 +58,17 @@ export function getPostgresPool(): Pool | null {
     pool = new Pool(config);
 
     pool.on('error', (err) => {
-      console.warn('⚠️ [PostgreSQL Pool Error]:', err.message);
+      console.warn('⚠️ [PostgreSQL Pool Error (Backend)]:', err.message);
     });
 
     return pool;
   } catch (err: any) {
-    console.warn('⚠️ [PostgreSQL Init Failed]:', err.message);
+    console.warn('⚠️ [PostgreSQL Init Failed (Backend)]:', err.message);
     pool = null;
     return null;
   }
 }
 
-/**
- * Execute parameterized query against PostgreSQL pool.
- */
 export async function queryPostgres<T extends QueryResultRow = any>(
   text: string,
   params: any[] = []
@@ -85,28 +82,22 @@ export async function queryPostgres<T extends QueryResultRow = any>(
     const result = await activePool.query<T>(text, params);
     return result;
   } catch (error: any) {
-    console.warn('⚠️ [PostgreSQL Query Error]:', error.message);
+    console.warn('⚠️ [PostgreSQL Query Error (Backend)]:', error.message);
     return null;
   }
 }
 
-/**
- * Check out a dedicated client from PostgreSQL pool for atomic transactions.
- */
 export async function getPostgresClient(): Promise<PoolClient | null> {
   const activePool = getPostgresPool();
   if (!activePool) return null;
   try {
     return await activePool.connect();
   } catch (err: any) {
-    console.warn('⚠️ [PostgreSQL Client Checkout Failed]:', err.message);
+    console.warn('⚠️ [PostgreSQL Client Checkout Failed (Backend)]:', err.message);
     return null;
   }
 }
 
-/**
- * Check if PostgreSQL connection is alive and healthy.
- */
 export async function isPostgresAvailable(): Promise<boolean> {
   const activePool = getPostgresPool();
   if (!activePool) return false;

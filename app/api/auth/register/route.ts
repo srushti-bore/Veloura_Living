@@ -5,6 +5,7 @@ import { handleApiError, ValidationError, ConflictError } from '@/lib/api/errorH
 import { hashPassword } from '@/lib/auth/password';
 import { initAuthStore, findUserByEmail, saveUserRecord, UserRecord } from '@/lib/data/authStore';
 import { createOtpChallenge } from '@/lib/auth/otpService';
+import { savePendingRegistration } from '@/lib/auth/pendingRegistrationStore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,13 +54,22 @@ export async function POST(request: NextRequest) {
     };
 
     // Do NOT save to DB yet — only persist upon successful OTP verification
-    // Create OTP verification challenge with pending record in metadata
+    // Store credentials safely in protected pending store; keep OTP challenge metadata clean
+    const pendingRegistration = savePendingRegistration({
+      email: newRecord.user.email,
+      passwordHash,
+      firstName: newRecord.profile.first_name,
+      lastName: newRecord.profile.last_name,
+      phone: newRecord.profile.phone,
+    });
+
+    // Create OTP verification challenge with opaque pendingRegistrationId only
     const challenge = await createOtpChallenge({
       email: newRecord.user.email,
       type: 'REGISTER',
       userId,
       name: newRecord.profile.first_name,
-      metadata: { pendingRecord: newRecord },
+      metadata: { pendingRegistrationId: pendingRegistration.id },
     });
 
     if (!challenge.emailDispatched || !challenge.challengeToken) {

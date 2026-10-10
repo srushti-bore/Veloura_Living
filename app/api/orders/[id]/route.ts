@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { successResponse } from '@/lib/api/response';
 import { handleApiError, NotFoundError, ForbiddenError } from '@/lib/api/errorHandler';
-import { getOrderByIdOrNumber } from '@/lib/data/orderStore';
+import { getOrderByIdOrNumber, sanitizeOrderForGuest } from '@/lib/data/orderStore';
 import { getSession } from '@/lib/auth/session';
 import { hasAnyRole } from '@/lib/auth/rbac';
 
@@ -13,6 +13,7 @@ export async function GET(
     const { id } = await params;
     const session = await getSession(request);
     const { searchParams } = new URL(request.url);
+    const guestToken = searchParams.get('token') || request.headers.get('x-guest-tracking-token');
     const trackingEmail = searchParams.get('email')?.toLowerCase().trim();
     const trackingPhone = searchParams.get('phone')?.trim();
 
@@ -21,29 +22,35 @@ export async function GET(
       throw new NotFoundError(`Order with identifier '${id}' not found.`);
     }
 
-    // 1. Staff / Admin Access
+    // 1. Staff / Admin Access (Privileged Full Order View)
     const isStaff = session && hasAnyRole(session.roles, ['ADMIN', 'MANAGER', 'ORDER_MANAGER']);
     if (isStaff) {
       return successResponse(order, 200);
     }
 
-    // 2. Authenticated Customer Owner Access
+    // 2. Authenticated Customer Owner Access (Full Order View for Order Owner)
     if (session && order.user_id && order.user_id === session.id) {
       return successResponse(order, 200);
     }
 
-    // 3. Guest Order Tracking via Verified Email or Phone
-    const customer = order.customer_info;
-    if (
-      customer &&
-      ((trackingEmail && customer.email.toLowerCase().trim() === trackingEmail) ||
-        (trackingPhone && customer.phone.trim() === trackingPhone))
-    ) {
-      return successResponse(order, 200);
+    // 3. Guest Order Tracking via High-Entropy Cryptographic Token (Data-Minimization Enforced)
+    // Possession of guessable email or phone alone is strictly insufficient to access private order details
+    if (guestToken && order.guest_access_token && guestToken === order.guest_access_token) {
+      const customer = order.customer_info;
+      if (trackingEmail && customer && customer.email.toLowerCase().trim() !== trackingEmail) {
+        throw new ForbiddenError('Tracking credentials do not match order records.');
+      }
+      if (trackingPhone && customer && customer.phone.replace(/\s+/g, '') !== trackingPhone.replace(/\s+/g, '')) {
+        throw new ForbiddenError('Tracking credentials do not match order records.');
+      }
+
+      // Return sanitized, data-minimized guest view (redacts street address, unmasked phone/email, payment tokens)
+      const sanitized = sanitizeOrderForGuest(order);
+      return successResponse(sanitized, 200);
     }
 
-    // If unauthenticated or caller does not match owner/tracking credentials
-    throw new ForbiddenError('You do not have permission to access this order.');
+    // If caller is unauthenticated or does not possess valid tracking token
+    throw new ForbiddenError('Access Denied: Valid guest access token or authenticated customer login required.');
   } catch (error) {
     return handleApiError(error);
   }

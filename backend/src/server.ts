@@ -19,7 +19,7 @@ import { initAuthStore, findUserByEmail, findUserById, saveUserRecord, UserRecor
 import { initCatalogStore, getProducts, getProductBySlugOrId, getCategories, getBrands, getVariantBySku, updateVariantStock } from './data/catalogStore';
 import { getCart, addToCart, updateCartItemQuantity, removeFromCart, clearCart } from './data/shoppingStore';
 import { calculateAuthoritativeCheckout, getCoupons, validateCoupon } from './data/pricingStore';
-import { initOrderStore, createOrder, getOrderById, getAllOrders, getOrdersByUserId, updateOrderStatus } from './data/orderStore';
+import { initOrderStore, createOrder, getOrderById, getAllOrders, getOrdersByUserId, updateOrderStatus, sanitizeOrderForGuest } from './data/orderStore';
 import { initPostPurchaseStore, getReviews, createReview, getReturns, createReturnRequest, updateReturnStatus, getRefunds, createRefundRecord, cancelOrderAuthoritative } from './data/postPurchaseStore';
 import { initCmsStore, getCmsBanners, createCmsBanner } from './data/cmsStore';
 import { initNotificationStore, getNotifications, markNotificationAsRead, markAllNotificationsAsRead, deleteNotification, clearAllNotifications } from './data/notificationStore';
@@ -29,6 +29,7 @@ import { signToken, verifyToken } from './auth/jwt';
 import { parseAuthToken } from './auth/session';
 import { hasAnyRole } from './auth/rbac';
 import { createOtpChallenge, verifyOtpChallenge, resendOtpChallenge } from './auth/otpService';
+import { savePendingRegistration, consumePendingRegistration } from './auth/pendingRegistrationStore';
 import { generateGstInvoiceForOrder } from './services/invoiceService';
 import { formatSuccessResponse, formatErrorResponse } from './api/response';
 import { currencyEngine } from './services/currencyEngine';
@@ -184,12 +185,20 @@ const server = http.createServer(async (req, res) => {
       };
 
       // Do NOT save to DB yet — only persist upon successful OTP verification
+      const pending = savePendingRegistration({
+        email: userRecord.user.email,
+        passwordHash,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        phone: phone || '',
+      });
+
       const challenge = await createOtpChallenge({
         email: userRecord.user.email,
         type: 'REGISTER',
         userId,
         name: firstName,
-        metadata: { pendingRecord: userRecord },
+        metadata: { pendingRegistrationId: pending.id },
       });
 
       if (!challenge.emailDispatched || !challenge.challengeToken) {
@@ -257,19 +266,53 @@ const server = http.createServer(async (req, res) => {
 
       let record: UserRecord | undefined = findUserByEmail(email);
       if (verifyResult.type === 'REGISTER') {
-        if (!record && verifyResult.metadata?.pendingRecord) {
-          const pending = verifyResult.metadata.pendingRecord as UserRecord;
-          pending.user.is_email_verified = true;
-          pending.user.created_at = new Date().toISOString();
-          pending.user.updated_at = new Date().toISOString();
-          saveUserRecord(pending);
-          record = pending;
+        const pendingId = verifyResult.metadata?.pendingRegistrationId;
+        const pending = pendingId ? consumePendingRegistration(pendingId) : null;
+        if (pending) {
+          if (record && record.user.is_email_verified) {
+            return sendJson(res, 409, formatErrorResponse('This account is already registered and verified. Please sign in instead.', 'CONFLICT'));
+          }
+          const now = new Date().toISOString();
+          const userId = crypto.randomUUID();
+          const newRecord: UserRecord = {
+            user: {
+              id: userId,
+              email: pending.email.toLowerCase().trim(),
+              password_hash: pending.passwordHash,
+              status: 'ACTIVE',
+              is_email_verified: true,
+              created_at: now,
+              updated_at: now,
+            },
+            roles: ['CUSTOMER'],
+            profile: {
+              user_id: userId,
+              first_name: pending.firstName,
+              last_name: pending.lastName,
+              phone: pending.phone,
+              preferred_currency: 'INR',
+              created_at: now,
+              updated_at: now,
+            },
+            addresses: [],
+          };
+          saveUserRecord(newRecord);
+          record = newRecord;
+        } else if (!record && verifyResult.metadata?.pendingRecord) {
+          const pr = verifyResult.metadata.pendingRecord as UserRecord;
+          pr.user.is_email_verified = true;
+          pr.user.created_at = new Date().toISOString();
+          pr.user.updated_at = new Date().toISOString();
+          saveUserRecord(pr);
+          record = pr;
         } else if (record && !record.user.is_email_verified) {
           record.user.is_email_verified = true;
           record.user.updated_at = new Date().toISOString();
           saveUserRecord(record);
         } else if (record && record.user.is_email_verified) {
           return sendJson(res, 409, formatErrorResponse('This account is already registered and verified. Please sign in instead.', 'CONFLICT'));
+        } else {
+          return sendJson(res, 400, formatErrorResponse('Pending registration expired or not found. Please register again.', 'VALIDATION_ERROR'));
         }
       } else if (verifyResult.type === 'LOGIN') {
         if (!record) {
@@ -504,7 +547,31 @@ const server = http.createServer(async (req, res) => {
       const orderId = pathname.replace('/api/orders/', '');
       const order = getOrderById(orderId);
       if (!order) return sendJson(res, 404, formatErrorResponse(`Order ${orderId} not found.`, 'NOT_FOUND'));
-      return sendJson(res, 200, formatSuccessResponse(order));
+
+      const isStaff = session && hasAnyRole(session.roles, ['ADMIN', 'MANAGER', 'ORDER_MANAGER']);
+      if (isStaff) {
+        return sendJson(res, 200, formatSuccessResponse(order));
+      }
+
+      if (session && order.user_id && order.user_id === session.id) {
+        return sendJson(res, 200, formatSuccessResponse(order));
+      }
+
+      const guestToken = (query.token as string) || (req.headers['x-guest-tracking-token'] as string);
+      if (guestToken && order.guest_access_token && guestToken === order.guest_access_token) {
+        const trackingEmail = (query.email as string)?.toLowerCase().trim();
+        const trackingPhone = (query.phone as string)?.trim();
+        const customer = order.customer_info;
+        if (trackingEmail && customer && customer.email.toLowerCase().trim() !== trackingEmail) {
+          return sendJson(res, 403, formatErrorResponse('Tracking credentials do not match order records.', 'FORBIDDEN'));
+        }
+        if (trackingPhone && customer && customer.phone.replace(/\s+/g, '') !== trackingPhone.replace(/\s+/g, '')) {
+          return sendJson(res, 403, formatErrorResponse('Tracking credentials do not match order records.', 'FORBIDDEN'));
+        }
+        return sendJson(res, 200, formatSuccessResponse(sanitizeOrderForGuest(order)));
+      }
+
+      return sendJson(res, 403, formatErrorResponse('Access Denied: Valid guest access token or authenticated customer login required.', 'FORBIDDEN'));
     }
 
     // 6.1 Invoices

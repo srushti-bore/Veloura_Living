@@ -30,6 +30,7 @@ export interface DetailedOrder extends DbOrder {
   shipment?: DbShipment & { events: { status: ShipmentStatusEnum; location: string; description: string; timestamp: string }[] };
   delivery_date?: string;
   payment_intent_id?: string;
+  guest_access_token?: string;
   customer_info?: {
     full_name: string;
     email: string;
@@ -60,6 +61,7 @@ export function initOrderStore() {
     id: initialOrderId,
     order_number: 'VL-2026-8941',
     user_id: '33333333-3333-3333-3333-333333333303', // Client account
+    guest_access_token: 'gat_demo_sec_981240189234',
     status: 'PROCESSING',
     payment_status: 'SUCCESS',
     subtotal: 132000.0,
@@ -259,10 +261,13 @@ export function createOrder(params: {
 
   const trackingNumber = `VEL-WG-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
+  const guestAccessToken = `gat_${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`;
+
   const newOrder: DetailedOrder = {
     id: orderId,
     order_number: orderNumber,
     user_id: userId,
+    guest_access_token: guestAccessToken,
     status: 'PLACED',
     payment_status: paymentMethod === 'COD' ? 'PENDING' : 'INITIATED',
     payment_method: paymentMethod,
@@ -517,6 +522,69 @@ export function recordPaymentTransaction(params: {
   }
 
   return order;
+}
+
+/**
+ * Returns a sanitized, data-minimized order view for guest tracking.
+ * Excludes sensitive personal details (street addresses, unmasked phone/email),
+ * raw payment tokens, payment transactions, and internal user identifiers.
+ */
+export function sanitizeOrderForGuest(order: DetailedOrder) {
+  const customer = order.customer_info;
+  const maskEmail = (email: string) => {
+    const parts = email.split('@');
+    if (parts.length !== 2) return '***@***.***';
+    const name = parts[0];
+    const domain = parts[1];
+    const maskedName = name.length > 2 ? `${name[0]}***${name[name.length - 1]}` : `${name[0]}***`;
+    return `${maskedName}@${domain}`;
+  };
+  const maskPhone = (phone: string) => {
+    const cleaned = phone.replace(/\s+/g, '');
+    if (cleaned.length < 5) return '***';
+    return `${cleaned.slice(0, 3)} ***** ${cleaned.slice(-3)}`;
+  };
+
+  return {
+    id: order.id,
+    order_number: order.order_number,
+    status: order.status,
+    created_at: order.created_at,
+    updated_at: order.updated_at,
+    currency: order.currency,
+    subtotal: order.subtotal,
+    discount_total: order.discount_total,
+    tax_total: order.tax_total,
+    shipping_total: order.shipping_total,
+    grand_total: order.grand_total,
+    items: (order.items || []).map((i) => ({
+      id: i.id,
+      product_name: i.product_name,
+      sku: i.sku,
+      quantity: i.quantity,
+      unit_price: i.unit_price,
+      total_price: i.total_price,
+    })),
+    shipment: order.shipment
+      ? {
+          carrier: order.shipment.carrier,
+          tracking_number: order.shipment.tracking_number,
+          status: order.shipment.status,
+          estimated_delivery: order.shipment.estimated_delivery,
+          events: order.shipment.events,
+        }
+      : undefined,
+    customer_info: customer
+      ? {
+          full_name: customer.full_name,
+          email_masked: maskEmail(customer.email),
+          phone_masked: maskPhone(customer.phone),
+          city: customer.city,
+          state: customer.state,
+          postal_code: customer.postal_code,
+        }
+      : undefined,
+  };
 }
 
 export { createOrder as createOrderAuthoritative };

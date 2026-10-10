@@ -1,8 +1,8 @@
 /**
  * 🏛️ Veloura Living — Mandatory Authentication OTP Engine
  * Manages 6-digit unpredictable OTP generation, challenge tokens, Brevo email dispatch,
- * 10-minute expiry lifecycles, 5-attempt brute-force protection, 30s resend cooldowns, and single-use verification.
- * Dual Persistence: PostgreSQL (Supabase) shared store with resilient disk cache (.data/otp_challenges.json).
+ * 10-minute expiry lifecycles, 5-attempt brute-force protection, 30s resend cooldowns, and atomic single-use verification.
+ * Dual Persistence: PostgreSQL (Supabase) authoritative shared store with resilient local cache for offline dev.
  * Reference: docs/Veloura_Living_SRS.md (AUTH-001, AUTH-003, AUTH-007, SEC-002)
  */
 
@@ -60,9 +60,10 @@ export interface ResendOtpResult {
   message?: string;
 }
 
-// In-memory challenge store (keyed by challengeToken and email)
+// In-memory challenge store (for local dev & test environments)
 const activeChallenges = new Map<string, OtpChallenge>();
 const emailToChallengeMap = new Map<string, string>(); // normalized email -> challengeToken
+const inFlightVerifications = new Set<string>(); // In-flight single-flight lock per challengeToken
 
 const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 const RESEND_COOLDOWN_MS = 30 * 1000; // 30 seconds
@@ -109,10 +110,11 @@ function saveChallengesToDisk(): void {
     const records = Array.from(activeChallenges.values()).filter(
       (c) => c.expiresAt > now && !c.isVerified
     );
-    // Persist records to disk without exposing plaintext OTP
+    // Persist records to disk without exposing plaintext OTP or sensitive tokens
     const diskRecords = records.map((r) => ({
       ...r,
       otp: '', // Plaintext OTP stripped from disk persistence
+      metadata: sanitizeMetadata(r.metadata),
     }));
     fs.writeFileSync(CHALLENGES_FILE, JSON.stringify(diskRecords, null, 2), 'utf-8');
   } catch (err: any) {
@@ -124,14 +126,39 @@ function saveChallengesToDisk(): void {
 loadChallengesFromDisk();
 
 /**
- * Saves or updates challenge in PostgreSQL shared store if database is available
+ * Sanitizes challenge metadata to strip password hashes, passwords, and secret tokens.
  */
-async function saveChallengeToPostgres(challenge: OtpChallenge): Promise<void> {
+function sanitizeMetadata(metadata?: Record<string, any>): Record<string, any> | undefined {
+  if (!metadata) return undefined;
+  const clean = { ...metadata };
+  delete clean.password;
+  delete clean.password_hash;
+  delete clean.passwordHash;
+  delete clean.token;
+  delete clean.accessToken;
+  delete clean.secret;
+  if (clean.pendingRecord && typeof clean.pendingRecord === 'object') {
+    const pr = { ...clean.pendingRecord };
+    if (pr.user) {
+      pr.user = { ...pr.user };
+      delete pr.user.password_hash;
+      delete pr.user.password;
+    }
+    clean.pendingRecord = pr;
+  }
+  return clean;
+}
+
+/**
+ * Saves or updates challenge in PostgreSQL shared store if database is available.
+ * Returns true if saved to PostgreSQL, false otherwise.
+ */
+async function saveChallengeToPostgres(challenge: OtpChallenge): Promise<boolean> {
   try {
     const isAvail = await isPostgresAvailable();
-    if (!isAvail) return;
+    if (!isAvail) return false;
 
-    await queryPostgres(
+    const res = await queryPostgres(
       `INSERT INTO otp_challenges (
         challenge_token, challenge_id, email, user_id, otp_hash, salt, type,
         attempts, max_attempts, resends, max_resends, created_at, expires_at,
@@ -146,7 +173,8 @@ async function saveChallengeToPostgres(challenge: OtpChallenge): Promise<void> {
         last_sent_at = EXCLUDED.last_sent_at,
         is_verified = EXCLUDED.is_verified,
         metadata = EXCLUDED.metadata,
-        updated_at = NOW()`,
+        updated_at = NOW()
+      RETURNING challenge_token`,
       [
         challenge.challengeToken,
         challenge.challengeId,
@@ -163,16 +191,19 @@ async function saveChallengeToPostgres(challenge: OtpChallenge): Promise<void> {
         challenge.expiresAt,
         challenge.lastSentAt,
         challenge.isVerified,
-        challenge.metadata ? JSON.stringify(challenge.metadata) : null,
+        challenge.metadata ? JSON.stringify(sanitizeMetadata(challenge.metadata)) : null,
       ]
     );
+
+    return Boolean(res && res.rows && res.rows.length > 0);
   } catch (err: any) {
     console.warn('⚠️ [OTP Postgres Save Warning]:', err.message);
+    return false;
   }
 }
 
 /**
- * Reads challenge from PostgreSQL shared store if database is available
+ * Reads challenge from PostgreSQL shared store if database is available.
  */
 async function loadChallengeFromPostgres(challengeToken: string): Promise<OtpChallenge | null> {
   try {
@@ -217,21 +248,22 @@ async function loadChallengeFromPostgres(challengeToken: string): Promise<OtpCha
 }
 
 /**
- * Generates an unpredictable cryptographically secure 6-digit numeric string
+ * Generates an unpredictable cryptographically secure 6-digit numeric string.
  */
 function generateSecureOtp(): string {
   return crypto.randomInt(100000, 1000000).toString();
 }
 
 /**
- * Computes salted cryptographic SHA-256 hash of OTP code
+ * Computes salted cryptographic SHA-256 hash of OTP code.
  */
-function hashOtp(otp: string, salt: string): string {
+export function hashOtp(otp: string, salt: string): string {
   return crypto.createHash('sha256').update(`${salt}:${otp.trim()}`).digest('hex');
 }
 
 /**
- * Creates and dispatches a new OTP challenge
+ * Creates and dispatches a new OTP challenge.
+ * Enforces authoritative database persistence in production, clean metadata, and truthful email state.
  */
 export async function createOtpChallenge(params: {
   email: string;
@@ -239,11 +271,30 @@ export async function createOtpChallenge(params: {
   userId?: string;
   name?: string;
   metadata?: Record<string, any>;
+  requirePostgres?: boolean;
 }): Promise<CreateChallengeResult> {
   const normalizedEmail = params.email.toLowerCase().trim();
   const now = Date.now();
 
-  // Invalidate any existing active challenge for this email
+  const isProduction = process.env.NODE_ENV === 'production';
+  const requireDb = isProduction || params.requirePostgres === true;
+
+  // In production, verify PostgreSQL availability upfront; reject if database persistence is unavailable
+  if (requireDb) {
+    const isAvail = await isPostgresAvailable();
+    if (!isAvail) {
+      return {
+        challengeToken: '',
+        email: normalizedEmail,
+        expiresInSeconds: 0,
+        cooldownSeconds: 0,
+        emailDispatched: false,
+        message: 'Authentication persistence unavailable. Please try again shortly.',
+      };
+    }
+  }
+
+  // Invalidate any existing active challenge for this email in local index
   const existingToken = emailToChallengeMap.get(normalizedEmail);
   if (existingToken) {
     activeChallenges.delete(existingToken);
@@ -255,12 +306,14 @@ export async function createOtpChallenge(params: {
   const challengeId = crypto.randomUUID();
   const challengeToken = `chal_${crypto.randomUUID().replace(/-/g, '')}`;
 
+  const cleanMetadata = sanitizeMetadata(params.metadata);
+
   const challenge: OtpChallenge = {
     challengeId,
     challengeToken,
     email: normalizedEmail,
     userId: params.userId,
-    otp, // Stored in memory for testing/session validation
+    otp, // Stored in memory for test session inspection
     otpHash,
     salt,
     type: params.type,
@@ -272,7 +325,7 @@ export async function createOtpChallenge(params: {
     expiresAt: now + OTP_EXPIRY_MS,
     lastSentAt: now,
     isVerified: false,
-    metadata: params.metadata,
+    metadata: cleanMetadata,
   };
 
   // Dispatch OTP email via Brevo transactional engine FIRST
@@ -281,8 +334,8 @@ export async function createOtpChallenge(params: {
     type: params.type,
   });
 
-  if (!dispatchResult.success) {
-    // If dispatch failed, do NOT save or expose unusable challenge
+  if (!dispatchResult.success || dispatchResult.deliveryStatus === 'TIMEOUT_UNKNOWN' || dispatchResult.deliveryStatus === 'REJECTED' || dispatchResult.deliveryStatus === 'FAILED_PRECHECK') {
+    // If dispatch failed or timed out, do NOT save or expose unusable challenge
     activeChallenges.delete(challengeToken);
     emailToChallengeMap.delete(normalizedEmail);
     saveChallengesToDisk();
@@ -296,11 +349,28 @@ export async function createOtpChallenge(params: {
     };
   }
 
-  // Only persist challenge upon confirmed email dispatch
+  // Attempt database persistence
+  const pgSaved = await saveChallengeToPostgres(challenge);
+  if (requireDb && !pgSaved) {
+    // In production or when DB required: if DB persistence failed, never fall back silently!
+    activeChallenges.delete(challengeToken);
+    emailToChallengeMap.delete(normalizedEmail);
+    return {
+      challengeToken: '',
+      email: normalizedEmail,
+      expiresInSeconds: 0,
+      cooldownSeconds: 0,
+      emailDispatched: false,
+      message: 'Failed to persist authentication session in secure storage.',
+    };
+  }
+
+  // Update local caches
   activeChallenges.set(challengeToken, challenge);
   emailToChallengeMap.set(normalizedEmail, challengeToken);
   saveChallengesToDisk();
-  await saveChallengeToPostgres(challenge);
+
+  const isSimulated = dispatchResult.deliveryStatus === 'SIMULATED' || dispatchResult.isMock;
 
   return {
     challengeToken,
@@ -308,34 +378,203 @@ export async function createOtpChallenge(params: {
     expiresInSeconds: Math.floor(OTP_EXPIRY_MS / 1000),
     cooldownSeconds: Math.floor(RESEND_COOLDOWN_MS / 1000),
     emailDispatched: true,
-    message: dispatchResult.isMock
+    message: isSimulated
       ? `[Development Simulation] Verification code dispatched to ${normalizedEmail}. Valid for 10 minutes.`
       : `Verification code dispatched to ${normalizedEmail}. Valid for 10 minutes.`,
   };
 }
 
 /**
- * Validates a submitted OTP code against the active challenge
+ * Validates and atomically consumes a submitted OTP challenge.
+ * Multi-process concurrency-safe using PostgreSQL atomic updates,
+ * timing-safe cryptographic comparisons, and single-use enforcement.
  */
 export async function verifyOtpChallenge(params: {
   email: string;
   challengeToken: string;
   otp: string;
   expectedType?: 'LOGIN' | 'REGISTER';
+  requirePostgres?: boolean;
 }): Promise<VerifyOtpResult> {
-  loadChallengesFromDisk();
   const normalizedEmail = params.email.toLowerCase().trim();
-  let challenge = activeChallenges.get(params.challengeToken);
+  const isProduction = process.env.NODE_ENV === 'production';
+  const requireDb = isProduction || params.requirePostgres === true;
+  const isPgAvail = await isPostgresAvailable();
 
-  // If not in local memory, check shared PostgreSQL store
-  if (!challenge) {
-    const pgChallenge = await loadChallengeFromPostgres(params.challengeToken);
-    if (pgChallenge) {
-      challenge = pgChallenge;
-      activeChallenges.set(params.challengeToken, challenge);
-      emailToChallengeMap.set(normalizedEmail, params.challengeToken);
+  if (requireDb && !isPgAvail) {
+    return {
+      success: false,
+      error: 'Authentication database unavailable. Please try again shortly.',
+      code: 'INVALID_CHALLENGE',
+    };
+  }
+
+  // =========================================================================
+  // 1. DATABASE-BACKED ATOMIC VERIFICATION (Multi-Process Concurrency Safe)
+  // =========================================================================
+  if (isPgAvail) {
+    try {
+      // Step A: Load stored challenge directly from shared database
+      const rowRes = await queryPostgres(
+        `SELECT challenge_token, challenge_id, email, user_id, otp_hash, salt, type,
+                attempts, max_attempts, resends, max_resends, created_at, expires_at,
+                last_sent_at, is_verified, metadata
+         FROM otp_challenges
+         WHERE challenge_token = $1`,
+        [params.challengeToken]
+      );
+
+      if (!rowRes || rowRes.rows.length === 0) {
+        return {
+          success: false,
+          error: 'Invalid or expired verification session. Please initiate login again.',
+          code: 'INVALID_CHALLENGE',
+        };
+      }
+
+      const row = rowRes.rows[0];
+
+      if (row.email.toLowerCase().trim() !== normalizedEmail) {
+        return {
+          success: false,
+          error: 'Invalid or expired verification session. Please initiate login again.',
+          code: 'INVALID_CHALLENGE',
+        };
+      }
+
+      // Enforce purpose validation on the server
+      if (params.expectedType && row.type !== params.expectedType) {
+        return {
+          success: false,
+          error: 'Challenge purpose mismatch. This verification code cannot be used for this purpose.',
+          code: 'INVALID_CHALLENGE',
+        };
+      }
+
+      // Check single-use consumption
+      if (row.is_verified) {
+        return {
+          success: false,
+          error: 'This verification code has already been consumed. Replay is not permitted.',
+          code: 'ALREADY_USED',
+        };
+      }
+
+      const now = Date.now();
+      if (now > Number(row.expires_at)) {
+        return {
+          success: false,
+          error: 'Verification code has expired. Please request a new code.',
+          code: 'EXPIRED_OTP',
+        };
+      }
+
+      const currentAttempts = Number(row.attempts);
+      const maxAttempts = Number(row.max_attempts) || MAX_ATTEMPTS;
+
+      if (currentAttempts >= maxAttempts) {
+        return {
+          success: false,
+          error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
+          code: 'TOO_MANY_ATTEMPTS',
+          remainingAttempts: 0,
+        };
+      }
+
+      // Step B: Cryptographic comparison in constant time
+      const submittedHash = hashOtp(params.otp, row.salt);
+      const submittedBuf = Buffer.from(submittedHash, 'utf-8');
+      const expectedBuf = Buffer.from(row.otp_hash, 'utf-8');
+
+      const isMatch =
+        submittedBuf.length === expectedBuf.length &&
+        crypto.timingSafeEqual(submittedBuf, expectedBuf);
+
+      if (!isMatch) {
+        // Increment attempts atomically in database
+        const updRes = await queryPostgres(
+          `UPDATE otp_challenges
+           SET attempts = attempts + 1, updated_at = NOW()
+           WHERE challenge_token = $1
+           RETURNING attempts, max_attempts`,
+          [params.challengeToken]
+        );
+
+        const newAttempts = updRes?.rows[0]?.attempts ? Number(updRes.rows[0].attempts) : currentAttempts + 1;
+        const remaining = Math.max(0, maxAttempts - newAttempts);
+
+        if (remaining === 0) {
+          return {
+            success: false,
+            error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
+            code: 'TOO_MANY_ATTEMPTS',
+            remainingAttempts: 0,
+          };
+        }
+
+        return {
+          success: false,
+          error: `Invalid verification code. ${remaining} attempt(s) remaining before session lock.`,
+          code: 'INVALID_OTP',
+          remainingAttempts: remaining,
+        };
+      }
+
+      // Step C: ATOMIC CONSUMPTION
+      // Update is_verified = TRUE strictly conditioned on is_verified = FALSE
+      // Exactly ONE concurrent process will match the WHERE clause and receive rows.length === 1
+      const consumeRes = await queryPostgres(
+        `UPDATE otp_challenges
+         SET is_verified = TRUE, attempts = attempts + 1, updated_at = NOW()
+         WHERE challenge_token = $1 AND is_verified = FALSE
+         RETURNING challenge_token, user_id, email, type, metadata`,
+        [params.challengeToken]
+      );
+
+      if (!consumeRes || consumeRes.rows.length === 0) {
+        // Race condition caught: another concurrent request consumed this challenge in the same millisecond
+        return {
+          success: false,
+          error: 'This verification code has already been consumed. Replay is not permitted.',
+          code: 'ALREADY_USED',
+        };
+      }
+
+      // Clean local memory/disk representations
+      activeChallenges.delete(params.challengeToken);
+      emailToChallengeMap.delete(normalizedEmail);
+      saveChallengesToDisk();
+
+      const consumed = consumeRes.rows[0];
+      const parsedMetadata =
+        typeof consumed.metadata === 'string'
+          ? JSON.parse(consumed.metadata)
+          : consumed.metadata || undefined;
+
+      return {
+        success: true,
+        userId: consumed.user_id,
+        email: consumed.email,
+        type: consumed.type,
+        metadata: parsedMetadata,
+      };
+    } catch (err: any) {
+      console.warn('⚠️ [OTP Database Atomic Verify Error]:', err.message);
+      if (requireDb) {
+        return {
+          success: false,
+          error: 'Database error during verification. Authentication aborted.',
+          code: 'INVALID_CHALLENGE',
+        };
+      }
     }
   }
+
+  // =========================================================================
+  // 2. LOCAL MEMORY / DISK VERIFICATION (Offline Dev & In-Process Fallback)
+  // =========================================================================
+  loadChallengesFromDisk();
+  let challenge = activeChallenges.get(params.challengeToken);
 
   if (!challenge || challenge.email !== normalizedEmail) {
     return {
@@ -349,7 +588,7 @@ export async function verifyOtpChallenge(params: {
   if (params.expectedType && challenge.type !== params.expectedType) {
     return {
       success: false,
-      error: 'Challenge type mismatch. Please initiate the correct authentication flow.',
+      error: 'Challenge purpose mismatch. This verification code cannot be used for this purpose.',
       code: 'INVALID_CHALLENGE',
     };
   }
@@ -367,7 +606,6 @@ export async function verifyOtpChallenge(params: {
     activeChallenges.delete(params.challengeToken);
     emailToChallengeMap.delete(normalizedEmail);
     saveChallengesToDisk();
-    await saveChallengeToPostgres({ ...challenge, isVerified: false });
     return {
       success: false,
       error: 'Verification code has expired. Please request a new code.',
@@ -375,51 +613,24 @@ export async function verifyOtpChallenge(params: {
     };
   }
 
-  // Atomic check-and-set for verification in-flight (Concurrency protection)
-  if ((challenge as any)._isVerifying) {
+  // In-flight concurrency lock (prevent double-submit race condition in-process)
+  if (inFlightVerifications.has(params.challengeToken) || (challenge as any)._isVerifying) {
     return {
       success: false,
       error: 'Verification already in progress for this session. Replay is not permitted.',
       code: 'ALREADY_USED',
     };
   }
+  inFlightVerifications.add(params.challengeToken);
   (challenge as any)._isVerifying = true;
 
-  challenge.attempts += 1;
+  try {
+    challenge.attempts += 1;
 
-  if (challenge.attempts > challenge.maxAttempts) {
-    activeChallenges.delete(params.challengeToken);
-    emailToChallengeMap.delete(normalizedEmail);
-    saveChallengesToDisk();
-    await saveChallengeToPostgres(challenge);
-    return {
-      success: false,
-      error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
-      code: 'TOO_MANY_ATTEMPTS',
-      remainingAttempts: 0,
-    };
-  }
-
-  saveChallengesToDisk();
-  await saveChallengeToPostgres(challenge);
-
-  // Constant-time cryptographic comparison using salted hash
-  const submittedHash = hashOtp(params.otp, challenge.salt);
-  const submittedHashBuf = Buffer.from(submittedHash, 'utf-8');
-  const expectedHashBuf = Buffer.from(challenge.otpHash, 'utf-8');
-
-  const isMatch =
-    submittedHashBuf.length === expectedHashBuf.length &&
-    crypto.timingSafeEqual(submittedHashBuf, expectedHashBuf);
-
-  if (!isMatch) {
-    (challenge as any)._isVerifying = false;
-    const remaining = Math.max(0, challenge.maxAttempts - challenge.attempts);
-    if (remaining === 0) {
+    if (challenge.attempts > challenge.maxAttempts) {
       activeChallenges.delete(params.challengeToken);
       emailToChallengeMap.delete(normalizedEmail);
       saveChallengesToDisk();
-      await saveChallengeToPostgres(challenge);
       return {
         success: false,
         error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
@@ -427,28 +638,56 @@ export async function verifyOtpChallenge(params: {
         remainingAttempts: 0,
       };
     }
+
+    saveChallengesToDisk();
+
+    // Constant-time cryptographic comparison using salted hash
+    const submittedHash = hashOtp(params.otp, challenge.salt);
+    const submittedHashBuf = Buffer.from(submittedHash, 'utf-8');
+    const expectedHashBuf = Buffer.from(challenge.otpHash, 'utf-8');
+
+    const isMatch =
+      submittedHashBuf.length === expectedHashBuf.length &&
+      crypto.timingSafeEqual(submittedHashBuf, expectedHashBuf);
+
+    if (!isMatch) {
+      (challenge as any)._isVerifying = false;
+      const remaining = Math.max(0, challenge.maxAttempts - challenge.attempts);
+      if (remaining === 0) {
+        activeChallenges.delete(params.challengeToken);
+        emailToChallengeMap.delete(normalizedEmail);
+        saveChallengesToDisk();
+        return {
+          success: false,
+          error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
+          code: 'TOO_MANY_ATTEMPTS',
+          remainingAttempts: 0,
+        };
+      }
+      return {
+        success: false,
+        error: `Invalid verification code. ${remaining} attempt(s) remaining before session lock.`,
+        code: 'INVALID_OTP',
+        remainingAttempts: remaining,
+      };
+    }
+
+    // Success: Mark verified & consume challenge (single-use guarantee)
+    challenge.isVerified = true;
+    activeChallenges.delete(params.challengeToken);
+    emailToChallengeMap.delete(normalizedEmail);
+    saveChallengesToDisk();
+
     return {
-      success: false,
-      error: `Invalid verification code. ${remaining} attempt(s) remaining before session lock.`,
-      code: 'INVALID_OTP',
-      remainingAttempts: remaining,
+      success: true,
+      userId: challenge.userId,
+      email: challenge.email,
+      type: challenge.type,
+      metadata: challenge.metadata,
     };
+  } finally {
+    inFlightVerifications.delete(params.challengeToken);
   }
-
-  // Success: Mark verified & consume challenge (single-use guarantee)
-  challenge.isVerified = true;
-  activeChallenges.delete(params.challengeToken);
-  emailToChallengeMap.delete(normalizedEmail);
-  saveChallengesToDisk();
-  await saveChallengeToPostgres(challenge);
-
-  return {
-    success: true,
-    userId: challenge.userId,
-    email: challenge.email,
-    type: challenge.type,
-    metadata: challenge.metadata,
-  };
 }
 
 /**
@@ -460,21 +699,22 @@ export async function resendOtpChallenge(params: {
   email: string;
   challengeToken: string;
 }): Promise<ResendOtpResult> {
-  loadChallengesFromDisk();
   const normalizedEmail = params.email.toLowerCase().trim();
-  let challenge = activeChallenges.get(params.challengeToken);
+  const isPgAvail = await isPostgresAvailable();
 
-  if (!challenge) {
-    const pgChallenge = await loadChallengeFromPostgres(params.challengeToken);
-    if (pgChallenge) {
-      challenge = pgChallenge;
-      activeChallenges.set(params.challengeToken, challenge);
-      emailToChallengeMap.set(normalizedEmail, params.challengeToken);
-    }
+  let challenge: OtpChallenge | null = null;
+
+  if (isPgAvail) {
+    challenge = await loadChallengeFromPostgres(params.challengeToken);
   }
 
-  // Never create a new challenge for unknown/mismatched tokens
-  if (!challenge || challenge.email !== normalizedEmail) {
+  if (!challenge) {
+    loadChallengesFromDisk();
+    challenge = activeChallenges.get(params.challengeToken) || null;
+  }
+
+  // Never create a new challenge for unknown or mismatched tokens
+  if (!challenge || challenge.email.toLowerCase().trim() !== normalizedEmail) {
     return {
       success: false,
       error: 'Invalid or expired verification session. Please initiate authentication again.',
@@ -539,7 +779,7 @@ export async function resendOtpChallenge(params: {
     type: challenge.type,
   });
 
-  if (!dispatchResult.success) {
+  if (!dispatchResult.success || dispatchResult.deliveryStatus === 'TIMEOUT_UNKNOWN' || dispatchResult.deliveryStatus === 'REJECTED' || dispatchResult.deliveryStatus === 'FAILED_PRECHECK') {
     // Delivery failed: PRESERVE previous OTP! Do not overwrite existing challenge state.
     return {
       success: false,
@@ -555,16 +795,19 @@ export async function resendOtpChallenge(params: {
   challenge.lastSentAt = now;
   challenge.expiresAt = now + OTP_EXPIRY_MS;
   challenge.resends = currentResends + 1;
-  // Note: Do NOT reset challenge.attempts to 0, preventing brute force reset cycles
+  // Note: Do NOT reset challenge.attempts to 0, preventing brute-force reset loops
 
+  activeChallenges.set(challenge.challengeToken, challenge);
   saveChallengesToDisk();
   await saveChallengeToPostgres(challenge);
+
+  const isSimulated = dispatchResult.deliveryStatus === 'SIMULATED' || dispatchResult.isMock;
 
   return {
     success: true,
     challengeToken: challenge.challengeToken,
     cooldownSeconds: 30,
-    message: dispatchResult.isMock
+    message: isSimulated
       ? `[Development Simulation] New verification code dispatched to ${normalizedEmail}.`
       : 'New verification code dispatched to your email.',
   };

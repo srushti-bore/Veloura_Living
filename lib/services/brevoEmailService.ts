@@ -25,8 +25,16 @@ export interface SendEmailPayload {
   params?: Record<string, any>;
 }
 
+export type EmailDeliveryStatus =
+  | 'ACCEPTED'          // Successfully accepted by Brevo REST API (HTTP 200/201)
+  | 'REJECTED'          // Rejected by Brevo REST API (HTTP 4xx/5xx)
+  | 'FAILED_PRECHECK'   // Failed prior to HTTP request (invalid email, missing API key in prod)
+  | 'TIMEOUT_UNKNOWN'   // Network failure or timeout (cannot confirm acceptance)
+  | 'SIMULATED';        // Development simulation mode (non-production only)
+
 export interface SendEmailResult {
   success: boolean;
+  deliveryStatus: EmailDeliveryStatus;
   messageId?: string;
   status?: number;
   error?: string;
@@ -66,7 +74,9 @@ export class BrevoEmailService {
     if (validRecipients.length === 0) {
       return {
         success: false,
+        deliveryStatus: 'FAILED_PRECHECK',
         error: 'No valid recipient email addresses provided.',
+        isMock: false,
       };
     }
 
@@ -76,6 +86,7 @@ export class BrevoEmailService {
         console.error('[Brevo Configuration Error] Live Brevo API key is missing or invalid in production environment.');
         return {
           success: false,
+          deliveryStatus: 'FAILED_PRECHECK',
           error: 'Transactional email service is temporarily unavailable.',
           isMock: false,
         };
@@ -86,11 +97,15 @@ export class BrevoEmailService {
       console.log(`[Brevo Simulation Mode (Dev-Only)] Dispatched email subject="${payload.subject}" to domains=[${recipientDomains}]`);
       return {
         success: true,
+        deliveryStatus: 'SIMULATED',
         messageId: `mock_brevo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         status: 200,
         isMock: true,
       };
     }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s network timeout
 
     try {
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -100,6 +115,7 @@ export class BrevoEmailService {
           'api-key': apiKey,
           'content-type': 'application/json',
         },
+        signal: controller.signal,
         body: JSON.stringify({
           sender: {
             name: sender.name,
@@ -117,6 +133,7 @@ export class BrevoEmailService {
         }),
       });
 
+      clearTimeout(timeoutId);
       const responseData = await response.json().catch(() => ({}));
 
       if (response.ok) {
@@ -124,6 +141,7 @@ export class BrevoEmailService {
         console.log(`[Brevo Dispatch] event=EMAIL_DISPATCH status=${response.status} messageId=${messageId}`);
         return {
           success: true,
+          deliveryStatus: 'ACCEPTED',
           messageId,
           status: response.status,
           isMock: false,
@@ -133,16 +151,20 @@ export class BrevoEmailService {
         console.error(`[Brevo Dispatch Error] status=${response.status} message="${sanitizedError}"`);
         return {
           success: false,
+          deliveryStatus: 'REJECTED',
           status: response.status,
           error: `Brevo API error (${response.status}): ${sanitizedError}`,
           isMock: false,
         };
       }
     } catch (err: any) {
-      const errorMsg = err.message || 'Network request failed';
+      clearTimeout(timeoutId);
+      const isTimeout = err.name === 'AbortError' || err.message?.includes('abort') || err.message?.includes('timeout');
+      const errorMsg = isTimeout ? 'Email provider request timed out (delivery status unknown)' : (err.message || 'Network request failed');
       console.error(`[Brevo Network Failure] message="${errorMsg}"`);
       return {
         success: false,
+        deliveryStatus: 'TIMEOUT_UNKNOWN',
         error: `Brevo network error: ${errorMsg}`,
         isMock: false,
       };

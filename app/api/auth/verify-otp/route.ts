@@ -6,6 +6,7 @@ import { signToken } from '@/lib/auth/jwt';
 import { AUTH_COOKIE_NAME } from '@/lib/auth/session';
 import { initAuthStore, findUserByEmail, saveUserRecord, resetFailedLogin, UserRecord } from '@/lib/data/authStore';
 import { verifyOtpChallenge } from '@/lib/auth/otpService';
+import { consumePendingRegistration } from '@/lib/auth/pendingRegistrationStore';
 import { AuthResponseData } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -36,19 +37,55 @@ export async function POST(request: NextRequest) {
     let record: UserRecord | undefined = findUserByEmail(email);
 
     if (verifyResult.type === 'REGISTER') {
-      if (!record && verifyResult.metadata?.pendingRecord) {
-        const pending = verifyResult.metadata.pendingRecord as UserRecord;
-        pending.user.is_email_verified = true;
-        pending.user.created_at = new Date().toISOString();
-        pending.user.updated_at = new Date().toISOString();
-        saveUserRecord(pending);
-        record = pending;
+      const pendingId = verifyResult.metadata?.pendingRegistrationId;
+      const pending = pendingId ? consumePendingRegistration(pendingId) : null;
+
+      if (pending) {
+        if (record && record.user.is_email_verified) {
+          throw new ConflictError('This account is already registered and verified. Please sign in instead.');
+        }
+        const now = new Date().toISOString();
+        const userId = crypto.randomUUID();
+        const newRecord: UserRecord = {
+          user: {
+            id: userId,
+            email: pending.email.toLowerCase().trim(),
+            password_hash: pending.passwordHash,
+            status: 'ACTIVE',
+            is_email_verified: true,
+            created_at: now,
+            updated_at: now,
+          },
+          roles: ['CUSTOMER'],
+          profile: {
+            user_id: userId,
+            first_name: pending.firstName,
+            last_name: pending.lastName,
+            phone: pending.phone,
+            preferred_currency: 'INR',
+            created_at: now,
+            updated_at: now,
+          },
+          addresses: [],
+        };
+        saveUserRecord(newRecord);
+        record = newRecord;
+      } else if (!record && verifyResult.metadata?.pendingRecord) {
+        // Safe backward-compatibility fallback for tests mocking pendingRecord
+        const pr = verifyResult.metadata.pendingRecord as UserRecord;
+        pr.user.is_email_verified = true;
+        pr.user.created_at = new Date().toISOString();
+        pr.user.updated_at = new Date().toISOString();
+        saveUserRecord(pr);
+        record = pr;
       } else if (record && !record.user.is_email_verified) {
         record.user.is_email_verified = true;
         record.user.updated_at = new Date().toISOString();
         saveUserRecord(record);
       } else if (record && record.user.is_email_verified) {
         throw new ConflictError('This account is already registered and verified. Please sign in instead.');
+      } else {
+        throw new ValidationError('Pending registration expired or not found. Please register again.');
       }
     } else if (verifyResult.type === 'LOGIN') {
       if (!record) {
