@@ -1,17 +1,12 @@
 import { NextRequest } from 'next/server';
 import { successResponse } from '@/lib/api/response';
-import { handleApiError, UnauthorizedError } from '@/lib/api/errorHandler';
-import { getSession } from '@/lib/auth/session';
-import { hasAnyRole } from '@/lib/auth/rbac';
+import { handleApiError } from '@/lib/api/errorHandler';
+import { requireRole } from '@/lib/auth/session';
 import { getProducts } from '@/lib/data/catalogStore';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession(request);
-
-    if (!session || !hasAnyRole(session.roles, ['ADMIN', 'MANAGER', 'PRODUCT_MANAGER'])) {
-      throw new UnauthorizedError('Administrative role required to view restocking intelligence.');
-    }
+    const session = await requireRole(request, ['ADMIN', 'MANAGER', 'PRODUCT_MANAGER']);
 
     const { products } = getProducts({}, { limit: 100 });
 

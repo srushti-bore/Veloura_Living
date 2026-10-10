@@ -1,19 +1,14 @@
 import { NextRequest } from 'next/server';
 import { successResponse } from '@/lib/api/response';
-import { handleApiError, UnauthorizedError } from '@/lib/api/errorHandler';
-import { getSession } from '@/lib/auth/session';
-import { hasAnyRole } from '@/lib/auth/rbac';
+import { handleApiError } from '@/lib/api/errorHandler';
+import { requireRole } from '@/lib/auth/session';
 import { getAllOrders } from '@/lib/data/orderStore';
 import { getProducts } from '@/lib/data/catalogStore';
 import { getReviews, getReturns, getRefunds } from '@/lib/data/postPurchaseStore';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession(request);
-
-    if (!session || !hasAnyRole(session.roles, ['ADMIN', 'MANAGER', 'PRODUCT_MANAGER', 'ORDER_MANAGER'])) {
-      throw new UnauthorizedError('Administrative role required to view operations metrics.');
-    }
+    const session = await requireRole(request, ['ADMIN', 'MANAGER', 'PRODUCT_MANAGER', 'ORDER_MANAGER']);
 
     const { orders, total: totalOrders } = getAllOrders({ limit: 1000 });
     const { products, total: totalProducts } = getProducts({}, { limit: 1000 });

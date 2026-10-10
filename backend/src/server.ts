@@ -192,6 +192,10 @@ const server = http.createServer(async (req, res) => {
         metadata: { pendingRecord: userRecord },
       });
 
+      if (!challenge.emailDispatched || !challenge.challengeToken) {
+        return sendJson(res, 502, formatErrorResponse('Unable to deliver verification code. Please check your email or try again shortly.', 'EMAIL_DISPATCH_FAILED'));
+      }
+
       return sendJson(res, 201, formatSuccessResponse({
         user: {
           id: userId,
@@ -224,6 +228,10 @@ const server = http.createServer(async (req, res) => {
         name: record.profile?.first_name,
       });
 
+      if (!challenge.emailDispatched || !challenge.challengeToken) {
+        return sendJson(res, 502, formatErrorResponse('Unable to deliver verification code. Please check your email or try again shortly.', 'EMAIL_DISPATCH_FAILED'));
+      }
+
       return sendJson(res, 200, formatSuccessResponse({
         requiresOtp: true,
         challengeToken: challenge.challengeToken,
@@ -236,29 +244,45 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/auth/verify-otp' && method === 'POST') {
       const body = await parseRequestBody(req);
-      const { email, challengeToken, otp } = body;
+      const { email, challengeToken, otp, type } = body;
 
       if (!email || !challengeToken || !otp) {
         return sendJson(res, 400, formatErrorResponse('Email, challenge token, and 6-digit OTP are required.'));
       }
 
-      const verifyResult = await verifyOtpChallenge({ email, challengeToken, otp });
+      const verifyResult = await verifyOtpChallenge({ email, challengeToken, otp, expectedType: type });
       if (!verifyResult.success) {
         return sendJson(res, 400, formatErrorResponse(verifyResult.error || 'Invalid OTP code.', verifyResult.code || 'OTP_ERROR'));
       }
 
       let record: UserRecord | undefined = findUserByEmail(email);
-      if (!record && verifyResult.metadata?.pendingRecord) {
-        const pending = verifyResult.metadata.pendingRecord as UserRecord;
-        pending.user.is_email_verified = true;
-        pending.user.created_at = new Date().toISOString();
-        pending.user.updated_at = new Date().toISOString();
-        saveUserRecord(pending);
-        record = pending;
-      } else if (record) {
-        record.user.is_email_verified = true;
-        record.user.updated_at = new Date().toISOString();
-        saveUserRecord(record);
+      if (verifyResult.type === 'REGISTER') {
+        if (!record && verifyResult.metadata?.pendingRecord) {
+          const pending = verifyResult.metadata.pendingRecord as UserRecord;
+          pending.user.is_email_verified = true;
+          pending.user.created_at = new Date().toISOString();
+          pending.user.updated_at = new Date().toISOString();
+          saveUserRecord(pending);
+          record = pending;
+        } else if (record && !record.user.is_email_verified) {
+          record.user.is_email_verified = true;
+          record.user.updated_at = new Date().toISOString();
+          saveUserRecord(record);
+        } else if (record && record.user.is_email_verified) {
+          return sendJson(res, 409, formatErrorResponse('This account is already registered and verified. Please sign in instead.', 'CONFLICT'));
+        }
+      } else if (verifyResult.type === 'LOGIN') {
+        if (!record) {
+          return sendJson(res, 401, formatErrorResponse('User profile not found for this login session.', 'UNAUTHORIZED'));
+        }
+        if (record.user.status === 'SUSPENDED') {
+          return sendJson(res, 401, formatErrorResponse('Your account has been suspended. Please contact concierge support.', 'UNAUTHORIZED'));
+        }
+        if (!record.user.is_email_verified) {
+          record.user.is_email_verified = true;
+          record.user.updated_at = new Date().toISOString();
+          saveUserRecord(record);
+        }
       }
 
       if (!record) {

@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
 import { successResponse } from '@/lib/api/response';
-import { handleApiError, ValidationError, UnauthorizedError } from '@/lib/api/errorHandler';
-import { getSession } from '@/lib/auth/session';
-import { hasAnyRole } from '@/lib/auth/rbac';
+import { handleApiError, ValidationError } from '@/lib/api/errorHandler';
+import { requireRole } from '@/lib/auth/session';
 import { getCmsBanners, createCmsBanner } from '@/lib/data/cmsStore';
 
 export async function GET(request: NextRequest) {
@@ -18,11 +17,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession(request);
-
-    if (!session || !hasAnyRole(session.roles, ['ADMIN', 'MANAGER'])) {
-      throw new UnauthorizedError('Administrative privileges required to create CMS content.');
-    }
+    const session = await requireRole(request, ['ADMIN', 'MANAGER']);
 
     const body = await request.json();
     const { section_name, title, subtitle, image_url, cta_label, cta_link, display_order, is_active } = body;

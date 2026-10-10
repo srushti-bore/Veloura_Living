@@ -66,8 +66,17 @@ export class BrevoEmailService {
     }
 
     if (!apiKey || apiKey.includes('placeholder') || apiKey.includes('your-') || apiKey.length < 10) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[Brevo Configuration Error] Live Brevo API key is missing or invalid in production environment.');
+        return {
+          success: false,
+          error: 'Transactional email service is temporarily unavailable.',
+          isMock: false,
+        };
+      }
+
       const recipientDomains = validRecipients.map((r) => r.email.split('@')[1]).join(', ');
-      console.log(`[Brevo Simulation Mode] Dispatched email subject="${payload.subject}" to domains=[${recipientDomains}]`);
+      console.log(`[Brevo Simulation Mode (Dev-Only)] Dispatched email subject="${payload.subject}" to domains=[${recipientDomains}]`);
       return {
         success: true,
         messageId: `mock_brevo_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,

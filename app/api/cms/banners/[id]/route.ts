@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
 import { successResponse } from '@/lib/api/response';
-import { handleApiError, NotFoundError, UnauthorizedError } from '@/lib/api/errorHandler';
-import { getSession } from '@/lib/auth/session';
-import { hasAnyRole } from '@/lib/auth/rbac';
+import { handleApiError, NotFoundError } from '@/lib/api/errorHandler';
+import { requireRole } from '@/lib/auth/session';
 import { updateCmsBanner, deleteCmsBanner } from '@/lib/data/cmsStore';
 
 export async function PUT(
@@ -11,11 +10,7 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const session = await getSession(request);
-
-    if (!session || !hasAnyRole(session.roles, ['ADMIN', 'MANAGER'])) {
-      throw new UnauthorizedError('Administrative privileges required to update CMS content.');
-    }
+    const session = await requireRole(request, ['ADMIN', 'MANAGER']);
 
     const body = await request.json();
     const updated = updateCmsBanner(id, body);
@@ -36,11 +31,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const session = await getSession(request);
-
-    if (!session || !hasAnyRole(session.roles, ['ADMIN', 'MANAGER'])) {
-      throw new UnauthorizedError('Administrative privileges required to delete CMS content.');
-    }
+    const session = await requireRole(request, ['ADMIN', 'MANAGER']);
 
     const deleted = deleteCmsBanner(id);
     if (!deleted) {

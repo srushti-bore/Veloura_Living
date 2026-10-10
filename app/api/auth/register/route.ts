@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
-import { successResponse } from '@/lib/api/response';
+import { successResponse, errorResponse } from '@/lib/api/response';
 import { handleApiError, ValidationError, ConflictError } from '@/lib/api/errorHandler';
 import { hashPassword } from '@/lib/auth/password';
 import { initAuthStore, findUserByEmail, saveUserRecord, UserRecord } from '@/lib/data/authStore';
@@ -61,6 +61,14 @@ export async function POST(request: NextRequest) {
       name: newRecord.profile.first_name,
       metadata: { pendingRecord: newRecord },
     });
+
+    if (!challenge.emailDispatched || !challenge.challengeToken) {
+      return errorResponse(
+        'Unable to deliver verification code. Please check your email or try again shortly.',
+        502,
+        'EMAIL_DISPATCH_FAILED'
+      );
+    }
 
     const responseData = {
       user: {

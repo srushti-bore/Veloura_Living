@@ -42,12 +42,8 @@ export async function GET(
       return successResponse(order, 200);
     }
 
-    // If unauthenticated or another user tries to access a private order
-    if (order.user_id) {
-      throw new ForbiddenError('You do not have permission to access this order.');
-    }
-
-    return successResponse(order, 200);
+    // If unauthenticated or caller does not match owner/tracking credentials
+    throw new ForbiddenError('You do not have permission to access this order.');
   } catch (error) {
     return handleApiError(error);
   }
