@@ -1,11 +1,10 @@
 import { NextRequest } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { successResponse } from '@/lib/api/response';
 import { handleApiError, ValidationError, UnauthorizedError } from '@/lib/api/errorHandler';
 import { verifyPassword } from '@/lib/auth/password';
-import { signToken } from '@/lib/auth/jwt';
-import { AUTH_COOKIE_NAME } from '@/lib/auth/session';
 import { initAuthStore, findUserByEmail, checkAccountLockout, recordFailedLogin, resetFailedLogin } from '@/lib/data/authStore';
-import { AuthResponseData } from '@/types';
+import { createOtpChallenge } from '@/lib/auth/otpService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,37 +46,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Reset failed login counter on success
-    resetFailedLogin(email);
-
-    const token = await signToken(record.user.id, record.user.email, record.roles);
-
-    const responseData: AuthResponseData = {
-      user: {
-        id: record.user.id,
-        email: record.user.email,
-        roles: record.roles,
-        status: record.user.status,
-        profile: {
-          firstName: record.profile.first_name,
-          lastName: record.profile.last_name,
-          avatarUrl: record.profile.avatar_url,
-        },
-      },
-      token,
-      expiresIn: 7 * 24 * 60 * 60,
-    };
-
-    const response = successResponse(responseData, 200);
-    response.cookies.set(AUTH_COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60,
-      path: '/',
+    // Generate mandatory 6-digit OTP challenge and dispatch via Brevo email
+    const challenge = await createOtpChallenge({
+      email: record.user.email,
+      type: 'LOGIN',
+      userId: record.user.id,
+      name: record.profile.first_name,
     });
 
-    return response;
+    return successResponse(
+      {
+        requiresOtp: true,
+        challengeToken: challenge.challengeToken,
+        email: record.user.email,
+        expiresInSeconds: challenge.expiresInSeconds,
+        cooldownSeconds: challenge.cooldownSeconds,
+        message: challenge.message,
+      },
+      200
+    );
   } catch (error) {
     return handleApiError(error);
   }

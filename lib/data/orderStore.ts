@@ -18,6 +18,7 @@ import {
 import { getCart, clearCart, AuthoritativeCart } from './shoppingStore';
 import { calculateAuthoritativeCheckout } from './pricingStore';
 import { notificationService } from '@/lib/services/notificationService';
+import { brevoEmailService } from '@/lib/services/brevoEmailService';
 import { updateVariantStock, getVariantBySku } from './catalogStore';
 import { findUserById } from './authStore';
 import { codSafetyService } from '@/lib/services/codService';
@@ -494,12 +495,26 @@ export function recordPaymentTransaction(params: {
   }
 
   order.payment_status = params.status;
+  const wasAlreadyConfirmed = order.status === 'CONFIRMED';
   if (params.status === 'SUCCESS') {
     order.status = 'CONFIRMED';
   } else if (params.status === 'FAILED') {
     order.status = 'CANCELLED';
   }
   order.updated_at = new Date().toISOString();
+
+  // Trigger order confirmation email upon verified payment if not already confirmed
+  if (params.status === 'SUCCESS' && !wasAlreadyConfirmed) {
+    try {
+      brevoEmailService.sendOrderConfirmationEmail(order).catch((err) => {
+        console.warn('[Order Confirmation Email Safe Warning]:', err.message);
+      });
+      notificationService.notifyOrderPlaced(order).catch(() => {});
+    } catch (e: any) {
+      // Non-blocking: Email failure must never invalidate a verified order
+      console.warn('[Order Confirmation Non-blocking]:', e.message);
+    }
+  }
 
   return order;
 }

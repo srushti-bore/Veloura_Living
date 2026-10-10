@@ -22,6 +22,7 @@ import { findUserById } from './authStore';
 import { codSafetyService } from '../services/codService';
 import { currencyEngine } from '../services/currencyEngine';
 import { notificationService } from '../services/notificationService';
+import { brevoEmailService } from '../services/brevoEmailService';
 
 export interface DetailedOrder extends DbOrder {
   items: DbOrderItem[];
@@ -494,12 +495,24 @@ export function recordPaymentTransaction(params: {
   }
 
   order.payment_status = params.status;
+  const wasAlreadyConfirmed = order.status === 'CONFIRMED';
   if (params.status === 'SUCCESS') {
     order.status = 'CONFIRMED';
   } else if (params.status === 'FAILED') {
     order.status = 'CANCELLED';
   }
   order.updated_at = new Date().toISOString();
+
+  if (params.status === 'SUCCESS' && !wasAlreadyConfirmed) {
+    try {
+      brevoEmailService.sendOrderConfirmationEmail(order).catch((err) => {
+        console.warn('[Backend Order Email Safe Warning]:', err.message);
+      });
+      notificationService.notifyOrderPlaced(order).catch(() => {});
+    } catch (e: any) {
+      console.warn('[Backend Order Confirmation Non-blocking]:', e.message);
+    }
+  }
 
   return order;
 }

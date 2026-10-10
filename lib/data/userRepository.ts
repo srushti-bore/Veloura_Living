@@ -69,7 +69,7 @@ function ensureDataDirectory(): void {
   }
 }
 
-function loadFromDisk(): void {
+export function loadFromDisk(): void {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, 'utf-8');
@@ -217,10 +217,8 @@ export async function initUserRepository(): Promise<void> {
   // 1. Load persistent disk cache
   loadFromDisk();
 
-  // 2. Seed initial baseline accounts if empty
-  if (usersCache.size === 0) {
-    await seedDefaultAccounts();
-  }
+  // 2. Seed initial baseline accounts if missing
+  await seedDefaultAccounts();
 
   // 3. If PostgreSQL is reachable, attempt to sync/verify tables
   const hasPg = await isPostgresAvailable();
@@ -270,6 +268,7 @@ export async function initUserRepository(): Promise<void> {
  */
 export function findUserByEmail(email: string): UserRecord | undefined {
   if (!email) return undefined;
+  loadFromDisk();
   return usersCache.get(email.toLowerCase().trim());
 }
 
@@ -278,6 +277,7 @@ export function findUserByEmail(email: string): UserRecord | undefined {
  */
 export function findUserById(id: string): UserRecord | undefined {
   if (!id) return undefined;
+  loadFromDisk();
   for (const record of usersCache.values()) {
     if (record.user.id === id) {
       return record;

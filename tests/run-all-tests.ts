@@ -7,6 +7,7 @@ import { runPricingTests } from './pricing.test';
 import { runInventoryTests } from './inventory.test';
 import { runAuthSecurityTests } from './auth-security.test';
 import { runPostPurchaseTests } from './post-purchase.test';
+import { runOtpBrevoTestSuite } from './otp-brevo-auth.test';
 
 async function main() {
   console.log('===========================================================');
@@ -40,6 +41,12 @@ async function main() {
   totalPassed += res4.passed;
   totalFailed += res4.failed;
   allErrors.push(...res4.errors);
+
+  // 5. Mandatory OTP & Brevo Transactional Email Engine
+  const res5 = await runOtpBrevoTestSuite();
+  totalPassed += res5.passed;
+  totalFailed += res5.failed;
+  allErrors.push(...res5.errors);
 
   console.log('\n===========================================================');
   console.log(`📊 TEST EXECUTION SUMMARY:`);

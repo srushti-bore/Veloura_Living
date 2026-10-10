@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
+export const dynamic = 'force-dynamic';
 import { successResponse } from '@/lib/api/response';
 import { handleApiError, ValidationError, ConflictError } from '@/lib/api/errorHandler';
 import { hashPassword } from '@/lib/auth/password';
 import { initAuthStore, findUserByEmail, saveUserRecord, UserRecord } from '@/lib/data/authStore';
-import { AuthResponseData } from '@/types';
+import { createOtpChallenge } from '@/lib/auth/otpService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,8 +21,8 @@ export async function POST(request: NextRequest) {
     }
 
     const existing = findUserByEmail(email);
-    if (existing) {
-      throw new ConflictError('An account with this email address already exists.');
+    if (existing && existing.user.is_email_verified) {
+      throw new ConflictError('An account with this email address already exists. Please sign in instead.');
     }
 
     const userId = crypto.randomUUID();
@@ -51,9 +52,17 @@ export async function POST(request: NextRequest) {
       addresses: [],
     };
 
-    saveUserRecord(newRecord);
+    // Do NOT save to DB yet — only persist upon successful OTP verification
+    // Create OTP verification challenge with pending record in metadata
+    const challenge = await createOtpChallenge({
+      email: newRecord.user.email,
+      type: 'REGISTER',
+      userId,
+      name: newRecord.profile.first_name,
+      metadata: { pendingRecord: newRecord },
+    });
 
-    const responseData: AuthResponseData = {
+    const responseData = {
       user: {
         id: userId,
         email: newRecord.user.email,
@@ -65,8 +74,11 @@ export async function POST(request: NextRequest) {
           avatarUrl: newRecord.profile.avatar_url,
         },
       },
-      token: '',
-      expiresIn: 0,
+      requiresOtp: true,
+      challengeToken: challenge.challengeToken,
+      expiresInSeconds: challenge.expiresInSeconds,
+      cooldownSeconds: challenge.cooldownSeconds,
+      message: 'Account created. Verification code dispatched to your email.',
     };
 
     return successResponse(responseData, 201);

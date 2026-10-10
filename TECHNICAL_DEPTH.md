@@ -18,7 +18,12 @@
 7. [Cryptographic Security, Session Guards & RBAC Enclave](#7-cryptographic-security-session-guards--rbac-enclave)
 8. [Phase 11: Payment Automation, Automated Refunds & Multi-Currency Engine](#8-phase-11-payment-automation-automated-refunds--multi-currency-engine)
 9. [Phase 12: Multi-Channel Notification Engine & In-App Notification Center Drawer](#9-phase-12-multi-channel-notification-engine--in-app-notification-center-drawer)
-10. [Automated Verification & E2E Validation Matrix](#10-automated-verification--e2e-validation-matrix)
+10. [Phase 13: 3D AR Spatial Configurator & PBR Material Pipeline](#10-phase-13-3d-ar-spatial-configurator--pbr-material-pipeline)
+11. [Phase 14: VIP Concierge & Trade B2B Specification Engine](#11-phase-14-vip-concierge--trade-b2b-specification-engine)
+12. [Phase 15: Progressive Web App (PWA) Offline Engine & Edge Cache Architecture](#12-phase-15-progressive-web-app-pwa-offline-engine--edge-cache-architecture)
+13. [Phase 17: Brevo Transactional Email Engine & Multi-User State Hygiene Architecture](#13-phase-17-brevo-transactional-email-engine--multi-user-state-hygiene-architecture)
+14. [Phase 18: Mandatory 6-Digit OTP Email Verification, Unverified User Database Isolation & Brevo Env-Driven Engine](#14-phase-18-mandatory-6-digit-otp-email-verification-unverified-user-database-isolation--brevo-env-driven-engine)
+15. [Automated Verification & E2E Validation Matrix](#15-automated-verification--e2e-validation-matrix)
 
 ---
 
@@ -308,20 +313,62 @@ graph LR
 
 ---
 
-## 14. Automated Verification & E2E Validation Matrix
+## 14. Phase 18: Mandatory 6-Digit OTP Email Verification, Unverified User Database Isolation & Brevo Env-Driven Engine
+
+### 🔐 1. Zero Unverified Database Contamination Architecture
+- **In-Memory Challenge Staging:** When a user registers via `POST /api/auth/register`, the account record (`UserRecord`) is strictly **not** written to the database (`.data/users_store.json` or PostgreSQL). Instead, the full user payload is encrypted into the in-memory OTP challenge's `metadata: { pendingRecord }`.
+- **Commit Upon Verification:** The database write is triggered only when the client successfully verifies the 6-digit numeric OTP via `POST /api/auth/verify-otp`.
+- **Conflict Handling for Unverified Emails:** Rather than raising an HTTP 409 Conflict ("An account with this email address already exists") on unverified emails, the system evaluates `if (existing && existing.user.is_email_verified)`. If unverified, it automatically refreshes the OTP challenge and dispatches a new code, eliminating registration deadlocks.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as User / Browser
+    participant API as Next.js API (/api/auth)
+    participant OTP as OTP Service (Memory)
+    participant Brevo as Brevo API / Dev Console
+    participant DB as UserRepository (Store/DB)
+
+    Client->>API: POST /api/auth/register (name, email, password)
+    API->>DB: findUserByEmail(email)
+    Note over API,DB: If existing && is_email_verified == false: Allow OTP re-challenge
+    API->>OTP: createOtpChallenge({ email, metadata: { pendingRecord } })
+    OTP->>Brevo: sendOtpEmail(email, otp)
+    API-->>Client: 201 Created { requiresOtp: true, challengeToken }
+    Note over Client,API: User enters 6-digit code in OtpVerificationForm
+    Client->>API: POST /api/auth/verify-otp { email, challengeToken, otp }
+    API->>OTP: verifyOtpChallenge(challengeToken, otp)
+    OTP-->>API: Success { pendingRecord }
+    API->>DB: saveUserRecord(pendingRecord with is_email_verified=true)
+    API-->>Client: 200 OK + JWT Auth Session Cookie
+```
+
+### 📧 2. Env-Driven Brevo Delivery & Dual-Path Configuration
+- **Decoupled Environment Variables:** All Brevo credentials are fully environment-driven via `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and `BREVO_SENDER_NAME`.
+- **Dual-Path Node.js Resolution:** Updated `backend/src/server.ts` to dynamically inspect both `./.env` and `../../.env` using native `process.loadEnvFile`, ensuring seamless multi-directory environment inheritance.
+- **Offline Dev Experience:** In non-production environments with unconfigured or simulation keys, the 6-digit OTP is safely emitted to the developer console (`🔐 [DEV OTP VERIFICATION CODE]: XXXXXX`), preventing dev roadblocks.
+
+### 🧹 3. User Cleanup CLI Utility (`scripts/clean-users.ts`)
+- Added `npm run clean:users` CLI task.
+- Automated purging of dirty test records in `.data/users_store.json` while safely protecting canonical baseline identities (`admin@velouraliving.com`, `concierge@velouraliving.com`, `client@example.com`).
+
+---
+
+## 15. Automated Verification & E2E Validation Matrix
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|
 | **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 63 App Router routes and backend modules | ✅ **0 Errors** |
 | **Brevo Email Engine** | `npx tsx scripts/test-brevo-email.ts` | Brevo REST API & SMTP Relay live transactional email dispatch | ✅ **Verified** |
 | **Database Schema Check** | `npx tsx scripts/inspect-database-tables.ts` | 33 PostgreSQL tables, column schemas, ENUMs & live rows | ✅ **33/33 (100%)** |
+| **User Store Cleanup** | `npm run clean:users` | Purges unverified test accounts while preserving canonical baseline accounts | ✅ **Verified** |
 | **Phase 15 PWA & Performance** | `npm.cmd run test:phase15` | Web App Manifest, Service Worker Caching, Offline Fallback, Security Headers | ✅ **41/41 (100%)** |
 | **Phase 14 VIP Trade & RFQ** | `npm.cmd run test:phase14` | Tiered Discounts, RFQ Builder, Swatch Box Order, VIP Concierge, Quotation Generator | ✅ **34/34 (100%)** |
 | **Phase 13 3D AR Configurator** | `npm.cmd run test:phase13` | Three.js Models, PBR Materials, 3D Calipers, Exploded Joinery, AR Intent Bridge | ✅ **42/42 (100%)** |
 | **Phase 12 Notification Suite** | `npm.cmd run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
 | **Phase 11 Payment Suite** | `npm.cmd run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
 | **Direct REST APIs** | `npm.cmd run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
-| **SRS Unit & Integration Tests** | `npm.cmd test` | 33 unit and domain store tests | ✅ **33/33 (100%)** |
+| **Master Test Suite** | `npx tsx tests/run-all-tests.ts` | All automated system, store, and SRS tests | ✅ **65/65 (100%)** |
 
 ---
 

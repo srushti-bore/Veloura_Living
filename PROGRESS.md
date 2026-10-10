@@ -5,8 +5,8 @@
 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 **Deployment Target:** Vercel (`Next.js 16 App Router`) + Supabase PostgreSQL + Standalone Backend (`backend/` Docker/Render on Port 5000)  
 **Architecture:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Three.js + GSAP 3 + Lenis + Google Gemini AI + Dedicated Node.js REST Backend  
-**Status:** ✅ **100% Production-Ready, All 15 Master Roadmap Phases Implemented & Verified (63/63 Next.js App Router Routes, Dedicated Backend on Port 5000, 41/41 Phase 15 Tests Passing, 34/34 Phase 14 Tests Passing, 42/42 Phase 13 Tests Passing, 27/27 Phase 12 Tests Passing, 30/30 Phase 11 Tests Passing, 39/39 Direct API Tests Passing, 33/33 SRS Unit Tests Passing)**  
-**Last Updated:** 05 October 2026 (Phase 15 Progressive Web App Offline Service Worker, Edge Caching & Global Performance Delivered)  
+**Status:** ✅ **100% Production-Ready, All 18 Master Roadmap Phases Implemented & Verified (Mandatory 6-Digit OTP Email Authentication, Unverified User Database Isolation, Brevo Env-Driven Transactional Engine, Dedicated Standalone Backend on Port 5000, 63/63 Next.js App Router Routes, 65/65 Automated Test Suite Passing, Zero-Conflict Registration Lifecycle)**  
+**Last Updated:** 10 October 2026 (Phase 18 Mandatory 6-Digit OTP Verification, Unverified User Database Isolation, Clean:Users Script & Brevo Env-Driven Delivery Engine Delivered)  
 
 ---
 
@@ -385,6 +385,23 @@ docker run -p 5000:5000 veloura-backend
 - **Build & Quality Assurance:**
   - TypeScript static analysis: `npx.cmd tsc --noEmit` verified with **0 errors**.
   - All test suites passing 100%.
+
+### 18. Phase 18: Mandatory 6-Digit OTP Email Verification, Unverified User Database Isolation & Brevo Env-Driven Delivery Engine ✅
+- **Mandatory 6-Digit OTP Authentication & Isolation (`app/api/auth/register/route.ts`, `app/api/auth/verify-otp/route.ts`, `lib/auth/otpService.ts`):**
+  - **Zero Unverified Database Contamination:** Registration requests strictly do *not* write unverified user records into the database until the 6-digit OTP is verified. The pending user record is stored safely in OTP challenge metadata (`metadata: { pendingRecord }`) with cryptographic tokens (`chal_...`).
+  - **Conflict Resolution for Unverified Registrations:** Modified duplicate email check to only reject if `existing && existing.user.is_email_verified`. If a user enters an email from an earlier unverified session, the system automatically regenerates and dispatches a fresh 6-digit OTP challenge rather than blocking them with a 409 Conflict.
+  - **Single-Use Commit:** Upon successful OTP verification at `POST /api/auth/verify-otp`, `is_email_verified` is set to `true`, the account is saved to `.data/users_store.json` (and PostgreSQL), and the authenticated JWT session is issued.
+- **Brevo Env-Driven Transactional Delivery Engine (`lib/services/brevoEmailService.ts`, `backend/src/services/brevoEmailService.ts`, `backend/src/server.ts`):**
+  - Completely environment-driven architecture powered by `.env` (`BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`).
+  - Dynamic Dual-Path `.env` loading: Added native Node.js `process.loadEnvFile` resolution for both local and root `.env` files in `backend/src/server.ts`.
+  - **Development Terminal OTP Dispatch:** When running in local development mode without live Brevo credentials (simulation mode), the 6-digit OTP code is cleanly logged to the developer terminal (`🔐 [DEV OTP VERIFICATION CODE]: XXXXXX`) for instant local testing without waiting for email delivery.
+- **Automated Database Maintenance & User Cleanup CLI (`scripts/clean-users.ts`, `package.json`):**
+  - Created CLI cleanup script `scripts/clean-users.ts` and registered `"clean:users": "npx -y tsx scripts/clean-users.ts"` in `package.json`.
+  - Safely deletes test registration accounts while preserving canonical baseline accounts (`admin@velouraliving.com`, `concierge@velouraliving.com`, `client@example.com`).
+- **User Repository Cache Synchronization (`lib/data/userRepository.ts`):**
+  - Synchronized in-memory cache directly with `.data/users_store.json` on read operations.
+  - Fixed `saveToDisk()` by removing undefined variable reference.
+  - Verified 100% test suite completion (65/65 automated tests passing).
 
 ---
 

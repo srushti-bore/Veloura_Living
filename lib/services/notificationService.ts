@@ -11,6 +11,7 @@ import {
   DbNotification,
 } from '@/types/notification';
 import { createNotificationRecord } from '@/lib/data/notificationStore';
+import { brevoEmailService } from '@/lib/services/brevoEmailService';
 
 export class NotificationService {
   /**
@@ -41,13 +42,17 @@ export class NotificationService {
           });
         } else if (channel === 'EMAIL') {
           const htmlContent = this.renderHtmlEmailTemplate(payload);
-          // In production: send via SendGrid / Resend / AWS SES
-          // In test/development: high-fidelity sandbox mock dispatch
+          const emailRes = await brevoEmailService.sendEmail({
+            to: [{ email: payload.recipientEmail || 'customer@example.com' }],
+            subject: `🏛️ Veloura Living — ${payload.title}`,
+            htmlContent,
+            tags: [payload.type.toLowerCase().replace(/_/g, '-')],
+          });
           channelResults.push({
             channel: 'EMAIL',
-            success: true,
-            deliveryId: `eml_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            details: `Dispatched to ${payload.recipientEmail || 'customer@example.com'} (Length: ${htmlContent.length} chars)`,
+            success: emailRes.success,
+            deliveryId: emailRes.messageId || `eml_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            details: emailRes.error || `Dispatched to ${payload.recipientEmail || 'customer@example.com'} (Length: ${htmlContent.length} chars)`,
           });
         } else if (channel === 'WHATSAPP') {
           const waText = this.renderWhatsAppTemplate(payload);

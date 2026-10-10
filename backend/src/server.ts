@@ -4,13 +4,18 @@
  */
 
 try {
-  // Automatically load .env into process.env if present (Node.js built-in)
+  // Automatically load local .env and root .env into process.env if present (Node.js built-in)
   (process as any).loadEnvFile?.();
+} catch {}
+try {
+  const path = require('path');
+  const rootEnv = path.resolve(__dirname, '../../.env');
+  (process as any).loadEnvFile?.(rootEnv);
 } catch {}
 
 import http from 'http';
 import { parse } from 'url';
-import { initAuthStore, findUserByEmail, findUserById, saveUserRecord } from './data/authStore';
+import { initAuthStore, findUserByEmail, findUserById, saveUserRecord, UserRecord } from './data/authStore';
 import { initCatalogStore, getProducts, getProductBySlugOrId, getCategories, getBrands, getVariantBySku, updateVariantStock } from './data/catalogStore';
 import { getCart, addToCart, updateCartItemQuantity, removeFromCart, clearCart } from './data/shoppingStore';
 import { calculateAuthoritativeCheckout, getCoupons, validateCoupon } from './data/pricingStore';
@@ -23,6 +28,7 @@ import { hashPassword, verifyPassword } from './auth/password';
 import { signToken, verifyToken } from './auth/jwt';
 import { parseAuthToken } from './auth/session';
 import { hasAnyRole } from './auth/rbac';
+import { createOtpChallenge, verifyOtpChallenge, resendOtpChallenge } from './auth/otpService';
 import { generateGstInvoiceForOrder } from './services/invoiceService';
 import { formatSuccessResponse, formatErrorResponse } from './api/response';
 import { currencyEngine } from './services/currencyEngine';
@@ -145,8 +151,9 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, formatErrorResponse('Valid email and password (min 8 chars) required.'));
       }
 
-      if (findUserByEmail(email)) {
-        return sendJson(res, 409, formatErrorResponse('User with this email already exists.', 'CONFLICT'));
+      const existing = findUserByEmail(email);
+      if (existing && existing.user.is_email_verified) {
+        return sendJson(res, 409, formatErrorResponse('An account with this email address already exists. Please sign in instead.', 'CONFLICT'));
       }
 
       const userId = crypto.randomUUID();
@@ -176,7 +183,14 @@ const server = http.createServer(async (req, res) => {
         addresses: [],
       };
 
-      saveUserRecord(userRecord);
+      // Do NOT save to DB yet — only persist upon successful OTP verification
+      const challenge = await createOtpChallenge({
+        email: userRecord.user.email,
+        type: 'REGISTER',
+        userId,
+        name: firstName,
+        metadata: { pendingRecord: userRecord },
+      });
 
       return sendJson(res, 201, formatSuccessResponse({
         user: {
@@ -186,7 +200,11 @@ const server = http.createServer(async (req, res) => {
           status: 'ACTIVE',
           profile: { firstName, lastName },
         },
-        message: 'Account registered successfully. Please sign in.',
+        requiresOtp: true,
+        challengeToken: challenge.challengeToken,
+        expiresInSeconds: challenge.expiresInSeconds,
+        cooldownSeconds: challenge.cooldownSeconds,
+        message: 'Account created. Verification code dispatched to your email.',
       }));
     }
 
@@ -197,6 +215,54 @@ const server = http.createServer(async (req, res) => {
       const record = findUserByEmail(email);
       if (!record || !(await verifyPassword(password, record.user.password_hash))) {
         return sendJson(res, 401, formatErrorResponse('Invalid credentials.', 'UNAUTHORIZED'));
+      }
+
+      const challenge = await createOtpChallenge({
+        email: record.user.email,
+        type: 'LOGIN',
+        userId: record.user.id,
+        name: record.profile?.first_name,
+      });
+
+      return sendJson(res, 200, formatSuccessResponse({
+        requiresOtp: true,
+        challengeToken: challenge.challengeToken,
+        email: record.user.email,
+        expiresInSeconds: challenge.expiresInSeconds,
+        cooldownSeconds: challenge.cooldownSeconds,
+        message: challenge.message,
+      }));
+    }
+
+    if (pathname === '/api/auth/verify-otp' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { email, challengeToken, otp } = body;
+
+      if (!email || !challengeToken || !otp) {
+        return sendJson(res, 400, formatErrorResponse('Email, challenge token, and 6-digit OTP are required.'));
+      }
+
+      const verifyResult = await verifyOtpChallenge({ email, challengeToken, otp });
+      if (!verifyResult.success) {
+        return sendJson(res, 400, formatErrorResponse(verifyResult.error || 'Invalid OTP code.', verifyResult.code || 'OTP_ERROR'));
+      }
+
+      let record: UserRecord | undefined = findUserByEmail(email);
+      if (!record && verifyResult.metadata?.pendingRecord) {
+        const pending = verifyResult.metadata.pendingRecord as UserRecord;
+        pending.user.is_email_verified = true;
+        pending.user.created_at = new Date().toISOString();
+        pending.user.updated_at = new Date().toISOString();
+        saveUserRecord(pending);
+        record = pending;
+      } else if (record) {
+        record.user.is_email_verified = true;
+        record.user.updated_at = new Date().toISOString();
+        saveUserRecord(record);
+      }
+
+      if (!record) {
+        return sendJson(res, 404, formatErrorResponse('User profile not found.'));
       }
 
       const token = await signToken(record.user.id, record.user.email, record.roles);
@@ -214,6 +280,26 @@ const server = http.createServer(async (req, res) => {
           },
         },
         token,
+      }));
+    }
+
+    if (pathname === '/api/auth/resend-otp' && method === 'POST') {
+      const body = await parseRequestBody(req);
+      const { email, challengeToken } = body;
+
+      if (!email || !challengeToken) {
+        return sendJson(res, 400, formatErrorResponse('Email and challenge token are required.'));
+      }
+
+      const resendResult = await resendOtpChallenge({ email, challengeToken });
+      if (!resendResult.success) {
+        return sendJson(res, 429, formatErrorResponse(resendResult.error || 'Cooldown active.', 'COOLDOWN_ACTIVE'));
+      }
+
+      return sendJson(res, 200, formatSuccessResponse({
+        message: resendResult.message,
+        cooldownSeconds: resendResult.cooldownSeconds,
+        challengeToken: resendResult.challengeToken,
       }));
     }
 

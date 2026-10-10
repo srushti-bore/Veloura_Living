@@ -30,6 +30,36 @@ export const backendOpenapiSpec = {
         responses: { 200: { description: "Server is online" } }
       }
     },
+    "/api/auth/register": {
+      post: {
+        summary: "Register Account & Dispatch OTP",
+        responses: { 201: { description: "Created user challenge" } }
+      }
+    },
+    "/api/auth/login": {
+      post: {
+        summary: "Validate Credentials & Dispatch OTP",
+        responses: { 200: { description: "Dispatched OTP challenge" } }
+      }
+    },
+    "/api/auth/verify-otp": {
+      post: {
+        summary: "Verify 6-Digit OTP & Issue JWT",
+        responses: { 200: { description: "Issued JWT session" } }
+      }
+    },
+    "/api/auth/resend-otp": {
+      post: {
+        summary: "Resend 6-Digit OTP (30s Cooldown)",
+        responses: { 200: { description: "New OTP sent" } }
+      }
+    },
+    "/api/auth/me": {
+      get: {
+        summary: "Session Introspection Profile",
+        responses: { 200: { description: "User session" } }
+      }
+    },
     "/api/products": {
       get: {
         summary: "List Products with Filtering & Pagination",

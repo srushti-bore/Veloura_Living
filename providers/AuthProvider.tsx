@@ -3,6 +3,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { UserSession, DbProfile, DbAddress, UserRoleEnum, ApiResponse, AuthResponseData } from '@/types';
 
+export interface OtpChallengeState {
+  email: string;
+  challengeToken: string;
+  type: 'LOGIN' | 'REGISTER';
+  cooldownSeconds?: number;
+}
+
 interface AuthContextType {
   user: UserSession | null;
   profile: DbProfile | null;
@@ -13,11 +20,14 @@ interface AuthContextType {
   isAdmin: boolean;
   isManager: boolean;
   isAuthModalOpen: boolean;
-  authModalView: 'signin' | 'signup' | 'forgot';
-  openAuthModal: (view?: 'signin' | 'signup' | 'forgot') => void;
+  authModalView: 'signin' | 'signup' | 'forgot' | 'otp';
+  otpChallenge: OtpChallengeState | null;
+  openAuthModal: (view?: 'signin' | 'signup' | 'forgot' | 'otp') => void;
   closeAuthModal: () => void;
-  login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; message?: string }>;
-  register: (data: { email: string; password: string; firstName?: string; lastName?: string; phone?: string }) => Promise<{ success: boolean; message?: string }>;
+  login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; requiresOtp?: boolean; challengeToken?: string; email?: string; message?: string }>;
+  register: (data: { email: string; password: string; firstName?: string; lastName?: string; phone?: string }) => Promise<{ success: boolean; requiresOtp?: boolean; challengeToken?: string; email?: string; message?: string }>;
+  verifyOtp: (params: { email: string; challengeToken: string; otp: string }) => Promise<{ success: boolean; message?: string }>;
+  resendOtp: (params: { email: string; challengeToken: string }) => Promise<{ success: boolean; message?: string; cooldownSeconds?: number }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateProfile: (profileData: Partial<DbProfile>) => Promise<boolean>;
@@ -34,7 +44,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [permissions, setPermissions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalView, setAuthModalView] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [authModalView, setAuthModalView] = useState<'signin' | 'signup' | 'forgot' | 'otp'>('signin');
+  const [otpChallenge, setOtpChallenge] = useState<OtpChallengeState | null>(null);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -89,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, user]);
 
-  const openAuthModal = useCallback((view: 'signin' | 'signup' | 'forgot' = 'signin') => {
+  const openAuthModal = useCallback((view: 'signin' | 'signup' | 'forgot' | 'otp' = 'signin') => {
     setAuthModalView(view);
     setIsAuthModalOpen(true);
   }, []);
@@ -105,13 +116,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
       });
-      const data: ApiResponse<AuthResponseData> = await res.json();
+      const data = await res.json();
       if (!res.ok || !data.success) {
         return {
           success: false,
           message: data.error?.message || 'Login failed. Please verify credentials.',
         };
       }
+
+      // Mandatory OTP challenge response
+      if (data.data?.requiresOtp) {
+        const challengeState: OtpChallengeState = {
+          email: data.data.email || credentials.email,
+          challengeToken: data.data.challengeToken,
+          type: 'LOGIN',
+          cooldownSeconds: data.data.cooldownSeconds || 30,
+        };
+        setOtpChallenge(challengeState);
+        setAuthModalView('otp');
+        setIsAuthModalOpen(true);
+        return {
+          success: true,
+          requiresOtp: true,
+          challengeToken: data.data.challengeToken,
+          email: data.data.email,
+          message: data.data.message || 'Verification code dispatched to your email.',
+        };
+      }
+
+      // Direct fallback (if session already verified)
       if (typeof window !== 'undefined') {
         localStorage.removeItem('veloura_multi_step_checkout_state');
         localStorage.removeItem('veloura_checkout_state');
@@ -137,23 +170,99 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
-      const data: ApiResponse<AuthResponseData> = await res.json();
+      const data = await res.json();
       if (!res.ok || !data.success) {
         return {
           success: false,
           message: data.error?.message || 'Registration failed.',
         };
       }
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('veloura_multi_step_checkout_state');
-        localStorage.removeItem('veloura_checkout_state');
+
+      if (data.data?.requiresOtp) {
+        const challengeState: OtpChallengeState = {
+          email: data.data.email || userData.email,
+          challengeToken: data.data.challengeToken,
+          type: 'REGISTER',
+          cooldownSeconds: data.data.cooldownSeconds || 30,
+        };
+        setOtpChallenge(challengeState);
+        setAuthModalView('otp');
+        setIsAuthModalOpen(true);
+        return {
+          success: true,
+          requiresOtp: true,
+          challengeToken: data.data.challengeToken,
+          email: data.data.email,
+          message: data.data.message || 'Account created. Verification code dispatched to your email.',
+        };
       }
+
       return {
         success: true,
         message: 'Account created successfully. Please sign in.',
       };
     } catch {
       return { success: false, message: 'Network error during registration.' };
+    }
+  };
+
+  const verifyOtp = async (params: { email: string; challengeToken: string; otp: string }) => {
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      const data: ApiResponse<AuthResponseData> = await res.json();
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          message: data.error?.message || 'Verification failed. Please check your code.',
+        };
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('veloura_multi_step_checkout_state');
+        localStorage.removeItem('veloura_checkout_state');
+      }
+
+      await refreshUser();
+      closeAuthModal();
+      setOtpChallenge(null);
+      return { success: true };
+    } catch {
+      return { success: false, message: 'Network error during verification.' };
+    }
+  };
+
+  const resendOtp = async (params: { email: string; challengeToken: string }) => {
+    try {
+      const res = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          message: data.error?.message || 'Failed to resend verification code.',
+        };
+      }
+
+      if (data.data?.challengeToken) {
+        setOtpChallenge((prev) =>
+          prev ? { ...prev, challengeToken: data.data.challengeToken } : null
+        );
+      }
+
+      return {
+        success: true,
+        message: data.data?.message || 'New verification code dispatched to your email.',
+        cooldownSeconds: data.data?.cooldownSeconds || 30,
+      };
+    } catch {
+      return { success: false, message: 'Network error during resend.' };
     }
   };
 
@@ -165,6 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       setAddresses([]);
       setPermissions([]);
+      setOtpChallenge(null);
       if (typeof window !== 'undefined') {
         localStorage.removeItem('veloura_cart');
         localStorage.removeItem('veloura_wishlist');
@@ -243,10 +353,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isManager,
         isAuthModalOpen,
         authModalView,
+        otpChallenge,
         openAuthModal,
         closeAuthModal,
         login,
         register,
+        verifyOtp,
+        resendOtp,
         logout,
         refreshUser,
         updateProfile,

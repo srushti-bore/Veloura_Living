@@ -8,9 +8,20 @@ import { AuthTabs } from './AuthTabs';
 import { SignInForm } from './SignInForm';
 import { SignUpForm } from './SignUpForm';
 import { ForgotPasswordForm } from './ForgotPasswordForm';
+import { OtpVerificationForm } from './OtpVerificationForm';
 
 export function AuthExperience() {
-  const { isAuthModalOpen, authModalView, closeAuthModal, openAuthModal, login, register } = useAuth();
+  const {
+    isAuthModalOpen,
+    authModalView,
+    otpChallenge,
+    closeAuthModal,
+    openAuthModal,
+    login,
+    register,
+    verifyOtp,
+    resendOtp,
+  } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -37,6 +48,8 @@ export function AuthExperience() {
     setIsLoading(false);
     if (!res.success) {
       setErrorMessage(res.message || 'Invalid email or password.');
+    } else if (res.requiresOtp) {
+      setPrefilledEmail(credentials.email);
     }
     return res;
   };
@@ -55,11 +68,42 @@ export function AuthExperience() {
     setIsLoading(false);
     if (!res.success) {
       setErrorMessage(res.message || 'Registration failed. Please verify your details.');
+    } else if (res.requiresOtp) {
+      setPrefilledEmail(data.email);
     } else {
       setPrefilledEmail(data.email);
       setSuccessMessage('Account created successfully. Please sign in with your credentials.');
       openAuthModal('signin');
     }
+    return res;
+  };
+
+  const handleVerifyOtp = async (otp: string) => {
+    const targetEmail = otpChallenge?.email || prefilledEmail;
+    const challengeToken = otpChallenge?.challengeToken || '';
+
+    setIsLoading(true);
+    setErrorMessage(null);
+    const res = await verifyOtp({
+      email: targetEmail,
+      challengeToken,
+      otp,
+    });
+    setIsLoading(false);
+    if (!res.success) {
+      setErrorMessage(res.message || 'Invalid verification code.');
+    }
+    return res;
+  };
+
+  const handleResendOtp = async () => {
+    const targetEmail = otpChallenge?.email || prefilledEmail;
+    const challengeToken = otpChallenge?.challengeToken || '';
+
+    const res = await resendOtp({
+      email: targetEmail,
+      challengeToken,
+    });
     return res;
   };
 
@@ -120,8 +164,8 @@ export function AuthExperience() {
                 </button>
               </div>
 
-              {/* Navigation Tabs (Hidden in forgot-password mode) */}
-              {authModalView !== 'forgot' && (
+              {/* Navigation Tabs (Hidden in forgot-password and OTP verification mode) */}
+              {authModalView !== 'forgot' && authModalView !== 'otp' && (
                 <AuthTabs
                   activeTab={authModalView}
                   onTabChange={(tab) => {
@@ -165,6 +209,24 @@ export function AuthExperience() {
                     isLoading={isLoading}
                     errorMessage={errorMessage}
                     clearError={() => setErrorMessage(null)}
+                  />
+                )}
+
+                {authModalView === 'otp' && (
+                  <OtpVerificationForm
+                    email={otpChallenge?.email || prefilledEmail || 'your email'}
+                    challengeToken={otpChallenge?.challengeToken || ''}
+                    onVerify={handleVerifyOtp}
+                    onResend={handleResendOtp}
+                    onBackToSignIn={() => {
+                      setErrorMessage(null);
+                      setSuccessMessage(null);
+                      openAuthModal('signin');
+                    }}
+                    isLoading={isLoading}
+                    errorMessage={errorMessage}
+                    clearError={() => setErrorMessage(null)}
+                    successMessage={successMessage}
                   />
                 )}
 

@@ -3,7 +3,7 @@
 import React from 'react';
 
 interface AuthTabsProps {
-  activeTab: 'signin' | 'signup' | 'forgot';
+  activeTab: 'signin' | 'signup' | 'forgot' | 'otp';
   onTabChange: (tab: 'signin' | 'signup') => void;
 }
 

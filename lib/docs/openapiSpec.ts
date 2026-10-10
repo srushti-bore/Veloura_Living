@@ -112,9 +112,52 @@ export const openapiSpec = {
           }
         },
         responses: {
-          200: { description: "Authentication successful, token issued" },
+          200: { description: "Credentials verified, 6-digit OTP challenge dispatched via Brevo email" },
           401: { description: "Invalid credentials or account locked" },
           423: { description: "Account locked due to 5 consecutive failed attempts (15-min lockout)" }
+        }
+      }
+    },
+    "/api/auth/verify-otp": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Verify 6-Digit Security OTP & Issue Authenticated Session",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              example: {
+                email: "customer@velouraliving.com",
+                challengeToken: "chal_98a7sd8f7a6sd5f",
+                otp: "829143"
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: "OTP verified, authoritative JWT session and cookie issued" },
+          400: { description: "Invalid, expired, or replayed OTP code" }
+        }
+      }
+    },
+    "/api/auth/resend-otp": {
+      post: {
+        tags: ["Authentication"],
+        summary: "Resend 6-Digit OTP with 30s Rate-Limiting Cooldown",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              example: {
+                email: "customer@velouraliving.com",
+                challengeToken: "chal_98a7sd8f7a6sd5f"
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: "New OTP dispatched to email" },
+          429: { description: "Cooldown active (wait 30s)" }
         }
       }
     },
