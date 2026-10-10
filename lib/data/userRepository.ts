@@ -297,15 +297,29 @@ export function clearUsersCacheForTesting(): void {
  * Find user by email with real-time authoritative PostgreSQL database synchronization.
  * Guarantees cross-instance lookup and persistence durability across process restarts.
  */
-export async function findUserByEmailAuthoritative(email: string): Promise<UserRecord | undefined> {
+export async function findUserByEmailAuthoritative(
+  email: string,
+  options?: { requirePostgres?: boolean }
+): Promise<UserRecord | undefined> {
   if (!email) return undefined;
   const normalized = email.toLowerCase().trim();
-  if (process.env.NODE_ENV !== 'production') {
+  const isProd = process.env.NODE_ENV === 'production' || options?.requirePostgres === true;
+
+  if (!isProd) {
     loadFromDisk();
   }
-  let cached = usersCache.get(normalized);
+  const cached = usersCache.get(normalized);
 
   const hasPg = await isPostgresAvailable();
+
+  if (isProd && !hasPg) {
+    throw new UserPersistenceError(
+      'User database is unavailable. Account lookup failed.',
+      'DB_UNAVAILABLE',
+      503
+    );
+  }
+
   if (hasPg) {
     try {
       const res = await queryPostgres<{
@@ -321,78 +335,117 @@ export async function findUserByEmailAuthoritative(email: string): Promise<UserR
         [normalized]
       );
 
-      if (res && res.rows.length > 0) {
-        const row = res.rows[0];
-
-        // Roles lookup
-        const rolesRes = await queryPostgres<{ role_name: string }>(
-          'SELECT r.name as role_name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1',
-          [row.id]
-        );
-        const roles: UserRoleEnum[] =
-          rolesRes && rolesRes.rows.length > 0
-            ? (rolesRes.rows.map((r) => r.role_name as any) as UserRoleEnum[])
-            : (cached?.roles || ['CUSTOMER']);
-
-        // Profiles lookup
-        const profRes = await queryPostgres<{
-          user_id: string;
-          first_name: string;
-          last_name: string;
-          phone: string;
-          avatar_url: string;
-          preferred_currency: string;
-          interior_style_preference: string;
-          created_at: string;
-          updated_at: string;
-        }>(
-          'SELECT user_id, first_name, last_name, phone, avatar_url, preferred_currency, interior_style_preference, created_at, updated_at FROM profiles WHERE user_id = $1',
-          [row.id]
-        );
-        const pRow = profRes?.rows[0];
-        const profile: DbProfile = {
-          user_id: row.id,
-          first_name: pRow?.first_name || cached?.profile?.first_name || '',
-          last_name: pRow?.last_name || cached?.profile?.last_name || '',
-          phone: pRow?.phone || cached?.profile?.phone || '',
-          avatar_url: pRow?.avatar_url || cached?.profile?.avatar_url,
-          preferred_currency: pRow?.preferred_currency || cached?.profile?.preferred_currency || 'INR',
-          interior_style_preference: pRow?.interior_style_preference || cached?.profile?.interior_style_preference || 'Warm Minimalist',
-          created_at: pRow?.created_at || row.created_at,
-          updated_at: pRow?.updated_at || row.updated_at,
-        };
-
-        const authoritativeRecord: UserRecord = {
-          user: {
-            id: row.id,
-            email: row.email,
-            password_hash: row.password_hash,
-            status: row.status as any,
-            is_email_verified: row.is_email_verified,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-          },
-          roles,
-          profile,
-          addresses: cached?.addresses || [],
-          failedAttempts: cached?.failedAttempts,
-          firstFailedAt: cached?.firstFailedAt,
-          lockoutUntil: cached?.lockoutUntil,
-        };
-
-        usersCache.set(normalized, authoritativeRecord);
-        return authoritativeRecord;
-      } else if (res && res.rows.length === 0) {
-        if (process.env.NODE_ENV === 'production') {
-          usersCache.delete(normalized);
-          return undefined;
+      // If query failed (returned null due to pool error or syntax/connection failure)
+      if (res === null) {
+        if (isProd) {
+          throw new UserPersistenceError(
+            'Database query failed during authoritative account lookup.',
+            'DB_UNAVAILABLE',
+            503
+          );
         }
+        return cached;
       }
+
+      // Query succeeded: res is non-null
+      if (res.rows.length === 0) {
+        // User does not exist in authoritative PostgreSQL database
+        usersCache.delete(normalized);
+        if (!isProd) {
+          saveToDisk();
+        }
+        return undefined;
+      }
+
+      const row = res.rows[0];
+
+      // Roles lookup
+      const rolesRes = await queryPostgres<{ role_name: string }>(
+        'SELECT r.name as role_name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1',
+        [row.id]
+      );
+      if (rolesRes === null && isProd) {
+        throw new UserPersistenceError(
+          'Database query failed during roles lookup.',
+          'DB_UNAVAILABLE',
+          503
+        );
+      }
+      const roles: UserRoleEnum[] =
+        rolesRes && rolesRes.rows.length > 0
+          ? (rolesRes.rows.map((r) => r.role_name as any) as UserRoleEnum[])
+          : ['CUSTOMER'];
+
+      // Profiles lookup
+      const profRes = await queryPostgres<{
+        user_id: string;
+        first_name: string;
+        last_name: string;
+        phone: string;
+        avatar_url: string;
+        preferred_currency: string;
+        interior_style_preference: string;
+        created_at: string;
+        updated_at: string;
+      }>(
+        'SELECT user_id, first_name, last_name, phone, avatar_url, preferred_currency, interior_style_preference, created_at, updated_at FROM profiles WHERE user_id = $1',
+        [row.id]
+      );
+      if (profRes === null && isProd) {
+        throw new UserPersistenceError(
+          'Database query failed during profile lookup.',
+          'DB_UNAVAILABLE',
+          503
+        );
+      }
+      const pRow = profRes?.rows[0];
+      const profile: DbProfile = {
+        user_id: row.id,
+        first_name: pRow?.first_name || '',
+        last_name: pRow?.last_name || '',
+        phone: pRow?.phone || '',
+        avatar_url: pRow?.avatar_url || cached?.profile?.avatar_url,
+        preferred_currency: pRow?.preferred_currency || 'INR',
+        interior_style_preference: pRow?.interior_style_preference || 'Warm Minimalist',
+        created_at: pRow?.created_at || row.created_at,
+        updated_at: pRow?.updated_at || row.updated_at,
+      };
+
+      const authoritativeRecord: UserRecord = {
+        user: {
+          id: row.id,
+          email: row.email,
+          password_hash: row.password_hash,
+          status: row.status as any,
+          is_email_verified: row.is_email_verified,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+        },
+        roles,
+        profile,
+        addresses: cached?.addresses || [],
+        failedAttempts: cached?.failedAttempts,
+        firstFailedAt: cached?.firstFailedAt,
+        lockoutUntil: cached?.lockoutUntil,
+      };
+
+      usersCache.set(normalized, authoritativeRecord);
+      return authoritativeRecord;
     } catch (err: any) {
+      if (err instanceof UserPersistenceError) throw err;
+      if (isProd) {
+        throw new UserPersistenceError(
+          'Database operation failed during authoritative account lookup.',
+          'DB_UNAVAILABLE',
+          503
+        );
+      }
       console.warn('⚠️ [PostgreSQL findUserByEmail Authoritative Error]:', err.message);
+      return cached;
     }
   }
 
+  // Explicitly supported non-production scenario when PostgreSQL is not configured / available
   return cached;
 }
 
@@ -414,9 +467,16 @@ export function findUserById(id: string): UserRecord | undefined {
  * Find user by immutable UUID with real-time PostgreSQL synchronization.
  * Verifies cross-process role and status updates.
  */
-export async function findUserByIdAuthoritative(id: string): Promise<UserRecord | undefined> {
+export async function findUserByIdAuthoritative(
+  id: string,
+  options?: { requirePostgres?: boolean }
+): Promise<UserRecord | undefined> {
   if (!id) return undefined;
-  loadFromDisk();
+  const isProd = process.env.NODE_ENV === 'production' || options?.requirePostgres === true;
+
+  if (!isProd) {
+    loadFromDisk();
+  }
 
   let cachedRecord: UserRecord | undefined;
   for (const record of usersCache.values()) {
@@ -427,80 +487,133 @@ export async function findUserByIdAuthoritative(id: string): Promise<UserRecord 
   }
 
   const hasPg = await isPostgresAvailable();
+
+  if (isProd && !hasPg) {
+    throw new UserPersistenceError(
+      'User database is unavailable. Account lookup failed.',
+      'DB_UNAVAILABLE',
+      503
+    );
+  }
+
   if (hasPg) {
     try {
-      const res = await queryPostgres<{ id: string; email: string; password_hash: string; status: string; is_email_verified: boolean }>(
-        'SELECT id, email, password_hash, status, is_email_verified FROM users WHERE id = $1',
+      const res = await queryPostgres<{
+        id: string;
+        email: string;
+        password_hash: string;
+        status: string;
+        is_email_verified: boolean;
+        created_at: string;
+        updated_at: string;
+      }>(
+        'SELECT id, email, password_hash, status, is_email_verified, created_at, updated_at FROM users WHERE id = $1',
         [id]
       );
-      if (res && res.rows.length > 0) {
-        const row = res.rows[0];
-        const rolesRes = await queryPostgres<{ role_name: string }>(
-          'SELECT r.name as role_name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1',
-          [id]
-        );
-        const roles = rolesRes && rolesRes.rows.length > 0
-          ? rolesRes.rows.map((r) => r.role_name as any)
-          : (cachedRecord?.roles || ['CUSTOMER']);
 
-        if (cachedRecord) {
-          cachedRecord.user.status = row.status as any;
-          cachedRecord.user.is_email_verified = row.is_email_verified;
-          cachedRecord.roles = roles;
-          return cachedRecord;
-        } else {
-          const profRes = await queryPostgres<{
-            user_id: string;
-            first_name: string;
-            last_name: string;
-            phone: string;
-            avatar_url: string;
-            preferred_currency: string;
-            interior_style_preference: string;
-            created_at: string;
-            updated_at: string;
-          }>(
-            'SELECT user_id, first_name, last_name, phone, avatar_url, preferred_currency, interior_style_preference, created_at, updated_at FROM profiles WHERE user_id = $1',
-            [id]
+      if (res === null) {
+        if (isProd) {
+          throw new UserPersistenceError(
+            'Database query failed during authoritative account lookup.',
+            'DB_UNAVAILABLE',
+            503
           );
-          const pRow = profRes?.rows[0];
-          const freshRecord: UserRecord = {
-            user: {
-              id: row.id,
-              email: row.email,
-              password_hash: row.password_hash,
-              status: row.status as any,
-              is_email_verified: row.is_email_verified,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            },
-            roles,
-            profile: {
-              user_id: row.id,
-              first_name: pRow?.first_name || '',
-              last_name: pRow?.last_name || '',
-              phone: pRow?.phone || '',
-              avatar_url: pRow?.avatar_url,
-              preferred_currency: pRow?.preferred_currency || 'INR',
-              interior_style_preference: pRow?.interior_style_preference || 'Warm Minimalist',
-              created_at: pRow?.created_at || new Date().toISOString(),
-              updated_at: pRow?.updated_at || new Date().toISOString(),
-            },
-            addresses: [],
-          };
-          usersCache.set(row.email.toLowerCase().trim(), freshRecord);
-          return freshRecord;
         }
-      } else if (res && res.rows.length === 0) {
+        return cachedRecord;
+      }
+
+      if (res.rows.length === 0) {
         // User does not exist in authoritative database
         if (cachedRecord) {
           usersCache.delete(cachedRecord.user.email.toLowerCase().trim());
-          saveToDisk();
+          if (!isProd) {
+            saveToDisk();
+          }
         }
         return undefined;
       }
-    } catch {
-      // In dev or on DB error, fall back to cached record
+
+      const row = res.rows[0];
+      const rolesRes = await queryPostgres<{ role_name: string }>(
+        'SELECT r.name as role_name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1',
+        [id]
+      );
+      if (rolesRes === null && isProd) {
+        throw new UserPersistenceError(
+          'Database query failed during roles lookup.',
+          'DB_UNAVAILABLE',
+          503
+        );
+      }
+      const roles: UserRoleEnum[] =
+        rolesRes && rolesRes.rows.length > 0
+          ? (rolesRes.rows.map((r) => r.role_name as any) as UserRoleEnum[])
+          : ['CUSTOMER'];
+
+      const profRes = await queryPostgres<{
+        user_id: string;
+        first_name: string;
+        last_name: string;
+        phone: string;
+        avatar_url: string;
+        preferred_currency: string;
+        interior_style_preference: string;
+        created_at: string;
+        updated_at: string;
+      }>(
+        'SELECT user_id, first_name, last_name, phone, avatar_url, preferred_currency, interior_style_preference, created_at, updated_at FROM profiles WHERE user_id = $1',
+        [id]
+      );
+      if (profRes === null && isProd) {
+        throw new UserPersistenceError(
+          'Database query failed during profile lookup.',
+          'DB_UNAVAILABLE',
+          503
+        );
+      }
+      const pRow = profRes?.rows[0];
+
+      const freshRecord: UserRecord = {
+        user: {
+          id: row.id,
+          email: row.email,
+          password_hash: row.password_hash,
+          status: row.status as any,
+          is_email_verified: row.is_email_verified,
+          created_at: row.created_at || new Date().toISOString(),
+          updated_at: row.updated_at || new Date().toISOString(),
+        },
+        roles,
+        profile: {
+          user_id: row.id,
+          first_name: pRow?.first_name || '',
+          last_name: pRow?.last_name || '',
+          phone: pRow?.phone || '',
+          avatar_url: pRow?.avatar_url || cachedRecord?.profile?.avatar_url,
+          preferred_currency: pRow?.preferred_currency || 'INR',
+          interior_style_preference: pRow?.interior_style_preference || 'Warm Minimalist',
+          created_at: pRow?.created_at || new Date().toISOString(),
+          updated_at: pRow?.updated_at || new Date().toISOString(),
+        },
+        addresses: cachedRecord?.addresses || [],
+        failedAttempts: cachedRecord?.failedAttempts,
+        firstFailedAt: cachedRecord?.firstFailedAt,
+        lockoutUntil: cachedRecord?.lockoutUntil,
+      };
+
+      usersCache.set(row.email.toLowerCase().trim(), freshRecord);
+      return freshRecord;
+    } catch (err: any) {
+      if (err instanceof UserPersistenceError) throw err;
+      if (isProd) {
+        throw new UserPersistenceError(
+          'Database operation failed during authoritative account lookup.',
+          'DB_UNAVAILABLE',
+          503
+        );
+      }
+      console.warn('⚠️ [PostgreSQL findUserById Authoritative Error]:', err.message);
+      return cachedRecord;
     }
   }
 
@@ -517,13 +630,31 @@ export async function saveUserRecordAsync(
   options?: SaveUserOptions
 ): Promise<UserRecord> {
   const isProd = process.env.NODE_ENV === 'production' || options?.requirePostgres === true;
+  const isNewUser = options?.isNewUser === true;
   const email = record.user.email.toLowerCase().trim();
+
   if (!record.user.id) {
     record.user.id = crypto.randomUUID();
   }
   if (record.profile && !record.profile.user_id) {
     record.profile.user_id = record.user.id;
   }
+
+  // Pre-check for duplicate new user registration in cache (for fast rejection and offline non-prod)
+  if (isNewUser) {
+    // Strictly enforce CUSTOMER role for new user registration — prevent privilege escalation across all environments
+    record.roles = ['CUSTOMER'];
+
+    const existingCached = usersCache.get(email);
+    if (existingCached && existingCached.user.is_email_verified) {
+      throw new UserPersistenceError(
+        'An account with this email address already exists. Please sign in instead.',
+        'CONFLICT',
+        409
+      );
+    }
+  }
+
   const hasPg = await isPostgresAvailable();
 
   if (isProd && !hasPg) {
@@ -536,58 +667,114 @@ export async function saveUserRecordAsync(
 
   if (hasPg) {
     const client = await getPostgresClient();
-    if (client) {
-      try {
-        await client.query('BEGIN');
+    if (!client) {
+      // Must fail closed; do NOT fall back to a users-only write
+      throw new UserPersistenceError(
+        'Failed to acquire dedicated transaction client for account persistence.',
+        'DB_CLIENT_UNAVAILABLE',
+        503
+      );
+    }
 
-        // 1. Users Table Insert / Update
-        if (options?.isNewUser) {
-          try {
-            await client.query(
-              `INSERT INTO users (id, email, password_hash, status, is_email_verified, created_at, updated_at)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-              [
-                record.user.id,
-                email,
-                record.user.password_hash,
-                record.user.status,
-                record.user.is_email_verified,
-                record.user.created_at || new Date().toISOString(),
-                record.user.updated_at || new Date().toISOString(),
-              ]
-            );
-          } catch (insertErr: any) {
-            if (insertErr.code === '23505') {
-              throw new UserPersistenceError(
-                'An account with this email address already exists. Please sign in instead.',
-                'CONFLICT',
-                409
-              );
-            }
-            throw insertErr;
-          }
-        } else {
+    try {
+      await client.query('BEGIN');
+
+      if (isNewUser) {
+        // Enforce CUSTOMER role strictly for new registration — prevent privilege escalation
+        record.roles = ['CUSTOMER'];
+
+        // 1. Users Table Insert strictly (no generic upsert)
+        try {
           await client.query(
             `INSERT INTO users (id, email, password_hash, status, is_email_verified, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             ON CONFLICT (email) DO UPDATE 
-             SET password_hash = EXCLUDED.password_hash,
-                 status = EXCLUDED.status,
-                 is_email_verified = EXCLUDED.is_email_verified,
-                 updated_at = EXCLUDED.updated_at`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
             [
               record.user.id,
               email,
               record.user.password_hash,
-              record.user.status,
-              record.user.is_email_verified,
+              record.user.status || 'ACTIVE',
+              record.user.is_email_verified ?? true,
               record.user.created_at || new Date().toISOString(),
               record.user.updated_at || new Date().toISOString(),
             ]
           );
+        } catch (insertErr: any) {
+          if (insertErr.code === '23505') {
+            throw new UserPersistenceError(
+              'An account with this email address already exists. Please sign in instead.',
+              'CONFLICT',
+              409
+            );
+          }
+          throw insertErr;
         }
 
-        // 2. Profile Table Insert / Update
+        // 2. Profile Table Insert
+        if (record.profile) {
+          await client.query(
+            `INSERT INTO profiles (user_id, first_name, last_name, phone, avatar_url, preferred_currency, interior_style_preference, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+              record.user.id,
+              record.profile.first_name || '',
+              record.profile.last_name || '',
+              record.profile.phone || '',
+              record.profile.avatar_url || null,
+              record.profile.preferred_currency || 'INR',
+              record.profile.interior_style_preference || 'Warm Minimalist',
+              record.profile.created_at || new Date().toISOString(),
+              record.profile.updated_at || new Date().toISOString(),
+            ]
+          );
+        }
+
+        // 3. Role Assignment (ensure CUSTOMER role exists, link in user_roles)
+        await client.query(
+          `INSERT INTO roles (id, name, description)
+           VALUES (gen_random_uuid(), 'CUSTOMER', 'Customer role')
+           ON CONFLICT (name) DO NOTHING`
+        );
+        await client.query(
+          `INSERT INTO user_roles (user_id, role_id)
+           SELECT $1, id FROM roles WHERE name = 'CUSTOMER'
+           ON CONFLICT DO NOTHING`,
+          [record.user.id]
+        );
+      } else {
+        // EXPLICITLY AUTHORIZED UPDATE: target existing user by ID (or email fallback)
+        const existingRes = await client.query(
+          'SELECT id, password_hash, status, is_email_verified FROM users WHERE id = $1',
+          [record.user.id]
+        );
+        if (existingRes.rows.length === 0) {
+          const existingByEmail = await client.query(
+            'SELECT id, password_hash, status, is_email_verified FROM users WHERE LOWER(TRIM(email)) = $1',
+            [email]
+          );
+          if (existingByEmail.rows.length === 0) {
+            throw new UserPersistenceError('User account not found for update.', 'NOT_FOUND', 404);
+          }
+          record.user.id = existingByEmail.rows[0].id;
+        }
+
+        // Update users table without overwriting password_hash unless explicitly changed
+        await client.query(
+          `UPDATE users
+           SET status = COALESCE($2, status),
+               is_email_verified = COALESCE($3, is_email_verified),
+               password_hash = COALESCE($4, password_hash),
+               updated_at = $5
+           WHERE id = $1`,
+          [
+            record.user.id,
+            record.user.status,
+            record.user.is_email_verified,
+            record.user.password_hash,
+            record.user.updated_at || new Date().toISOString(),
+          ]
+        );
+
+        // Update profile table
         if (record.profile) {
           await client.query(
             `INSERT INTO profiles (user_id, first_name, last_name, phone, avatar_url, preferred_currency, interior_style_preference, created_at, updated_at)
@@ -613,82 +800,23 @@ export async function saveUserRecordAsync(
             ]
           );
         }
-
-        // 3. Roles and User_Roles Table Insert
-        if (record.roles && record.roles.length > 0) {
-          for (const role of record.roles) {
-            await client.query(
-              `INSERT INTO roles (id, name, description)
-               VALUES (gen_random_uuid(), $1, $2)
-               ON CONFLICT (name) DO NOTHING`,
-              [role, `${role} role`]
-            );
-            await client.query(
-              `INSERT INTO user_roles (user_id, role_id)
-               SELECT $1, id FROM roles WHERE name = $2
-               ON CONFLICT DO NOTHING`,
-              [record.user.id, role]
-            );
-          }
-        }
-
-        await client.query('COMMIT');
-      } catch (err: any) {
-        await client.query('ROLLBACK').catch(() => {});
-        if (err instanceof UserPersistenceError) throw err;
-        if (isProd) {
-          throw new UserPersistenceError(
-            `Database persistence failed for user account: ${err.message}`,
-            'DB_PERSISTENCE_FAILED',
-            500
-          );
-        }
-        console.warn('⚠️ [PostgreSQL User Persistence Fallback]:', err.message);
-      } finally {
-        client.release();
       }
-    } else {
-      // Fallback to queryPostgres without dedicated pool client
-      try {
-        const queryRes = await queryPostgres(
-          `INSERT INTO users (id, email, password_hash, status, is_email_verified, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
-           ON CONFLICT (email) DO UPDATE 
-           SET password_hash = EXCLUDED.password_hash,
-               status = EXCLUDED.status,
-               is_email_verified = EXCLUDED.is_email_verified,
-               updated_at = EXCLUDED.updated_at`,
-          [
-            record.user.id,
-            email,
-            record.user.password_hash,
-            record.user.status,
-            record.user.is_email_verified,
-            record.user.created_at || new Date().toISOString(),
-            record.user.updated_at || new Date().toISOString(),
-          ]
-        );
-        if (!queryRes && isProd) {
-          throw new UserPersistenceError('Database operation failed during user persistence.', 'DB_PERSISTENCE_FAILED', 500);
-        }
-      } catch (err: any) {
-        if (err instanceof UserPersistenceError) throw err;
-        if (isProd) {
-          throw new UserPersistenceError(`Database operation failed during user persistence: ${err.message}`, 'DB_PERSISTENCE_FAILED', 500);
-        }
-      }
+
+      await client.query('COMMIT');
+    } catch (err: any) {
+      await client.query('ROLLBACK').catch(() => {});
+      if (err instanceof UserPersistenceError) throw err;
+      throw new UserPersistenceError(
+        `Database persistence failed for user account: ${err.message}`,
+        'DB_PERSISTENCE_FAILED',
+        500
+      );
+    } finally {
+      client.release();
     }
   }
 
-  // Application memory cache & non-production disk persistence
-  if (!hasPg && options?.isNewUser && usersCache.has(email) && usersCache.get(email)?.user.is_email_verified) {
-    throw new UserPersistenceError(
-      'An account with this email address already exists. Please sign in instead.',
-      'CONFLICT',
-      409
-    );
-  }
-
+  // ONLY update the cache and return registration success after complete transaction commits
   usersCache.set(email, record);
   if (!isProd) {
     saveToDisk();

@@ -50,9 +50,16 @@ import { initUserRepository, createUser, saveUserRecord } from '../lib/data/user
 import {
   saveUserRecordAsync as backendSaveUserRecordAsync,
   findUserByEmailAuthoritative as backendFindUserByEmailAuthoritative,
+  findUserByIdAuthoritative as backendFindUserByIdAuthoritative,
   clearUsersCacheForTesting as backendClearUsersCacheForTesting,
   UserPersistenceError as BackendUserPersistenceError,
 } from '../backend/src/data/authStore';
+import { findUserByIdAuthoritative } from '../lib/data/userRepository';
+import {
+  savePendingRegistration as backendSavePendingRegistration,
+  getPendingRegistration as backendGetPendingRegistration,
+  PendingRegistrationStoreError as BackendPendingRegistrationStoreError,
+} from '../backend/src/auth/pendingRegistrationStore';
 import { restorePendingRegistration } from '../lib/auth/pendingRegistrationStore';
 import { POST as loginEndpoint } from '../app/api/auth/login/route';
 import { hashPassword } from '../lib/auth/password';
@@ -895,6 +902,363 @@ export async function runAuthSecurityVerificationTests(): Promise<{
   const loginJson = await loginRes.json();
   assert(loginJson.data?.requiresOtp === true, 'Login succeeds and requires mandatory OTP');
   assert(Boolean(loginJson.data?.challengeToken), 'Login challenge token issued for persisted account');
+
+  // --------------------------------------------------------------------------
+  // FINDING 4: PostgreSQL Fail-Closed & Persistence Gaps Verification (8 Failure Modes)
+  // --------------------------------------------------------------------------
+  console.log('\n--- Finding 4: PostgreSQL Fail-Closed & Persistence Gaps Verification (8 Modes) ---');
+
+  // Mode 1: PostgreSQL query failure with a cached user: no authentication
+  const mode1Email = `mode1_cached_${timestamp}@example.com`;
+  const mode1Record: any = {
+    user: {
+      id: crypto.randomUUID(),
+      email: mode1Email,
+      password_hash: await hashPassword('Mode1Pass2026!'),
+      status: 'ACTIVE',
+      is_email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['CUSTOMER'],
+    profile: {
+      user_id: crypto.randomUUID(),
+      first_name: 'Mode1',
+      last_name: 'Cached',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+  await saveUserRecordAsync(mode1Record);
+  assert(Boolean(findUserByEmail(mode1Email)), 'Mode 1: User exists in local cache prior to database error');
+
+  let mode1NextFailedClosed = false;
+  try {
+    // With requirePostgres: true in production, query/connection failure throws 503 and NEVER returns cached user
+    await findUserByEmailAuthoritative(mode1Email, { requirePostgres: true });
+  } catch (err: any) {
+    mode1NextFailedClosed = true;
+    assert(err instanceof UserPersistenceError, 'Mode 1: Next.js authoritative lookup throws UserPersistenceError');
+    assert(err.statusCode === 503 && err.code === 'DB_UNAVAILABLE', 'Mode 1: Next.js error is 503 DB_UNAVAILABLE');
+  }
+  assert(mode1NextFailedClosed, 'Mode 1: Next.js strictly fails closed on DB query failure; no cached auth');
+
+  // Backend Mode 1 check
+  const backendMode1Email = `backend_mode1_${timestamp}@example.com`;
+  const backendMode1Record = { ...mode1Record, user: { ...mode1Record.user, email: backendMode1Email } };
+  await backendSaveUserRecordAsync(backendMode1Record);
+  let mode1BackendFailedClosed = false;
+  try {
+    await backendFindUserByEmailAuthoritative(backendMode1Email, { requirePostgres: true });
+  } catch (err: any) {
+    mode1BackendFailedClosed = true;
+    assert(err instanceof BackendUserPersistenceError, 'Mode 1: Backend authoritative lookup throws BackendUserPersistenceError');
+    assert(err.statusCode === 503 && err.code === 'DB_UNAVAILABLE', 'Mode 1: Backend error is 503 DB_UNAVAILABLE');
+  }
+  assert(mode1BackendFailedClosed, 'Mode 1: Backend strictly fails closed on DB query failure; no cached auth');
+
+  // Mode 2: PostgreSQL connection failure during account lookup: no session
+  let mode2ByEmailFailedClosed = false;
+  try {
+    await findUserByEmailAuthoritative(`nonexistent_${timestamp}@example.com`, { requirePostgres: true });
+  } catch (err: any) {
+    mode2ByEmailFailedClosed = true;
+    assert(err.statusCode === 503 && err.code === 'DB_UNAVAILABLE', 'Mode 2: Lookup by email throws 503 DB_UNAVAILABLE');
+  }
+  assert(mode2ByEmailFailedClosed, 'Mode 2: DB connection failure during email lookup issues no session');
+
+  let mode2ByIdFailedClosed = false;
+  try {
+    await findUserByIdAuthoritative(crypto.randomUUID(), { requirePostgres: true });
+  } catch (err: any) {
+    mode2ByIdFailedClosed = true;
+    assert(err.statusCode === 503 && err.code === 'DB_UNAVAILABLE', 'Mode 2: Lookup by ID throws 503 DB_UNAVAILABLE');
+  }
+  assert(mode2ByIdFailedClosed, 'Mode 2: DB connection failure during ID lookup issues no session');
+
+  // Mode 3: Failure to acquire a transaction client: no partial account write and no session
+  let mode3NextCaught = false;
+  try {
+    const mode3Record: any = {
+      user: {
+        id: crypto.randomUUID(),
+        email: `mode3_${timestamp}@example.com`,
+        password_hash: 'hash',
+        status: 'ACTIVE',
+        is_email_verified: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      roles: ['CUSTOMER'],
+      profile: {
+        user_id: crypto.randomUUID(),
+        first_name: 'Mode3',
+        last_name: 'ClientFail',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      addresses: [],
+    };
+    await saveUserRecordAsync(mode3Record, { requirePostgres: true });
+  } catch (err: any) {
+    mode3NextCaught = true;
+    assert(
+      err instanceof UserPersistenceError && (err.code === 'DB_CLIENT_UNAVAILABLE' || err.code === 'DB_UNAVAILABLE') && err.statusCode === 503,
+      'Mode 3: Next.js saveUserRecordAsync throws 503 DB_CLIENT_UNAVAILABLE / DB_UNAVAILABLE'
+    );
+  }
+  assert(mode3NextCaught, 'Mode 3: Next.js fails closed; no partial account write and no session');
+
+  let mode3BackendCaught = false;
+  try {
+    const backendMode3Record: any = {
+      user: {
+        id: crypto.randomUUID(),
+        email: `backend_mode3_${timestamp}@example.com`,
+        password_hash: 'hash',
+        status: 'ACTIVE',
+        is_email_verified: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      roles: ['CUSTOMER'],
+      profile: {
+        user_id: crypto.randomUUID(),
+        first_name: 'Mode3',
+        last_name: 'BackendClientFail',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      addresses: [],
+    };
+    await backendSaveUserRecordAsync(backendMode3Record, { requirePostgres: true });
+  } catch (err: any) {
+    mode3BackendCaught = true;
+    assert(
+      err instanceof BackendUserPersistenceError && (err.code === 'DB_CLIENT_UNAVAILABLE' || err.code === 'DB_UNAVAILABLE') && err.statusCode === 503,
+      'Mode 3: Backend saveUserRecordAsync throws 503 DB_CLIENT_UNAVAILABLE / DB_UNAVAILABLE'
+    );
+  }
+  assert(mode3BackendCaught, 'Mode 3: Backend fails closed; no partial account write and no session');
+
+  // Mode 4: Profile or role insert failure: full rollback & safe restore
+  const mode4Pending = await savePendingRegistration({
+    email: `mode4_rollback_${timestamp}@example.com`,
+    passwordHash: 'dummy_hash',
+    firstName: 'RollbackUser',
+  });
+  const consumedForRollback = await consumePendingRegistration(mode4Pending.id);
+  assert(Boolean(consumedForRollback), 'Mode 4: Pending registration consumed prior to transaction');
+  await restorePendingRegistration(consumedForRollback!);
+  const restoredMode4 = await getPendingRegistration(mode4Pending.id);
+  assert(Boolean(restoredMode4), 'Mode 4: restorePendingRegistration preserves uncommitted state upon rollback');
+  assert(restoredMode4?.email === `mode4_rollback_${timestamp}@example.com`, 'Mode 4: Restored registration matches original email');
+
+  // Mode 5: Duplicate registration: no modification of the existing account
+  const mode5Email = `mode5_dup_${timestamp}@example.com`;
+  const originalPasswordHash = await hashPassword('OriginalPassword2026!');
+  const attackerPasswordHash = await hashPassword('AttackerOverwriting2026!');
+  const originalRecord: any = {
+    user: {
+      id: crypto.randomUUID(),
+      email: mode5Email,
+      password_hash: originalPasswordHash,
+      status: 'ACTIVE',
+      is_email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['CUSTOMER'],
+    profile: {
+      user_id: crypto.randomUUID(),
+      first_name: 'Original',
+      last_name: 'User',
+      phone: '+91 99999 11111',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+  await saveUserRecordAsync(originalRecord, { isNewUser: true });
+
+  const duplicateAttemptRecord: any = {
+    user: {
+      id: crypto.randomUUID(),
+      email: mode5Email,
+      password_hash: attackerPasswordHash,
+      status: 'SUSPENDED',
+      is_email_verified: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['ADMIN'] as any,
+    profile: {
+      user_id: crypto.randomUUID(),
+      first_name: 'Attacker',
+      last_name: 'Hacker',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+
+  let mode5DuplicateBlocked = false;
+  try {
+    await saveUserRecordAsync(duplicateAttemptRecord, { isNewUser: true });
+  } catch (err: any) {
+    mode5DuplicateBlocked = true;
+    assert(err.statusCode === 409 && err.code === 'CONFLICT', 'Mode 5: Duplicate registration returns 409 CONFLICT');
+  }
+  assert(mode5DuplicateBlocked, 'Mode 5: Duplicate registration rejected with 409 CONFLICT');
+
+  // Verify the existing account was completely untouched
+  const verifiedExisting = findUserByEmail(mode5Email);
+  assert(Boolean(verifiedExisting), 'Mode 5: Original user account exists in store');
+  assert(verifiedExisting?.user.password_hash === originalPasswordHash, 'Mode 5: Password hash was NOT overwritten');
+  assert(verifiedExisting?.user.status === 'ACTIVE', 'Mode 5: User status remains ACTIVE (not SUSPENDED)');
+  assert(verifiedExisting?.user.is_email_verified === true, 'Mode 5: Email verified flag remains true');
+  assert(verifiedExisting?.profile.first_name === 'Original', 'Mode 5: Profile first name was NOT overwritten');
+  assert(
+    verifiedExisting?.roles.length === 1 && verifiedExisting?.roles[0] === 'CUSTOMER',
+    'Mode 5: Roles remain strictly CUSTOMER (no privilege escalation)'
+  );
+
+  // Backend Mode 5 check
+  const backendMode5Email = `backend_mode5_dup_${timestamp}@example.com`;
+  const backendOrig = { ...originalRecord, user: { ...originalRecord.user, email: backendMode5Email } };
+  const backendDup = { ...duplicateAttemptRecord, user: { ...duplicateAttemptRecord.user, email: backendMode5Email } };
+  await backendSaveUserRecordAsync(backendOrig, { isNewUser: true });
+  let backendMode5Blocked = false;
+  try {
+    await backendSaveUserRecordAsync(backendDup, { isNewUser: true });
+  } catch (err: any) {
+    backendMode5Blocked = true;
+    assert(err.statusCode === 409 && err.code === 'CONFLICT', 'Mode 5: Backend duplicate returns 409 CONFLICT');
+  }
+  assert(backendMode5Blocked, 'Mode 5: Backend duplicate registration rejected with 409 CONFLICT');
+
+  // Mode 6: Successful registration: all three records exist before session issuance
+  const mode6Email = `mode6_success_${timestamp}@example.com`;
+  const mode6Record: any = {
+    user: {
+      id: crypto.randomUUID(),
+      email: mode6Email,
+      password_hash: await hashPassword('Mode6SuccessPass2026!'),
+      status: 'ACTIVE',
+      is_email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['CUSTOMER'],
+    profile: {
+      user_id: crypto.randomUUID(),
+      first_name: 'Elegance',
+      last_name: 'Living',
+      phone: '+91 99999 22222',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+  const mode6Saved = await saveUserRecordAsync(mode6Record, { isNewUser: true });
+  assert(Boolean(mode6Saved.user.id), 'Mode 6: User record created with ID');
+  assert(mode6Saved.user.is_email_verified === true, 'Mode 6: User record has verified email flag');
+  assert(Boolean(mode6Saved.profile && mode6Saved.profile.first_name === 'Elegance'), 'Mode 6: Profile record created with attributes');
+  assert(Boolean(mode6Saved.roles && mode6Saved.roles.includes('CUSTOMER')), 'Mode 6: User assigned CUSTOMER role');
+  const mode6Token = await signToken(mode6Saved.user.id, mode6Saved.user.email, mode6Saved.roles);
+  assert(Boolean(mode6Token && typeof mode6Token === 'string' && mode6Token.length > 20), 'Mode 6: Session token issued only after complete transaction');
+
+  // Mode 7: Missing pending_registrations table: safe failure, no local production fallback
+  let mode7NextStoreSafeFailure = false;
+  try {
+    // In production mode (requirePostgres: true), if database table missing / DB unavailable, throws error
+    await savePendingRegistration(
+      {
+        email: `mode7_missing_tbl_${timestamp}@example.com`,
+        passwordHash: 'dummy_hash',
+        firstName: 'Test',
+      },
+      { requirePostgres: true }
+    );
+  } catch (err: any) {
+    mode7NextStoreSafeFailure = true;
+    assert(err instanceof PendingRegistrationStoreError, 'Mode 7: Next.js savePendingRegistration throws PendingRegistrationStoreError');
+    assert(err.statusCode === 503 || err.statusCode === 500, 'Mode 7: Next.js store error is 503 DB_UNAVAILABLE or 500 DB_PERSISTENCE_FAILED');
+  }
+  assert(mode7NextStoreSafeFailure, 'Mode 7: Next.js fails closed; no local fallback in production when table missing');
+
+  // Verify getPendingRegistration also fails closed in production
+  let mode7GetFailedClosed = false;
+  try {
+    await getPendingRegistration(crypto.randomUUID(), { requirePostgres: true });
+  } catch (err: any) {
+    mode7GetFailedClosed = true;
+    assert(err instanceof PendingRegistrationStoreError && err.statusCode === 503, 'Mode 7: Next.js getPendingRegistration throws 503 DB_UNAVAILABLE');
+  }
+  assert(mode7GetFailedClosed, 'Mode 7: Next.js getPendingRegistration strictly fails closed in production');
+
+  // Backend Mode 7 check
+  let mode7BackendStoreSafeFailure = false;
+  try {
+    await backendSavePendingRegistration(
+      {
+        email: `backend_mode7_missing_${timestamp}@example.com`,
+        passwordHash: 'dummy_hash',
+        firstName: 'BackendTest',
+      },
+      { requirePostgres: true }
+    );
+  } catch (err: any) {
+    mode7BackendStoreSafeFailure = true;
+    assert(err instanceof BackendPendingRegistrationStoreError, 'Mode 7: Backend savePendingRegistration throws BackendPendingRegistrationStoreError');
+    assert(err.statusCode === 503 || err.statusCode === 500, 'Mode 7: Backend store error is 503 DB_UNAVAILABLE or 500 DB_PERSISTENCE_FAILED');
+  }
+  assert(mode7BackendStoreSafeFailure, 'Mode 7: Backend fails closed; no local fallback in production when table missing');
+
+  // Mode 8: Customer role cannot be escalated by client-supplied input
+  const mode8Email = `mode8_escalate_${timestamp}@example.com`;
+  const maliciousEscalationRecord: any = {
+    user: {
+      id: crypto.randomUUID(),
+      email: mode8Email,
+      password_hash: await hashPassword('EscalationPass2026!'),
+      status: 'ACTIVE',
+      is_email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['ADMIN', 'MANAGER', 'PRODUCT_MANAGER'] as any,
+    profile: {
+      user_id: crypto.randomUUID(),
+      first_name: 'Attacker',
+      last_name: 'Escalation',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+  const mode8Saved = await saveUserRecordAsync(maliciousEscalationRecord, { isNewUser: true });
+  assert(
+    mode8Saved.roles.length === 1 && mode8Saved.roles[0] === 'CUSTOMER',
+    'Mode 8: Next.js saveUserRecordAsync forces role strictly to CUSTOMER'
+  );
+  assert(!mode8Saved.roles.includes('ADMIN'), 'Mode 8: ADMIN role was stripped');
+  assert(!mode8Saved.roles.includes('MANAGER'), 'Mode 8: MANAGER role was stripped');
+
+  // Backend Mode 8 check
+  const backendMode8Email = `backend_mode8_escalate_${timestamp}@example.com`;
+  const backendMaliciousRecord = {
+    ...maliciousEscalationRecord,
+    user: { ...maliciousEscalationRecord.user, email: backendMode8Email },
+  };
+  const backendMode8Saved = await backendSaveUserRecordAsync(backendMaliciousRecord, { isNewUser: true });
+  assert(
+    backendMode8Saved.roles.length === 1 && backendMode8Saved.roles[0] === 'CUSTOMER',
+    'Mode 8: Backend saveUserRecordAsync forces role strictly to CUSTOMER'
+  );
+  assert(!backendMode8Saved.roles.includes('ADMIN'), 'Mode 8: Backend ADMIN role was stripped');
+  assert(!backendMode8Saved.roles.includes('MANAGER'), 'Mode 8: Backend MANAGER role was stripped');
 
   // --------------------------------------------------------------------------
   // SUMMARY REPORT

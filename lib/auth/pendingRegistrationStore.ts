@@ -32,15 +32,12 @@ export interface PendingStoreOptions {
   requirePostgres?: boolean;
 }
 
-export class PendingRegistrationStoreError extends Error {
-  code: string;
-  statusCode: number;
+import { AppError } from '@/lib/api/errorHandler';
 
+export class PendingRegistrationStoreError extends AppError {
   constructor(message: string, code = 'PENDING_REGISTRATION_STORE_ERROR', statusCode = 500) {
-    super(message);
+    super(message, statusCode, code);
     this.name = 'PendingRegistrationStoreError';
-    this.code = code;
-    this.statusCode = statusCode;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
