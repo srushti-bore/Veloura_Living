@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { successResponse, errorResponse } from '@/lib/api/response';
 import { handleApiError, ValidationError, ConflictError } from '@/lib/api/errorHandler';
 import { hashPassword } from '@/lib/auth/password';
-import { initAuthStore, findUserByEmail, saveUserRecord, UserRecord } from '@/lib/data/authStore';
+import { initAuthStore, findUserByEmailAuthoritative, saveUserRecord, UserRecord } from '@/lib/data/authStore';
 import { createOtpChallenge } from '@/lib/auth/otpService';
 import { savePendingRegistration } from '@/lib/auth/pendingRegistrationStore';
 
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       throw new ValidationError('Password must be at least 8 characters long.');
     }
 
-    const existing = findUserByEmail(email);
+    const existing = await findUserByEmailAuthoritative(email);
     if (existing && existing.user.is_email_verified) {
       throw new ConflictError('An account with this email address already exists. Please sign in instead.');
     }

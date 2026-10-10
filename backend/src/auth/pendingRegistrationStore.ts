@@ -296,14 +296,17 @@ export async function consumePendingRegistration(
           createdAt: Number(row.created_at),
           expiresAt: Number(row.expires_at),
         };
+      } else if (res && res.rows.length === 0) {
+        // If Postgres explicitly returned 0 rows, it was already consumed or expired
+        if (!isProd) {
+          pendingStore.delete(id);
+          saveToDisk();
+        }
+        return null;
       }
-
-      // If Postgres returned 0 rows, it was already consumed or expired
-      if (!isProd) {
-        pendingStore.delete(id);
-        saveToDisk();
+      if (res && isProd) {
+        return null;
       }
-      return null;
     } catch (err: any) {
       if (err instanceof PendingRegistrationStoreError) throw err;
       if (isProd) {
@@ -361,5 +364,38 @@ export async function cleanupExpired(): Promise<void> {
     if (modified) {
       saveToDisk();
     }
+  }
+}
+
+/**
+ * Restores a consumed pending registration if user account persistence fails.
+ * Ensures registration retry capability and avoids losing user registration state on transient DB errors.
+ */
+export async function restorePendingRegistration(
+  record: PendingRegistration,
+  options?: PendingStoreOptions
+): Promise<void> {
+  const isProd = isProductionMode(options);
+  const now = Date.now();
+  if (record.expiresAt <= now) return;
+
+  const hasPg = await isPostgresAvailable();
+  if (hasPg) {
+    try {
+      await queryPostgres(
+        `INSERT INTO pending_registrations 
+         (id, email, password_hash, first_name, last_name, phone, created_at, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (id) DO UPDATE SET expires_at = EXCLUDED.expires_at;`,
+        [record.id, record.email, record.passwordHash, record.firstName, record.lastName, record.phone, record.createdAt, record.expiresAt]
+      );
+    } catch {
+      // Best-effort rollback
+    }
+  }
+
+  if (!isProd) {
+    pendingStore.set(record.id, record);
+    saveToDisk();
   }
 }

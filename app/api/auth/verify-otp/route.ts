@@ -4,9 +4,9 @@ import { successResponse, errorResponse } from '@/lib/api/response';
 import { handleApiError, ValidationError, UnauthorizedError, ConflictError } from '@/lib/api/errorHandler';
 import { signToken } from '@/lib/auth/jwt';
 import { AUTH_COOKIE_NAME } from '@/lib/auth/session';
-import { initAuthStore, findUserByEmail, saveUserRecord, resetFailedLogin, UserRecord } from '@/lib/data/authStore';
+import { initAuthStore, findUserByEmailAuthoritative, saveUserRecordAsync, resetFailedLogin, UserRecord } from '@/lib/data/authStore';
 import { verifyOtpChallenge, isValidOtpPurpose } from '@/lib/auth/otpService';
-import { consumePendingRegistration } from '@/lib/auth/pendingRegistrationStore';
+import { consumePendingRegistration, restorePendingRegistration } from '@/lib/auth/pendingRegistrationStore';
 import { AuthResponseData } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
       throw new UnauthorizedError('Invalid or unsupported authentication challenge purpose.');
     }
 
-    let record: UserRecord | undefined = findUserByEmail(email);
+    let record: UserRecord | undefined = await findUserByEmailAuthoritative(email);
 
     if (verifyResult.type === 'REGISTER') {
       // Registration verification cannot complete a login flow, and cannot target an already verified account.
@@ -86,8 +86,14 @@ export async function POST(request: NextRequest) {
         },
         addresses: [],
       };
-      saveUserRecord(newRecord);
-      record = newRecord;
+
+      try {
+        record = await saveUserRecordAsync(newRecord, { isNewUser: true });
+      } catch (err: any) {
+        // Rollback consumed pending registration so user is not stuck in limbo
+        await restorePendingRegistration(pending).catch(() => {});
+        throw err;
+      }
     } else if (verifyResult.type === 'LOGIN') {
       // Login verification cannot complete a registration challenge, create accounts, or consume pending registrations.
       if (!record) {
@@ -105,7 +111,7 @@ export async function POST(request: NextRequest) {
       if (!record.user.is_email_verified) {
         record.user.is_email_verified = true;
         record.user.updated_at = new Date().toISOString();
-        saveUserRecord(record);
+        await saveUserRecordAsync(record);
       }
     } else {
       // Explicit fail-closed policy

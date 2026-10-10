@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { successResponse, errorResponse } from '@/lib/api/response';
 import { handleApiError, ValidationError, UnauthorizedError } from '@/lib/api/errorHandler';
 import { verifyPassword } from '@/lib/auth/password';
-import { initAuthStore, findUserByEmail, checkAccountLockout, recordFailedLogin, resetFailedLogin } from '@/lib/data/authStore';
+import { initAuthStore, findUserByEmailAuthoritative, checkAccountLockout, recordFailedLogin, resetFailedLogin } from '@/lib/data/authStore';
 import { createOtpChallenge } from '@/lib/auth/otpService';
 
 export async function POST(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       throw new ValidationError('Email and password are required.');
     }
 
-    const record = findUserByEmail(email);
+    const record = await findUserByEmailAuthoritative(email);
     if (!record) {
       throw new UnauthorizedError('Invalid email or password.');
     }

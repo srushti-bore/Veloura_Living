@@ -38,8 +38,23 @@ import { addToCart, clearCart } from '../lib/data/shoppingStore';
 import { initCatalogStore, getAllVariants, updateVariantStock } from '../lib/data/catalogStore';
 import { requireAuth, getSession } from '../lib/auth/session';
 import { signToken } from '../lib/auth/jwt';
-import { createUser, initUserRepository, saveUserRecord } from '../lib/data/userRepository';
-import { findUserByEmail, initAuthStore } from '../lib/data/authStore';
+import {
+  saveUserRecordAsync,
+  findUserByEmailAuthoritative,
+  clearUsersCacheForTesting,
+  UserPersistenceError,
+  findUserByEmail,
+  initAuthStore,
+} from '../lib/data/authStore';
+import { initUserRepository, createUser, saveUserRecord } from '../lib/data/userRepository';
+import {
+  saveUserRecordAsync as backendSaveUserRecordAsync,
+  findUserByEmailAuthoritative as backendFindUserByEmailAuthoritative,
+  clearUsersCacheForTesting as backendClearUsersCacheForTesting,
+  UserPersistenceError as BackendUserPersistenceError,
+} from '../backend/src/data/authStore';
+import { restorePendingRegistration } from '../lib/auth/pendingRegistrationStore';
+import { POST as loginEndpoint } from '../app/api/auth/login/route';
 import { hashPassword } from '../lib/auth/password';
 import { NextRequest } from 'next/server';
 
@@ -646,6 +661,240 @@ export async function runAuthSecurityVerificationTests(): Promise<{
     createdOrder.guest_access_token !== hardcodedDemoToken,
     'Order does not use hardcoded demo token'
   );
+
+  // --------------------------------------------------------------------------
+  // USER ACCOUNT DURABLE PERSISTENCE & MULTI-INSTANCE VERIFICATION
+  // --------------------------------------------------------------------------
+  console.log('\n--- Final User Account Persistence & Fail-Closed Durability ---');
+
+  // Test 1: Successful registration persists the account before returning success
+  const durEmail = `durable_user_${timestamp}@example.com`;
+  const durPending = await savePendingRegistration({
+    email: durEmail,
+    passwordHash: await hashPassword('ValidPass2026!'),
+    firstName: 'Aurelia',
+    lastName: 'Vance',
+    phone: '+91 99999 11111',
+  });
+  const durChal = await createOtpChallenge({
+    email: durEmail,
+    type: 'REGISTER',
+    metadata: { pendingRegistrationId: durPending.id },
+  });
+  const durStored = getChallengeForTesting(durChal.challengeToken);
+
+  const durVerifyReq = new NextRequest('http://localhost:3000/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: durEmail,
+      challengeToken: durChal.challengeToken,
+      otp: durStored!.otp,
+      type: 'REGISTER',
+    }),
+  });
+  const durVerifyRes = await verifyOtpEndpoint(durVerifyReq);
+  assert(durVerifyRes.status === 200, 'Successful registration persists account and returns 200');
+  const durVerifyJson = await durVerifyRes.json();
+  assert(Boolean(durVerifyJson.data?.token), 'Successful registration returns session JWT token');
+  
+  const durAuthoritativeUser = await findUserByEmailAuthoritative(durEmail);
+  assert(Boolean(durAuthoritativeUser), 'Persisted account retrievable via findUserByEmailAuthoritative');
+  assert(durAuthoritativeUser?.user.is_email_verified === true, 'Persisted user marked verified');
+  assert(durAuthoritativeUser?.profile.first_name === 'Aurelia', 'Persisted user has profile first name');
+  assert(durAuthoritativeUser?.roles.includes('CUSTOMER') === true, 'Persisted user has CUSTOMER role');
+
+  // Test 2: Database failure in production prevents registration & session issuance
+  const failEmail = `fail_db_${timestamp}@example.com`;
+  let dbFailureCaught = false;
+  try {
+    const dummyRecord: any = {
+      user: {
+        id: crypto.randomUUID(),
+        email: failEmail,
+        password_hash: 'dummy_hash',
+        status: 'ACTIVE',
+        is_email_verified: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      roles: ['CUSTOMER'],
+      profile: {
+        user_id: crypto.randomUUID(),
+        first_name: 'Fail',
+        last_name: 'Test',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      addresses: [],
+    };
+    await saveUserRecordAsync(dummyRecord, { requirePostgres: true });
+  } catch (err: any) {
+    dbFailureCaught = true;
+    assert(err instanceof UserPersistenceError, 'saveUserRecordAsync throws UserPersistenceError when DB unavailable');
+    assert(err.code === 'DB_UNAVAILABLE' || err.statusCode === 503, 'User persistence failure code is DB_UNAVAILABLE / 503');
+  }
+  assert(dbFailureCaught, 'Database failure strictly prevents user persistence in production mode');
+
+  // Same check for backend standalone
+  let backendDbFailureCaught = false;
+  try {
+    const backendDummyRecord: any = {
+      user: {
+        id: crypto.randomUUID(),
+        email: failEmail,
+        password_hash: 'dummy_hash',
+        status: 'ACTIVE',
+        is_email_verified: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      roles: ['CUSTOMER'],
+      profile: {
+        user_id: crypto.randomUUID(),
+        first_name: 'Fail',
+        last_name: 'Test',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      addresses: [],
+    };
+    await backendSaveUserRecordAsync(backendDummyRecord, { requirePostgres: true });
+  } catch (err: any) {
+    backendDbFailureCaught = true;
+    assert(err instanceof BackendUserPersistenceError, 'Backend saveUserRecordAsync throws BackendUserPersistenceError when DB unavailable');
+    assert(err.code === 'DB_UNAVAILABLE' || err.statusCode === 503, 'Backend user persistence code is DB_UNAVAILABLE / 503');
+  }
+  assert(backendDbFailureCaught, 'Backend strictly fails closed when DB unavailable in production mode');
+
+  // Test 3: Rollback prevents losing pending registration on failure
+  const rollbackPending = await savePendingRegistration({
+    email: `rollback_${timestamp}@example.com`,
+    passwordHash: 'dummy_hash',
+    firstName: 'Rollback',
+  });
+  const consumedRollback = await consumePendingRegistration(rollbackPending.id);
+  assert(Boolean(consumedRollback), 'Pending registration consumed before persistence attempt');
+  await restorePendingRegistration(consumedRollback!);
+  const restoredPending = await getPendingRegistration(rollbackPending.id);
+  assert(Boolean(restoredPending), 'restorePendingRegistration restores pending registration after failed persistence');
+
+  // Test 4: Duplicate concurrent registrations cannot create duplicate accounts
+  const dupEmail = `dup_${timestamp}@example.com`;
+  const dupUser1: any = {
+    user: {
+      id: crypto.randomUUID(),
+      email: dupEmail,
+      password_hash: 'hash1',
+      status: 'ACTIVE',
+      is_email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['CUSTOMER'],
+    profile: {
+      user_id: crypto.randomUUID(),
+      first_name: 'Dup1',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+  const dupUser2: any = {
+    user: {
+      id: crypto.randomUUID(),
+      email: dupEmail,
+      password_hash: 'hash2',
+      status: 'ACTIVE',
+      is_email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['CUSTOMER'],
+    profile: {
+      user_id: crypto.randomUUID(),
+      first_name: 'Dup2',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+
+  await saveUserRecordAsync(dupUser1, { isNewUser: true });
+  let dupConflictCaught = false;
+  try {
+    await saveUserRecordAsync(dupUser2, { isNewUser: true });
+  } catch (err: any) {
+    dupConflictCaught = true;
+    assert(err.code === 'CONFLICT' || err.statusCode === 409, 'Duplicate user creation rejected with 409 Conflict');
+  }
+  assert(dupConflictCaught, 'Concurrent duplicate registration prevented by uniqueness check');
+
+  // Same for backend
+  const backendDupEmail = `backend_dup_${timestamp}@example.com`;
+  const bDupUser1 = { ...dupUser1, user: { ...dupUser1.user, email: backendDupEmail } };
+  const bDupUser2 = { ...dupUser2, user: { ...dupUser2.user, email: backendDupEmail } };
+  await backendSaveUserRecordAsync(bDupUser1, { isNewUser: true });
+  let bDupConflictCaught = false;
+  try {
+    await backendSaveUserRecordAsync(bDupUser2, { isNewUser: true });
+  } catch (err: any) {
+    bDupConflictCaught = true;
+    assert(err.code === 'CONFLICT' || err.statusCode === 409, 'Backend duplicate user creation rejected with 409 Conflict');
+  }
+  assert(bDupConflictCaught, 'Backend duplicate registration prevented by uniqueness check');
+
+  // Test 5: Persisted account retrieval after in-memory cache clear / service restart
+  const restartEmail = `restart_${timestamp}@example.com`;
+  const restartRecord: any = {
+    user: {
+      id: crypto.randomUUID(),
+      email: restartEmail,
+      password_hash: await hashPassword('RestartPass2026!'),
+      status: 'ACTIVE',
+      is_email_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    roles: ['CUSTOMER'],
+    profile: {
+      user_id: crypto.randomUUID(),
+      first_name: 'RestartUser',
+      last_name: 'Test',
+      phone: '+91 98765 43210',
+      preferred_currency: 'INR',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    addresses: [],
+  };
+  await saveUserRecordAsync(restartRecord);
+  assert(Boolean(findUserByEmail(restartEmail)), 'User exists in cache before clear');
+  
+  const prevEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  clearUsersCacheForTesting();
+  assert(findUserByEmail(restartEmail) === undefined, 'In-memory cache completely cleared without disk fallback in production mode');
+  process.env.NODE_ENV = prevEnv;
+  
+  const reloadedUser = await findUserByEmailAuthoritative(restartEmail);
+  assert(Boolean(reloadedUser), 'User successfully loaded from authoritative store after in-memory store cleared');
+  assert(reloadedUser?.user.email === restartEmail, 'Reloaded user email matches');
+
+  // Test 6: Login works for successfully persisted account
+  const loginReq = new NextRequest('http://localhost:3000/api/auth/login', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: restartEmail,
+      password: 'RestartPass2026!',
+    }),
+  });
+  const loginRes = await loginEndpoint(loginReq);
+  assert(loginRes.status === 200, 'Login works for persisted account after restart simulation');
+  const loginJson = await loginRes.json();
+  assert(loginJson.data?.requiresOtp === true, 'Login succeeds and requires mandatory OTP');
+  assert(Boolean(loginJson.data?.challengeToken), 'Login challenge token issued for persisted account');
 
   // --------------------------------------------------------------------------
   // SUMMARY REPORT

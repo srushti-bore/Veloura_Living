@@ -15,7 +15,7 @@ try {
 
 import http from 'http';
 import { parse } from 'url';
-import { initAuthStore, findUserByEmail, findUserById, saveUserRecord, UserRecord } from './data/authStore';
+import { initAuthStore, findUserByEmail, findUserByEmailAuthoritative, findUserById, saveUserRecord, saveUserRecordAsync, UserPersistenceError, UserRecord } from './data/authStore';
 import { initCatalogStore, getProducts, getProductBySlugOrId, getCategories, getBrands, getVariantBySku, updateVariantStock } from './data/catalogStore';
 import { getCart, addToCart, updateCartItemQuantity, removeFromCart, clearCart } from './data/shoppingStore';
 import { calculateAuthoritativeCheckout, getCoupons, validateCoupon } from './data/pricingStore';
@@ -29,7 +29,7 @@ import { signToken, verifyToken } from './auth/jwt';
 import { parseAuthToken } from './auth/session';
 import { hasAnyRole } from './auth/rbac';
 import { createOtpChallenge, verifyOtpChallenge, resendOtpChallenge, isValidOtpPurpose } from './auth/otpService';
-import { savePendingRegistration, consumePendingRegistration } from './auth/pendingRegistrationStore';
+import { savePendingRegistration, consumePendingRegistration, restorePendingRegistration } from './auth/pendingRegistrationStore';
 import { generateGstInvoiceForOrder } from './services/invoiceService';
 import { formatSuccessResponse, formatErrorResponse } from './api/response';
 import { currencyEngine } from './services/currencyEngine';
@@ -152,7 +152,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, formatErrorResponse('Valid email and password (min 8 chars) required.'));
       }
 
-      const existing = findUserByEmail(email);
+      const existing = await findUserByEmailAuthoritative(email);
       if (existing && existing.user.is_email_verified) {
         return sendJson(res, 409, formatErrorResponse('An account with this email address already exists. Please sign in instead.', 'CONFLICT'));
       }
@@ -230,7 +230,7 @@ const server = http.createServer(async (req, res) => {
       const body = await parseRequestBody(req);
       const { email, password } = body;
 
-      const record = findUserByEmail(email);
+      const record = await findUserByEmailAuthoritative(email);
       if (!record || !(await verifyPassword(password, record.user.password_hash))) {
         return sendJson(res, 401, formatErrorResponse('Invalid credentials.', 'UNAUTHORIZED'));
       }
@@ -275,7 +275,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 401, formatErrorResponse('Invalid or unsupported authentication challenge purpose.', 'UNAUTHORIZED'));
       }
 
-      let record: UserRecord | undefined = findUserByEmail(email);
+      let record: UserRecord | undefined = await findUserByEmailAuthoritative(email);
       if (verifyResult.type === 'REGISTER') {
         // Registration verification cannot complete a login flow, and cannot target an already verified account.
         if (record && record.user.is_email_verified) {
@@ -322,8 +322,15 @@ const server = http.createServer(async (req, res) => {
           },
           addresses: [],
         };
-        saveUserRecord(newRecord);
-        record = newRecord;
+
+        try {
+          record = await saveUserRecordAsync(newRecord, { isNewUser: true });
+        } catch (err: any) {
+          await restorePendingRegistration(pending).catch(() => {});
+          const status = err.statusCode || 500;
+          const code = err.code || 'SERVICE_UNAVAILABLE';
+          return sendJson(res, status, formatErrorResponse(err.message || 'Failed to persist user account.', code));
+        }
       } else if (verifyResult.type === 'LOGIN') {
         // Login verification cannot complete a registration challenge, create accounts, or consume pending registrations.
         if (!record) {
@@ -341,7 +348,13 @@ const server = http.createServer(async (req, res) => {
         if (!record.user.is_email_verified) {
           record.user.is_email_verified = true;
           record.user.updated_at = new Date().toISOString();
-          saveUserRecord(record);
+          try {
+            await saveUserRecordAsync(record);
+          } catch (err: any) {
+            const status = err.statusCode || 500;
+            const code = err.code || 'SERVICE_UNAVAILABLE';
+            return sendJson(res, status, formatErrorResponse(err.message || 'Failed to update user account.', code));
+          }
         }
       } else {
         // Explicit fail-closed policy

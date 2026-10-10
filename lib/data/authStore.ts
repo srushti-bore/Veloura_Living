@@ -4,13 +4,17 @@
  * Reference: docs/Veloura_Living_SRS.md
  */
 
-export type { UserRecord, CreateUserInput, GoogleUserProfileInput } from './userRepository';
+export type { UserRecord, CreateUserInput, GoogleUserProfileInput, SaveUserOptions } from './userRepository';
 export {
   initUserRepository as initAuthStore,
   findUserByEmail,
+  findUserByEmailAuthoritative,
   findUserById,
   findUserByIdAuthoritative,
   saveUserRecord,
+  saveUserRecordAsync,
+  UserPersistenceError,
+  clearUsersCacheForTesting,
   createUser,
   updateUserProfile,
   getUserAddresses,
