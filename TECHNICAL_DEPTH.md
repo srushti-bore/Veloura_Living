@@ -23,7 +23,8 @@
 12. [Phase 15: Progressive Web App (PWA) Offline Engine & Edge Cache Architecture](#12-phase-15-progressive-web-app-pwa-offline-engine--edge-cache-architecture)
 13. [Phase 17: Brevo Transactional Email Engine & Multi-User State Hygiene Architecture](#13-phase-17-brevo-transactional-email-engine--multi-user-state-hygiene-architecture)
 14. [Phase 18: Mandatory 6-Digit OTP Email Verification, Unverified User Database Isolation & Brevo Env-Driven Engine](#14-phase-18-mandatory-6-digit-otp-email-verification-unverified-user-database-isolation--brevo-env-driven-engine)
-15. [Automated Verification & E2E Validation Matrix](#15-automated-verification--e2e-validation-matrix)
+15. [Phase 19: Durable PostgreSQL User Persistence & Transactional Isolation](#15-phase-19-durable-postgresql-user-persistence--transactional-isolation)
+16. [Automated Verification & E2E Validation Matrix](#16-automated-verification--e2e-validation-matrix)
 
 ---
 
@@ -354,7 +355,56 @@ sequenceDiagram
 
 ---
 
-## 15. Automated Verification & E2E Validation Matrix
+
+## 15. Phase 19: Durable PostgreSQL User Persistence & Transactional Isolation
+
+To achieve enterprise-grade durability and fail-closed security, user-account registration and authentication state are synchronized with PostgreSQL as the authoritative source of truth:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Web Client / Browser
+    participant API as /api/auth/verify-otp
+    participant Store as PendingRegistrationStore
+    participant DB as PostgreSQL Transaction
+    participant JWT as JWT Session Signer
+
+    Client->>API: POST { email, challengeToken, otp, type: 'REGISTER' }
+    API->>Store: consumePendingRegistration(pendingRegistrationId)
+    Note over Store,DB: Concurrency-Safe Atomic DELETE ... RETURNING *
+    Store-->>API: PendingRegistration Record
+    API->>DB: saveUserRecordAsync(newRecord, { isNewUser: true })
+    Note over DB: BEGIN Transaction
+    DB->>DB: INSERT INTO users (id, email, password_hash, status, is_email_verified)
+    DB->>DB: INSERT INTO profiles (user_id, first_name, last_name, phone)
+    DB->>DB: INSERT INTO user_roles (user_id, role_id) -> CUSTOMER
+    alt Success
+        DB-->>API: COMMIT
+        API->>JWT: signToken({ userId, email, roles: ['CUSTOMER'] })
+        API-->>Client: 200 OK + JWT Auth Session Cookie
+    else Database Persistence Failure
+        DB-->>API: ROLLBACK
+        API->>Store: restorePendingRegistration(pending)
+        API-->>Client: 503 DB_UNAVAILABLE / 500 (No Session Issued)
+    else Duplicate Registration Conflict (code 23505)
+        DB-->>API: ROLLBACK (users_email_key violation)
+        API-->>Client: 409 ConflictError ('Account already exists')
+    end
+```
+
+### 🛡️ 1. Multi-Table Relational Transactions
+- **Atomic Insertion Pipeline:** Inserts `users`, `profiles`, and `user_roles` inside an atomic transaction using `getPostgresClient()`.
+- **Foreign Key Integrity:** Cascades updates and deletions (`ON DELETE CASCADE`) across child tables.
+- **Unique Constraint Mapping:** Translates PostgreSQL unique violation code `23505` directly into HTTP 409 `ConflictError`.
+
+### 🔒 2. Production Fail-Closed Policy
+- **Database Unavailable:** When `NODE_ENV === 'production'` and PostgreSQL is unreachable, registration and persistence throw HTTP 503 `DB_UNAVAILABLE`. In-memory and disk fallbacks are strictly prohibited.
+- **Authoritative Lookups:** `findUserByEmailAuthoritative()` and `findUserByIdAuthoritative()` purge local memory cache and return `undefined` if an account does not exist in PostgreSQL.
+
+---
+
+## 16. Automated Verification & E2E Validation Matrix
+
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|
@@ -368,7 +418,9 @@ sequenceDiagram
 | **Phase 12 Notification Suite** | `npm.cmd run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
 | **Phase 11 Payment Suite** | `npm.cmd run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
 | **Direct REST APIs** | `npm.cmd run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
-| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | All automated system, store, OTP regression, and SRS tests | ✅ **70/70 (100%)** |
+| **PostgreSQL Live Audit** | `npx.cmd tsx --env-file=.env tests/postgres-live-audit.test.ts` | Real PostgreSQL verification of registration, persistence, isolation & cleanup | ✅ **20/20 (100%)** |
+| **Auth Security Verification** | `npx.cmd tsx tests/auth-security-verification.test.ts` | OTP purpose separation, pending store, concurrency & persistence tests | ✅ **89/89 (100%)** |
+| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | All 19 automated test suites across all SRS requirements | ✅ **174/174 (100%)** |
 
 ---
 

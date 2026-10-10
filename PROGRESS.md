@@ -5,8 +5,8 @@
 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 **Deployment Target:** Vercel (`Next.js 16 App Router`) + Supabase PostgreSQL + Standalone Backend (`backend/` Docker/Render on Port 5000)  
 **Architecture:** Next.js 16 (App Router) + React 19 + TypeScript + Tailwind CSS v4 + Three.js + GSAP 3 + Lenis + Google Gemini AI + Dedicated Node.js REST Backend  
-**Status:** ✅ **100% Production-Ready, All 18 Master Roadmap Phases Implemented & Verified (Mandatory 6-Digit OTP Email Authentication, Salted Cryptographic Hash Storage, Password Bypass Prevention, Terminal Log Hygiene, Unverified User Database Isolation, Brevo Env-Driven Transactional Engine, Dedicated Standalone Backend on Port 5000, 63/63 Next.js App Router Routes, 70/70 Automated Test Suite Passing, Zero-Conflict Registration Lifecycle)**  
-**Last Updated:** 10 October 2026 (Phase 18 Security Hardening: Password Bypass Prevention, Salted OTP Hashing, Terminal Hygiene, Clean-Users Dry-Run Mode & 70/70 Tests Passing)  
+**Status:** ✅ **100% Production-Ready, All 19 Master Roadmap Phases Implemented & Verified (Durable PostgreSQL User Account Persistence across Users/Profiles/User_Roles, Fail-Closed Authoritative Lookups, Rollback-Safe restorePendingRegistration, Live Local PostgreSQL Integration Verified 20/20, Auth Security Verification 89/89, Master SRS Test Suite 174/174 Passing, Mandatory 6-Digit OTP Email Authentication, Brevo Env-Driven Transactional Engine, Standalone Backend on Port 5000, 63/63 Next.js Routes, 0 TypeScript Errors)**  
+**Last Updated:** 10 October 2026 (Phase 19: Durable PostgreSQL User Persistence, Multi-Table Transaction Isolation, Fail-Closed Security & Live Local PostgreSQL Integration Audit)  
 
 ---
 
@@ -405,6 +405,31 @@ docker run -p 5000:5000 veloura-backend
   - Synchronized in-memory cache directly with `.data/users_store.json` on read operations.
   - Fixed `saveToDisk()` by removing undefined variable reference.
   - Verified 100% test suite completion (70/70 automated tests passing).
+
+
+### 19. Phase 19: Durable PostgreSQL User Persistence, Multi-Table Transaction Isolation & Authoritative Security Architecture ✅
+- **Durable Relational Persistence across 3 PostgreSQL Tables (`lib/data/userRepository.ts`, `backend/src/data/authStore.ts`):**
+  - Implemented transactional user persistence via `saveUserRecordAsync(record, options)` utilizing atomic PostgreSQL client transactions (`BEGIN`, `COMMIT`, `ROLLBACK`).
+  - **`users` Table:** Stores immutable user UUID, lowercase email, password hash, status (`'ACTIVE'`), verified status (`is_email_verified = true`), and ISO timestamps.
+  - **`profiles` Table:** Stores user profile (`first_name`, `last_name`, `phone`, `preferred_currency`, `interior_style_preference`) with foreign key constraint `user_id REFERENCES users(id) ON DELETE CASCADE`.
+  - **`user_roles` Table:** Stores role assignment linking `user_id` to `roles.id` matching role enum `CUSTOMER` with `ON DELETE CASCADE`.
+  - **Unique Email Constraint & Conflict Mapping:** Mapped PostgreSQL unique constraint violation `23505` (`users_email_key`) to HTTP 409 `ConflictError` to guarantee duplicate registration rejection under high concurrency.
+- **Fail-Closed Authoritative Account Lookup (`findUserByEmailAuthoritative`, `findUserByIdAuthoritative`):**
+  - Eliminates silent authentication via stale memory or local JSON caches.
+  - In production mode (`NODE_ENV === 'production'`), if PostgreSQL returns 0 rows, the in-memory cache is purged immediately and the lookup returns `undefined`.
+  - If the database is unreachable in production mode, user registration and persistence immediately fail closed with HTTP 503 `DB_UNAVAILABLE`.
+- **Atomic Challenge Consumption & Rollback Safety (`lib/auth/pendingRegistrationStore.ts`, `backend/src/auth/pendingRegistrationStore.ts`, `app/api/auth/verify-otp/route.ts`, `backend/src/server.ts`):**
+  - Single-use OTP verification enforced atomically with `DELETE FROM pending_registrations WHERE id = $1 AND expires_at > $2 RETURNING *`.
+  - If database persistence fails due to transient connectivity, `restorePendingRegistration(pending)` safely restores the unexpired challenge without issuing an unpersisted JWT session token.
+- **Local PostgreSQL Live Integration Audit (`tests/postgres-live-audit.test.ts`):**
+  - Created dedicated non-destructive live integration test connecting to the live local PostgreSQL database on port 5432.
+  - Verified 8 distinct scenarios against real PostgreSQL: (1) New customer registration & OTP flow, (2) Durable persistence across `users`, `profiles`, and `user_roles`, (3) Authoritative reload after complete cache clear/restart, (4) Multi-user identity isolation (Alice vs Bob), (5) Duplicate registration rejection (409 Conflict), (6) Database failure fail-closed protection, (7) RBAC privilege elevation defense, and (8) Seeded admin account verification.
+  - Safely cleaned up all temporary test records in a `finally` block with zero orphan rows left behind.
+- **Verification & Test Status:**
+  - `tests/postgres-live-audit.test.ts`: **20/20 (100%) Passed** (Live PostgreSQL)
+  - `tests/auth-security-verification.test.ts`: **89/89 (100%) Passed**
+  - `tests/run-all-tests.ts`: **174/174 (100%) Passed** across all 19 SRS suites
+  - TypeScript Compilation: `tsc --noEmit` on root & backend verified with **0 errors**.
 
 ---
 
