@@ -23,6 +23,9 @@ import { codSafetyService } from '../services/codService';
 import { currencyEngine } from '../services/currencyEngine';
 import { notificationService } from '../services/notificationService';
 import { brevoEmailService } from '../services/brevoEmailService';
+import fs from 'fs';
+import path from 'path';
+import { queryPostgres, isPostgresAvailable } from '../db/postgres';
 
 export interface DetailedOrder extends DbOrder {
   items: DbOrderItem[];
@@ -48,9 +51,41 @@ const ordersStore: Map<string, DetailedOrder> = new Map();
 const idempotencyRegistry: Map<string, string> = new Map(); // idempotency_key -> order_id
 let isOrderStoreInitialized = false;
 
+const DATA_DIR = path.join(process.cwd(), '.data');
+const ORDERS_FILE = path.join(DATA_DIR, 'orders_store.json');
+
+function saveOrdersToDisk(): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    const list = Array.from(ordersStore.values());
+    fs.writeFileSync(ORDERS_FILE, JSON.stringify(list, null, 2), 'utf-8');
+  } catch {
+    // Non-blocking disk save
+  }
+}
+
+function loadOrdersFromDisk(): void {
+  try {
+    if (fs.existsSync(ORDERS_FILE)) {
+      const raw = fs.readFileSync(ORDERS_FILE, 'utf-8');
+      const list: DetailedOrder[] = JSON.parse(raw);
+      list.forEach((o) => {
+        if (!ordersStore.has(o.id)) {
+          ordersStore.set(o.id, o);
+        }
+      });
+    }
+  } catch {
+    // Non-blocking disk load
+  }
+}
+
 export function initOrderStore() {
   if (isOrderStoreInitialized) return;
   isOrderStoreInitialized = true;
+  loadOrdersFromDisk();
 
   // Initialize with initial mock orders for demonstration
   const initialOrderId = '44444444-1111-1111-1111-111111111101';
@@ -61,7 +96,7 @@ export function initOrderStore() {
     id: initialOrderId,
     order_number: 'VL-2026-8941',
     user_id: '33333333-3333-3333-3333-333333333303', // Client account
-    guest_access_token: 'gat_demo_sec_981240189234',
+    guest_access_token: undefined, // Hardcoded token removed; authenticated client order
     status: 'PROCESSING',
     payment_status: 'SUCCESS',
     subtotal: 132000.0,
@@ -327,6 +362,39 @@ export function createOrder(params: {
   };
 
   ordersStore.set(orderId, newOrder);
+  saveOrdersToDisk();
+
+  // Async push to PostgreSQL if connected
+  queryPostgres(
+    `INSERT INTO orders 
+     (id, order_number, user_id, status, payment_status, payment_method, currency, exchange_rate, subtotal, discount_total, tax_total, shipping_total, grand_total, guest_access_token, customer_notes, idempotency_key, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+     ON CONFLICT (id) DO UPDATE 
+     SET status = EXCLUDED.status, 
+         guest_access_token = EXCLUDED.guest_access_token,
+         updated_at = NOW();`,
+    [
+      newOrder.id,
+      newOrder.order_number,
+      newOrder.user_id || null,
+      newOrder.status,
+      newOrder.payment_status,
+      newOrder.payment_method,
+      newOrder.currency,
+      newOrder.exchange_rate,
+      newOrder.subtotal,
+      newOrder.discount_total,
+      newOrder.tax_total,
+      newOrder.shipping_total,
+      newOrder.grand_total,
+      newOrder.guest_access_token || null,
+      newOrder.customer_notes || null,
+      newOrder.idempotency_key || null,
+      newOrder.created_at,
+      newOrder.created_at,
+    ]
+  ).catch(() => {});
+
   if (idempotencyKey) {
     idempotencyRegistry.set(idempotencyKey, orderId);
   }

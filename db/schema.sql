@@ -543,3 +543,23 @@ CREATE TABLE IF NOT EXISTS otp_challenges (
 
 CREATE INDEX IF NOT EXISTS idx_otp_challenges_email ON otp_challenges(email);
 CREATE INDEX IF NOT EXISTS idx_otp_challenges_expires_at ON otp_challenges(expires_at);
+
+-- ============================================================================
+-- 12. PERSISTENT PENDING REGISTRATIONS (AUTH-001, AUTH-003, SEC-002)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS pending_registrations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL,
+    password_hash TEXT NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    phone VARCHAR(50),
+    created_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    created_at_tz TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_email ON pending_registrations(email);
+CREATE INDEX IF NOT EXISTS idx_pending_registrations_expires_at ON pending_registrations(expires_at);
+

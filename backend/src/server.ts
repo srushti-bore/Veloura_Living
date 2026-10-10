@@ -185,7 +185,7 @@ const server = http.createServer(async (req, res) => {
       };
 
       // Do NOT save to DB yet — only persist upon successful OTP verification
-      const pending = savePendingRegistration({
+      const pending = await savePendingRegistration({
         email: userRecord.user.email,
         passwordHash,
         firstName: firstName || '',
@@ -266,12 +266,12 @@ const server = http.createServer(async (req, res) => {
 
       let record: UserRecord | undefined = findUserByEmail(email);
       if (verifyResult.type === 'REGISTER') {
+        if (record && record.user.is_email_verified) {
+          return sendJson(res, 409, formatErrorResponse('This account is already registered and verified. Please sign in instead.', 'CONFLICT'));
+        }
         const pendingId = verifyResult.metadata?.pendingRegistrationId;
-        const pending = pendingId ? consumePendingRegistration(pendingId) : null;
+        const pending = pendingId ? await consumePendingRegistration(pendingId) : null;
         if (pending) {
-          if (record && record.user.is_email_verified) {
-            return sendJson(res, 409, formatErrorResponse('This account is already registered and verified. Please sign in instead.', 'CONFLICT'));
-          }
           const now = new Date().toISOString();
           const userId = crypto.randomUUID();
           const newRecord: UserRecord = {
@@ -305,12 +305,6 @@ const server = http.createServer(async (req, res) => {
           pr.user.updated_at = new Date().toISOString();
           saveUserRecord(pr);
           record = pr;
-        } else if (record && !record.user.is_email_verified) {
-          record.user.is_email_verified = true;
-          record.user.updated_at = new Date().toISOString();
-          saveUserRecord(record);
-        } else if (record && record.user.is_email_verified) {
-          return sendJson(res, 409, formatErrorResponse('This account is already registered and verified. Please sign in instead.', 'CONFLICT'));
         } else {
           return sendJson(res, 400, formatErrorResponse('Pending registration expired or not found. Please register again.', 'VALIDATION_ERROR'));
         }
@@ -318,8 +312,14 @@ const server = http.createServer(async (req, res) => {
         if (!record) {
           return sendJson(res, 401, formatErrorResponse('User profile not found for this login session.', 'UNAUTHORIZED'));
         }
+        if (verifyResult.userId && record.user.id !== verifyResult.userId) {
+          return sendJson(res, 401, formatErrorResponse('Challenge account mismatch.', 'UNAUTHORIZED'));
+        }
         if (record.user.status === 'SUSPENDED') {
           return sendJson(res, 401, formatErrorResponse('Your account has been suspended. Please contact concierge support.', 'UNAUTHORIZED'));
+        }
+        if (record.user.status !== 'ACTIVE') {
+          return sendJson(res, 401, formatErrorResponse('Your account is not active. Please contact concierge support.', 'UNAUTHORIZED'));
         }
         if (!record.user.is_email_verified) {
           record.user.is_email_verified = true;
@@ -543,7 +543,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, formatSuccessResponse(result));
     }
 
-    if (pathname.startsWith('/api/orders/') && method === 'GET') {
+    if (pathname.startsWith('/api/orders/') && !pathname.endsWith('/cancel') && (method === 'GET' || method === 'POST')) {
       const orderId = pathname.replace('/api/orders/', '');
       const order = getOrderById(orderId);
       if (!order) return sendJson(res, 404, formatErrorResponse(`Order ${orderId} not found.`, 'NOT_FOUND'));
@@ -557,10 +557,16 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, formatSuccessResponse(order));
       }
 
-      const guestToken = (query.token as string) || (req.headers['x-guest-tracking-token'] as string);
+      const body = method === 'POST' ? await parseRequestBody(req) : {};
+      const guestToken =
+        (req.headers['x-guest-tracking-token'] as string) ||
+        body.token ||
+        body.guestAccessToken ||
+        (query.token as string);
+
       if (guestToken && order.guest_access_token && guestToken === order.guest_access_token) {
-        const trackingEmail = (query.email as string)?.toLowerCase().trim();
-        const trackingPhone = (query.phone as string)?.trim();
+        const trackingEmail = (body.email || (query.email as string))?.toLowerCase().trim();
+        const trackingPhone = (body.phone || (query.phone as string))?.trim();
         const customer = order.customer_info;
         if (trackingEmail && customer && customer.email.toLowerCase().trim() !== trackingEmail) {
           return sendJson(res, 403, formatErrorResponse('Tracking credentials do not match order records.', 'FORBIDDEN'));

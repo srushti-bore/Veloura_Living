@@ -5,6 +5,7 @@
 
 import { DbUser, DbProfile, DbAddress, UserRoleEnum } from '@/types';
 import { hashPassword } from '../auth/password';
+import { queryPostgres, isPostgresAvailable } from '../db/postgres';
 
 export interface UserRecord {
   user: DbUser;
@@ -138,6 +139,69 @@ export function findUserById(id: string): UserRecord | undefined {
     }
   }
   return undefined;
+}
+
+export async function findUserByIdAuthoritative(id: string): Promise<UserRecord | undefined> {
+  const local = findUserById(id);
+  const hasPg = await isPostgresAvailable();
+  if (hasPg) {
+    try {
+      const res = await queryPostgres<{ id: string; email: string; password_hash: string; status: string; is_email_verified: boolean }>(
+        'SELECT id, email, password_hash, status, is_email_verified FROM users WHERE id = $1',
+        [id]
+      );
+      if (res && res.rows.length > 0) {
+        const row = res.rows[0];
+        const rolesRes = await queryPostgres<{ role_slug: string }>(
+          'SELECT r.role_slug FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = $1',
+          [id]
+        );
+        const roles = rolesRes && rolesRes.rows.length > 0
+          ? rolesRes.rows.map((r) => r.role_slug as any)
+          : (local?.roles || ['CUSTOMER']);
+
+        if (local) {
+          local.user.status = row.status as any;
+          local.user.is_email_verified = row.is_email_verified;
+          local.roles = roles;
+          return local;
+        } else {
+          const fresh: UserRecord = {
+            user: {
+              id: row.id,
+              email: row.email,
+              password_hash: row.password_hash,
+              status: row.status as any,
+              is_email_verified: row.is_email_verified,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            roles,
+            profile: {
+              user_id: row.id,
+              first_name: '',
+              last_name: '',
+              phone: '',
+              preferred_currency: 'INR',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+            addresses: [],
+          };
+          globalUsers.set(row.email.toLowerCase().trim(), fresh);
+          return fresh;
+        }
+      } else if (res && res.rows.length === 0) {
+        if (local) {
+          globalUsers.delete(local.user.email.toLowerCase().trim());
+        }
+        return undefined;
+      }
+    } catch {
+      // Fallback to local on error
+    }
+  }
+  return local;
 }
 
 export function saveUserRecord(record: UserRecord): void {

@@ -10,14 +10,27 @@ let pool: Pool | null = null;
 let isPoolInitialized = false;
 
 function getDatabaseConfig(): PoolConfig | null {
-  const databaseUrl = process.env.DATABASE_URL || process.env.SUPABASE_DATABASE_URL;
+  const databaseUrl =
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    process.env.SUPABASE_DATABASE_URL ||
+    process.env.SUPABASE_DB_URL ||
+    process.env.POSTGRES_PRISMA_URL ||
+    process.env.POSTGRES_URL_NON_POOLING ||
+    process.env.BACKEND_DATABASE_URL;
 
   if (databaseUrl && !databaseUrl.includes('placeholder')) {
+    const isSslNeeded =
+      process.env.NODE_ENV === 'production' ||
+      databaseUrl.includes('supabase') ||
+      databaseUrl.includes('neon') ||
+      databaseUrl.includes('pooler') ||
+      databaseUrl.includes('amazonaws') ||
+      databaseUrl.includes('render');
+
     return {
       connectionString: databaseUrl,
-      ssl: process.env.NODE_ENV === 'production' || databaseUrl.includes('supabase')
-        ? { rejectUnauthorized: false }
-        : false,
+      ssl: isSslNeeded ? { rejectUnauthorized: false } : false,
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,

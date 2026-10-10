@@ -1,6 +1,6 @@
 import { verifyToken } from './jwt';
 import { UserRoleEnum, UserSession } from '../types';
-import { findUserById } from '../data/authStore';
+import { findUserById, findUserByIdAuthoritative } from '../data/authStore';
 
 export async function parseAuthToken(authHeaderOrToken?: string): Promise<UserSession | null> {
   if (!authHeaderOrToken) return null;
@@ -13,7 +13,7 @@ export async function parseAuthToken(authHeaderOrToken?: string): Promise<UserSe
   const payload = await verifyToken(token);
   if (!payload) return null;
 
-  const record = findUserById(payload.sub);
+  const record = (await findUserByIdAuthoritative(payload.sub)) || findUserById(payload.sub);
   if (!record || record.user.status !== 'ACTIVE') return null;
 
   return {

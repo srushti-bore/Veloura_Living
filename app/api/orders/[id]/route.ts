@@ -5,6 +5,11 @@ import { getOrderByIdOrNumber, sanitizeOrderForGuest } from '@/lib/data/orderSto
 import { getSession } from '@/lib/auth/session';
 import { hasAnyRole } from '@/lib/auth/rbac';
 
+/**
+ * GET /api/orders/[id]
+ * Prefers 'x-guest-tracking-token' header to avoid exposing tokens in URL query strings.
+ * Falls back to '?token=' query parameter for backward compatibility.
+ */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,7 +18,8 @@ export async function GET(
     const { id } = await params;
     const session = await getSession(request);
     const { searchParams } = new URL(request.url);
-    const guestToken = searchParams.get('token') || request.headers.get('x-guest-tracking-token');
+    // Header preferred to prevent URL query string leakage in access logs/referrers
+    const guestToken = request.headers.get('x-guest-tracking-token') || searchParams.get('token');
     const trackingEmail = searchParams.get('email')?.toLowerCase().trim();
     const trackingPhone = searchParams.get('phone')?.trim();
 
@@ -34,7 +40,6 @@ export async function GET(
     }
 
     // 3. Guest Order Tracking via High-Entropy Cryptographic Token (Data-Minimization Enforced)
-    // Possession of guessable email or phone alone is strictly insufficient to access private order details
     if (guestToken && order.guest_access_token && guestToken === order.guest_access_token) {
       const customer = order.customer_info;
       if (trackingEmail && customer && customer.email.toLowerCase().trim() !== trackingEmail) {
@@ -56,3 +61,54 @@ export async function GET(
   }
 }
 
+/**
+ * POST /api/orders/[id]
+ * Secure guest order tracking endpoint passing tracking token in body to avoid URL query string leakage.
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const session = await getSession(request);
+    const body = await request.json().catch(() => ({}));
+    const guestToken = request.headers.get('x-guest-tracking-token') || body.token || body.guestAccessToken;
+    const trackingEmail = body.email ? String(body.email).toLowerCase().trim() : undefined;
+    const trackingPhone = body.phone ? String(body.phone).trim() : undefined;
+
+    const order = getOrderByIdOrNumber(id);
+    if (!order) {
+      throw new NotFoundError(`Order with identifier '${id}' not found.`);
+    }
+
+    // 1. Staff / Admin Access
+    const isStaff = session && hasAnyRole(session.roles, ['ADMIN', 'MANAGER', 'ORDER_MANAGER']);
+    if (isStaff) {
+      return successResponse(order, 200);
+    }
+
+    // 2. Authenticated Customer Owner Access
+    if (session && order.user_id && order.user_id === session.id) {
+      return successResponse(order, 200);
+    }
+
+    // 3. Guest Order Tracking
+    if (guestToken && order.guest_access_token && guestToken === order.guest_access_token) {
+      const customer = order.customer_info;
+      if (trackingEmail && customer && customer.email.toLowerCase().trim() !== trackingEmail) {
+        throw new ForbiddenError('Tracking credentials do not match order records.');
+      }
+      if (trackingPhone && customer && customer.phone.replace(/\s+/g, '') !== trackingPhone.replace(/\s+/g, '')) {
+        throw new ForbiddenError('Tracking credentials do not match order records.');
+      }
+
+      const sanitized = sanitizeOrderForGuest(order);
+      return successResponse(sanitized, 200);
+    }
+
+    throw new ForbiddenError('Access Denied: Valid guest access token or authenticated customer login required.');
+  } catch (error) {
+    return handleApiError(error);
+  }
+}

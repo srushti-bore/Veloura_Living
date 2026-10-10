@@ -451,13 +451,23 @@ export async function verifyOtpChallenge(params: {
         const updRes = await queryPostgres(
           `UPDATE otp_challenges
            SET attempts = attempts + 1, updated_at = NOW()
-           WHERE challenge_token = $1
+           WHERE challenge_token = $1 AND is_verified = FALSE AND attempts < max_attempts
            RETURNING attempts, max_attempts`,
           [params.challengeToken]
         );
 
-        const newAttempts = updRes?.rows[0]?.attempts ? Number(updRes.rows[0].attempts) : currentAttempts + 1;
-        const remaining = Math.max(0, maxAttempts - newAttempts);
+        if (!updRes || updRes.rows.length === 0) {
+          return {
+            success: false,
+            error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
+            code: 'TOO_MANY_ATTEMPTS',
+            remainingAttempts: 0,
+          };
+        }
+
+        const newAttempts = Number(updRes.rows[0].attempts);
+        const maxAtt = Number(updRes.rows[0].max_attempts) || maxAttempts;
+        const remaining = Math.max(0, maxAtt - newAttempts);
 
         if (remaining === 0) {
           return {
@@ -479,12 +489,24 @@ export async function verifyOtpChallenge(params: {
       const consumeRes = await queryPostgres(
         `UPDATE otp_challenges
          SET is_verified = TRUE, attempts = attempts + 1, updated_at = NOW()
-         WHERE challenge_token = $1 AND is_verified = FALSE
+         WHERE challenge_token = $1 AND is_verified = FALSE AND attempts < max_attempts
          RETURNING challenge_token, user_id, email, type, metadata`,
         [params.challengeToken]
       );
 
       if (!consumeRes || consumeRes.rows.length === 0) {
+        const checkRes = await queryPostgres(
+          `SELECT is_verified, attempts, max_attempts FROM otp_challenges WHERE challenge_token = $1`,
+          [params.challengeToken]
+        );
+        if (checkRes && checkRes.rows.length > 0 && Number(checkRes.rows[0].attempts) >= Number(checkRes.rows[0].max_attempts)) {
+          return {
+            success: false,
+            error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
+            code: 'TOO_MANY_ATTEMPTS',
+            remainingAttempts: 0,
+          };
+        }
         return {
           success: false,
           error: 'This verification code has already been consumed. Replay is not permitted.',
@@ -561,6 +583,15 @@ export async function verifyOtpChallenge(params: {
     };
   }
 
+  if (challenge.attempts >= challenge.maxAttempts) {
+    return {
+      success: false,
+      error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
+      code: 'TOO_MANY_ATTEMPTS',
+      remainingAttempts: 0,
+    };
+  }
+
   if (inFlightVerifications.has(params.challengeToken) || (challenge as any)._isVerifying) {
     return {
       success: false,
@@ -575,8 +606,6 @@ export async function verifyOtpChallenge(params: {
     challenge.attempts += 1;
 
     if (challenge.attempts > challenge.maxAttempts) {
-      activeChallenges.delete(params.challengeToken);
-      emailToChallengeMap.delete(normalizedEmail);
       saveChallengesToDisk();
       return {
         success: false,
@@ -599,10 +628,8 @@ export async function verifyOtpChallenge(params: {
     if (!isMatch) {
       (challenge as any)._isVerifying = false;
       const remaining = Math.max(0, challenge.maxAttempts - challenge.attempts);
+      saveChallengesToDisk();
       if (remaining === 0) {
-        activeChallenges.delete(params.challengeToken);
-        emailToChallengeMap.delete(normalizedEmail);
-        saveChallengesToDisk();
         return {
           success: false,
           error: 'Maximum verification attempts exceeded (5). Session terminated for security.',
@@ -722,16 +749,38 @@ export async function resendOtpChallenge(params: {
     };
   }
 
-  challenge.salt = candidateSalt;
-  challenge.otpHash = candidateHash;
-  challenge.otp = candidateOtp;
-  challenge.lastSentAt = now;
-  challenge.expiresAt = now + OTP_EXPIRY_MS;
-  challenge.resends = currentResends + 1;
+  const updatedChallenge: OtpChallenge = {
+    ...challenge,
+    salt: candidateSalt,
+    otpHash: candidateHash,
+    otp: candidateOtp,
+    lastSentAt: now,
+    expiresAt: now + OTP_EXPIRY_MS,
+    resends: currentResends + 1,
+  };
 
-  activeChallenges.set(challenge.challengeToken, challenge);
+  const isProduction = process.env.NODE_ENV === 'production';
+  const hasPg = await isPostgresAvailable();
+
+  if (hasPg) {
+    const pgSaved = await saveChallengeToPostgres(updatedChallenge);
+    if (!pgSaved) {
+      return {
+        success: false,
+        error: 'Failed to update verification challenge in database. Your previous verification code remains valid.',
+        cooldownSeconds: Math.ceil(RESEND_COOLDOWN_MS / 1000),
+      };
+    }
+  } else if (isProduction) {
+    return {
+      success: false,
+      error: 'Authentication persistence unavailable. Please try again shortly.',
+      cooldownSeconds: Math.ceil(RESEND_COOLDOWN_MS / 1000),
+    };
+  }
+
+  activeChallenges.set(challenge.challengeToken, updatedChallenge);
   saveChallengesToDisk();
-  await saveChallengeToPostgres(challenge);
 
   const isSimulated = dispatchResult.deliveryStatus === 'SIMULATED' || dispatchResult.isMock;
 

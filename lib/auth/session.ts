@@ -8,7 +8,7 @@ import { verifyToken } from './jwt';
 import { UserSession, UserRoleEnum } from '@/types';
 import { UnauthorizedError, ForbiddenError } from '@/lib/api/errorHandler';
 import { hasAnyRole, hasPermission, PermissionSlug } from './rbac';
-import { findUserById } from '@/lib/data/authStore';
+import { findUserById, findUserByIdAuthoritative } from '@/lib/data/authStore';
 
 export const AUTH_COOKIE_NAME = 'veloura_auth_token';
 
@@ -32,6 +32,7 @@ export function extractTokenFromRequest(request: NextRequest): string | null {
 /**
  * Get authenticated user session from request, returning null if unauthenticated.
  * Synchronizes with authoritative user identity store to reflect real-time role changes and account status.
+ * Fails closed if the user record does not exist in the authoritative identity store.
  */
 export async function getSession(request: NextRequest): Promise<UserSession | null> {
   const token = extractTokenFromRequest(request);
@@ -40,14 +41,17 @@ export async function getSession(request: NextRequest): Promise<UserSession | nu
   const payload = await verifyToken(token);
   if (!payload) return null;
 
-  const record = findUserById(payload.sub);
-  const status = record?.user.status || 'ACTIVE';
+  // Authoritative identity check: Fail closed if user record is missing
+  const record = (await findUserByIdAuthoritative(payload.sub)) || findUserById(payload.sub);
+  if (!record) {
+    return null;
+  }
 
   return {
-    id: payload.sub,
-    email: payload.email,
-    roles: record?.roles || payload.roles,
-    status,
+    id: record.user.id,
+    email: record.user.email,
+    roles: record.roles,
+    status: record.user.status,
   };
 }
 
@@ -63,6 +67,10 @@ export async function requireAuth(request: NextRequest): Promise<UserSession> {
 
   if (session.status === 'SUSPENDED') {
     throw new UnauthorizedError('Your account has been suspended. Please contact concierge support.');
+  }
+
+  if (session.status !== 'ACTIVE') {
+    throw new UnauthorizedError('Your account is not active. Please contact concierge support.');
   }
 
   return session;

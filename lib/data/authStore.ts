@@ -9,6 +9,7 @@ export {
   initUserRepository as initAuthStore,
   findUserByEmail,
   findUserById,
+  findUserByIdAuthoritative,
   saveUserRecord,
   createUser,
   updateUserProfile,

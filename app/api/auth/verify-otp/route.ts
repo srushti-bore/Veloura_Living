@@ -37,13 +37,14 @@ export async function POST(request: NextRequest) {
     let record: UserRecord | undefined = findUserByEmail(email);
 
     if (verifyResult.type === 'REGISTER') {
+      if (record && record.user.is_email_verified) {
+        throw new ConflictError('This account is already registered and verified. Please sign in instead.');
+      }
+
       const pendingId = verifyResult.metadata?.pendingRegistrationId;
-      const pending = pendingId ? consumePendingRegistration(pendingId) : null;
+      const pending = pendingId ? await consumePendingRegistration(pendingId) : null;
 
       if (pending) {
-        if (record && record.user.is_email_verified) {
-          throw new ConflictError('This account is already registered and verified. Please sign in instead.');
-        }
         const now = new Date().toISOString();
         const userId = crypto.randomUUID();
         const newRecord: UserRecord = {
@@ -78,12 +79,6 @@ export async function POST(request: NextRequest) {
         pr.user.updated_at = new Date().toISOString();
         saveUserRecord(pr);
         record = pr;
-      } else if (record && !record.user.is_email_verified) {
-        record.user.is_email_verified = true;
-        record.user.updated_at = new Date().toISOString();
-        saveUserRecord(record);
-      } else if (record && record.user.is_email_verified) {
-        throw new ConflictError('This account is already registered and verified. Please sign in instead.');
       } else {
         throw new ValidationError('Pending registration expired or not found. Please register again.');
       }
@@ -91,8 +86,14 @@ export async function POST(request: NextRequest) {
       if (!record) {
         throw new UnauthorizedError('User profile not found for this login session.');
       }
+      if (verifyResult.userId && record.user.id !== verifyResult.userId) {
+        throw new UnauthorizedError('Challenge account mismatch.');
+      }
       if (record.user.status === 'SUSPENDED') {
         throw new UnauthorizedError('Your account has been suspended. Please contact concierge support.');
+      }
+      if (record.user.status !== 'ACTIVE') {
+        throw new UnauthorizedError('Your account is not active. Please contact concierge support.');
       }
       if (!record.user.is_email_verified) {
         record.user.is_email_verified = true;

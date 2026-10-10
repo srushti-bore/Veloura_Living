@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     // Do NOT save to DB yet — only persist upon successful OTP verification
     // Store credentials safely in protected pending store; keep OTP challenge metadata clean
-    const pendingRegistration = savePendingRegistration({
+    const pendingRegistration = await savePendingRegistration({
       email: newRecord.user.email,
       passwordHash,
       firstName: newRecord.profile.first_name,
