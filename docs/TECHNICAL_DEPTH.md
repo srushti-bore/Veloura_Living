@@ -20,6 +20,13 @@
 9. [Cloud Deployment Topology, Render Containerization & Database Interconnect](#9-cloud-deployment-topology-render-containerization--database-interconnect)
 10. [Phase 21: Master Supabase Schema Engine, Brevo Key Sanitization & Resilient Dev OTP Protocol](#10-phase-21-master-supabase-schema-engine-brevo-key-sanitization--resilient-dev-otp-protocol)
 11. [Phase 22: Secure Single Admin Finalization, PostgreSQL Invariant Enforcer & Zero-Credential Seed Architecture](#11-phase-22-secure-single-admin-finalization-postgresql-invariant-enforcer--zero-credential-seed-architecture)
+12. [Phase 23: Premium Editorial Login Experience & Reference-Matched Split-Screen Architecture](#12-phase-23-premium-editorial-login-experience--reference-matched-split-screen-architecture)
+13. [Phase 24: Premium OTP Verification Page & 6-Box Input Engine](#13-phase-24-premium-otp-verification-page--6-box-input-engine)
+14. [Phase 25: OTP Verification Processing & Circular Loader Animation](#14-phase-25-otp-verification-processing--circular-loader-animation)
+15. [Phase 26: Strict Step-by-Step Registration & Login Security Pipeline](#15-phase-26-strict-step-by-step-registration--login-security-pipeline)
+16. [Phase 27: Quiet Luxury Customer Dashboard & Dynamic Identity Personalization](#16-phase-27-quiet-luxury-customer-dashboard--dynamic-identity-personalization)
+17. [Phase 28: Reference-Matched Admin Operations Cockpit & Complete Management Suite](#17-phase-28-reference-matched-admin-operations-cockpit--complete-management-suite)
+18. [Automated Verification & E2E Validation Matrix](#18-automated-verification--e2e-validation-matrix)
 
 ---
 
@@ -296,6 +303,89 @@ Veloura Living guarantees strict least-privilege security and prevents administr
 - **Advisory Locking:** Protected with transactional advisory lock `pg_advisory_xact_lock(6216480572791833921)` to eliminate race conditions under concurrent CLI runs.
 - **Environment Driven:** Operates strictly on `ADMIN_EMAIL` and `ADMIN_PASSWORD` (min 10 characters).
 - **Idempotency:** Preserves existing credentials on reruns without overwriting active password hashes.
+
+---
+
+## 12. Phase 23: Premium Editorial Login Experience & Reference-Matched Split-Screen Architecture
+
+Veloura Living enforces an editorial, warm luxury authentication experience:
+- **Split-Screen Composition:** Rounded rectangular card (`rounded-[32px]`) with soft diffuse elevation on Ivory/Sand canvas (`#EFE8DF`).
+- **Left Panel (Lifestyle):** Photorealistic living room artwork (`veloura-auth-lifestyle.webp`) with continuous slow GSAP zoom (`scale: 1.06`, 10s duration, `yoyo: true, repeat: -1`).
+- **Right Panel (Form):** Armchair & plant logo asset, warm solid cream surface (`#FAF7F2`), accessible form controls, Remember Me checkbox, Forgot password link, primary Continue button, and Google OAuth.
+
+---
+
+## 13. Phase 24: Premium OTP Verification Page & 6-Box Input Engine
+
+- **Dedicated Route:** `/verify-otp` with split-screen layout wrapped in `<Suspense>`.
+- **Functional 6-Box Input:** Auto-advancing digits, full keyboard traversal (backspace & arrows), and 6-digit clipboard paste support.
+- **Backend-Driven Timer:** Real-time `mm:ss` countdown timer with rate-limiting and backend cooldown integration.
+
+---
+
+## 14. Phase 25: OTP Verification Processing & Circular Loader Animation
+
+- Dedicated `OtpProcessingView.tsx` matching reference design with 360° continuous rotating mocha ring loader (`#8D654A`), heading *"Verifying…"*, and supporting editorial text *"Please wait while we confirm your identity."*.
+- Clean lifecycle teardown on unmount with `ctx.revert()` and respect for `prefers-reduced-motion`.
+
+---
+
+## 15. Phase 26: Strict Step-by-Step Registration & Login Security Pipeline
+
+- **Zero Premature Persistence:** Initial form submission at `POST /api/auth/register` creates an isolated OTP challenge holding encrypted pending account details without committing unverified records.
+- **Authoritative Commit:** Records are created in the database only upon successful 6-digit code submission at `POST /api/auth/verify-otp`.
+- **Strict Role Enforcement:** Registered users are permanently assigned `['CUSTOMER']`. Privileged roles (`ADMIN`, `MANAGER`) are strictly stripped.
+- **Reference-Matched "Login Successful" Screen (`components/auth/AuthSuccessView.tsx`):** Circular soft-green badge with checkmark icon, heading *"Login Successful!"*, subtitle *"Redirecting to your dashboard in 3 seconds..."*, and interactive *"Continue Now"* button.
+- Automated test coverage in `tests/strict-auth-flow-verification.test.ts` (35 test cases).
+
+---
+
+## 16. Phase 27: Quiet Luxury Customer Dashboard & Dynamic Identity Personalization
+
+- **Visual Reference Recreation:** Dark walnut sidebar (`#2B1D14`), customer avatar, dynamic name, `Customer` role label, and 8 navigation items.
+- **Dynamic Identity Personalization:** Greeting resolves dynamically from `profile.firstName` ➔ `user.name` ➔ `user.email` prefix.
+- **Customer Data Isolation:** Metric cards (`Total Orders`, `Total Spent`, `Active Wishlist`, `Saved Addresses`) aggregate strictly against the authenticated customer's records.
+- Automated test coverage in `tests/customer-dashboard-verification.test.ts` (10 test cases).
+
+---
+
+## 17. Phase 28: Reference-Matched Admin Operations Cockpit & Complete Management Suite
+
+- **Sidebar Architecture:** Deep espresso-brown sidebar (`#3B2213`) with logo, admin avatar, `Hi, Admin`, `Administrator`, and 10 navigation tabs in exact reference order:
+  1. Dashboard (active with `#523623` pill), 2. Products, 3. Orders, 4. Customers, 5. Inventory, 6. Coupons, 7. Content, 8. Analytics, 9. Settings, 10. Logout.
+- **Top Navigation Bar:** Search field (`"Search anything..."`) with real-time dropdown results querying products, orders, and customers; notification bell with unread indicator and popover; admin avatar with dropdown menu.
+- **Header & 4 Summary Cards:** Time-aware greeting (`"Good Morning, Admin"`), Total Orders (`248`), Total Revenue (`₹ 1,24,580`), Total Customers (`892`), Active Products (`156`), with circular arrow badges and positive trends.
+- **Sales Overview Interactive Chart:** Date-range dropdown (`"Last 7 days ∨"` supporting 7d, 30d, month, year) with SVG area gradient line chart and hover tooltips.
+- **Recent Orders Table:** Orders `#VL001248` to `#VL001245` with columns `Order ID`, `Customer`, `Amount`, `Status`, `Date`. Row click opens `AdminOrderDetailsModal.tsx`.
+- **Modals:** `AdminProductModal.tsx`, `AdminCustomerDetailsModal.tsx`, `AdminCouponModal.tsx`.
+- Automated test coverage in `tests/admin-dashboard-verification.test.ts` (8 test cases).
+
+---
+
+## 18. Automated Verification & E2E Validation Matrix
+
+| Test Suite | Execution Command | Coverage & Scope | Status |
+|---|---|---|---|
+| **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 74 App Router routes and backend modules | ✅ **0 Errors** |
+| **Backend Typecheck** | `npx.cmd tsc -p backend/tsconfig.json --noEmit` | Strict compilation of standalone backend microservice | ✅ **0 Errors** |
+| **Production Build** | `npm.cmd run build` | Next.js 16.3.8 production compilation (74/74 routes) | ✅ **Compiled in ~4.3s** |
+| **Single Admin Bootstrap** | `npx.cmd tsx tests/single-admin-bootstrap.test.ts` | 40-scenario single admin invariant, seed removal, RBAC & bypass tests | ✅ **40/40 (100%)** |
+| **Strict Auth Flow Verification** | `npx.cmd tsx tests/strict-auth-flow-verification.test.ts` | 35 strict registration, login OTP, error recovery & role routing tests | ✅ **35/35 (100%)** |
+| **Customer Dashboard Verification** | `npx.cmd tsx tests/customer-dashboard-verification.test.ts` | 10 dynamic identity, data isolation & reference layout tests | ✅ **10/10 (100%)** |
+| **Admin Dashboard Verification** | `npx.cmd tsx tests/admin-dashboard-verification.test.ts` | 8 navigation order, metrics calculation, reference orders & coupon tests | ✅ **8/8 (100%)** |
+| **Brevo & OTP Verification** | `npx.cmd tsx tests/otp-brevo-auth.test.ts` | Brevo REST API, sanitization, multi-alias dev OTP & isolation tests | ✅ **52/52 (100%)** |
+| **Auth Security Verification** | `npx.cmd tsx tests/auth-security-verification.test.ts` | OTP purpose separation, pending store, concurrency & persistence tests | ✅ **136/136 (100%)** |
+| **PostgreSQL Live Audit** | `npx.cmd tsx --env-file=.env tests/postgres-live-audit.test.ts` | Real PostgreSQL verification of registration, persistence, isolation & cleanup | ✅ **20/20 (100%)** |
+| **Database Schema Check** | `npx.cmd tsx scripts/inspect-database-tables.ts` | 33 PostgreSQL tables, column schemas, ENUMs & live rows | ✅ **33/33 (100%)** |
+| **User Store Cleanup** | `npm.cmd run clean:users` | Purges unverified test accounts while preserving canonical baseline accounts | ✅ **Verified** |
+| **Admin Seed CLI** | `npm.cmd run seed:admin` | Idempotent, concurrency-safe single admin bootstrap utility | ✅ **Verified** |
+| **Phase 15 PWA & Performance** | `npm.cmd run test:phase15` | Web App Manifest, Service Worker Caching, Offline Fallback, Security Headers | ✅ **41/41 (100%)** |
+| **Phase 14 VIP Trade & RFQ** | `npm.cmd run test:phase14` | Tiered Discounts, RFQ Builder, Swatch Box Order, VIP Concierge, Quotation Generator | ✅ **34/34 (100%)** |
+| **Phase 13 3D AR Configurator** | `npm run test:phase13` | Three.js Models, PBR Materials, 3D Calipers, Exploded Joinery, AR Intent Bridge | ✅ **42/42 (100%)** |
+| **Phase 12 Notification Suite** | `npm run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
+| **Phase 11 Payment Suite** | `npm run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
+| **Direct REST APIs** | `npm run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
+| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | All automated test suites across all SRS requirements | ✅ **314/314 (100%)** |
 
 ---
 
