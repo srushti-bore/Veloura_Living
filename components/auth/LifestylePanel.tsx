@@ -8,12 +8,14 @@ interface LifestylePanelProps {
   className?: string;
   imageSrc?: string;
   heading?: string[];
+  showTextOverlay?: boolean;
 }
 
 export const LifestylePanel: React.FC<LifestylePanelProps> = ({
   className = '',
   imageSrc = '/images/veloura-auth-lifestyle.webp',
   heading = ['Beautiful', 'Spaces.', 'Better Living.'],
+  showTextOverlay = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
@@ -29,10 +31,10 @@ export const LifestylePanel: React.FC<LifestylePanelProps> = ({
 
     if (prefersReducedMotion) return;
 
-    // Slow, smooth, continuous zoom-in and zoom-out effect (scale 1.0 to 1.06)
+    // Slow, smooth, continuous zoom-in and zoom-out effect (scale 1.0 to 1.05)
     const zoomTween = gsap.to(imageWrapperRef.current, {
-      scale: 1.06,
-      duration: 10,
+      scale: 1.05,
+      duration: 12,
       ease: 'sine.inOut',
       yoyo: true,
       repeat: -1,
@@ -71,20 +73,24 @@ export const LifestylePanel: React.FC<LifestylePanelProps> = ({
         />
       </div>
 
-      {/* Gentle ambient gradient for editorial legibility without muting warm sunshine */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#241710]/45 via-transparent to-[#241710]/40 pointer-events-none" />
+      {/* Semantic Heading for SEO / Accessibility */}
+      <h2 className="sr-only">
+        {heading.join(' ')}
+      </h2>
 
-      {/* Editorial Heading Overlay matching reference design */}
-      <div className="relative z-10 p-7 sm:p-9 md:p-10 lg:p-12 flex flex-col justify-start h-full">
-        <h2 className="font-serif italic text-3xl sm:text-4xl lg:text-[44px] font-normal leading-[1.14] text-[#FAF7F2] tracking-normal drop-shadow-[0_2px_14px_rgba(30,18,10,0.35)]">
-          {heading.map((line, idx) => (
-            <React.Fragment key={idx}>
-              <span>{line}</span>
-              {idx < heading.length - 1 && <br />}
-            </React.Fragment>
-          ))}
-        </h2>
-      </div>
+      {/* Optional Editorial Heading Overlay if using a blank background image */}
+      {showTextOverlay && (
+        <div className="relative z-10 p-7 sm:p-9 md:p-10 lg:p-12 flex flex-col justify-start h-full">
+          <h2 className="font-serif italic text-3xl sm:text-4xl lg:text-[44px] font-normal leading-[1.14] text-[#FAF7F2] tracking-normal drop-shadow-[0_2px_14px_rgba(30,18,10,0.35)]">
+            {heading.map((line, idx) => (
+              <React.Fragment key={idx}>
+                <span>{line}</span>
+                {idx < heading.length - 1 && <br />}
+              </React.Fragment>
+            ))}
+          </h2>
+        </div>
+      )}
     </div>
   );
 };

@@ -13,18 +13,19 @@ interface AuthHeaderProps {
 export const AuthHeader: React.FC<AuthHeaderProps> = ({
   title = 'Sign in to your account',
   subtitle,
-  logoSrc = '/logo-clean.png',
+  logoSrc = '/images/veloura-exact-logo@2x.png',
   className = '',
 }) => {
   return (
     <div className={`w-full flex flex-col items-center text-center ${className}`}>
-      {/* Official Veloura Living Handcrafted Armchair Logo Asset */}
-      <div className="relative w-32 h-20 sm:w-36 sm:h-22 mb-4 transition-transform duration-300 hover:scale-[1.02]">
+      {/* Official Veloura Living Handcrafted Armchair Logo Asset matching Reference Image */}
+      <div className="relative w-[180px] h-[120px] sm:w-[210px] sm:h-[140px] mb-3 sm:mb-4 transition-transform duration-300 hover:scale-[1.02]">
         <Image
           src={logoSrc}
           alt="Veloura Living Logo"
           fill
           priority
+          sizes="(max-width: 640px) 180px, 210px"
           className="object-contain object-center"
         />
       </div>

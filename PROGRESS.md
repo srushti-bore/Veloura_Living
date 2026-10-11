@@ -499,8 +499,8 @@ docker run -p 5000:5000 veloura-backend
 ### 23. Phase 23: Premium Editorial Login Experience & Reference-Matched Split-Screen Architecture ✅
 - **Visual Reference Match & Editorial Composition:**
   - Implemented split-screen authentication architecture inside a refined rounded container (`rounded-3xl` / `rounded-[32px]`, `border-[#E6DDD0]`, `shadow-[0_25px_70px_-15px_rgba(42,26,18,0.18)]`).
-  - **Left Panel (Lifestyle Experience):** Realistic warm morning-light living room photograph (`public/images/veloura-auth-lifestyle.webp`), elegant serif italic typography (*"Beautiful Spaces. Better Living."*), and ambient gradient overlay.
-  - **Right Panel (Authentication Form):** Official transparent Veloura Living armchair & plant logo asset (`public/logo-clean.png`), warm ivory/cream background (`#FAF7F2`), dark walnut-brown typography (`#2B1D14`, `#4A2C1A`), and subtle beige borders (`#E2D8CC`).
+  - **Left Panel (Lifestyle Experience):** Exact photorealistic warm morning-sunshine living room interior photograph from Reference Image 1 (`public/images/veloura-auth-lifestyle.webp`, 840x1342 2x Retina Lanczos upscale), authentic serif italic typography (*"Beautiful Spaces. Better Living."*), with ambient warmth and clear daylight matching the reference.
+  - **Right Panel (Authentication Form):** Prominent Veloura Living armchair & plant logo asset (`w-[180px] h-[120px] sm:w-[210px] sm:h-[140px]`, `public/images/veloura-exact-logo@2x.png` & `public/logo-clean.png`), perfectly proportioned to match the 41% column ratio in Reference Image 1, warm ivory/cream background (`#FAF7F2`), dark walnut-brown typography (`#2B1D14`, `#4A2C1A`), and subtle beige borders (`#E2D8CC`).
 - **GSAP Continuous Slow Cinematic Image Zoom Animation:**
   - Implemented seamless alternating scale animation on the lifestyle image (`scale: 1` to `scale: 1.06` and back to `scale: 1`) using `ease: "sine.inOut"` over 10 seconds with `yoyo: true, repeat: -1`.
   - Applied transform exclusively to the image wrapper, clipped cleanly within `overflow-hidden`.
