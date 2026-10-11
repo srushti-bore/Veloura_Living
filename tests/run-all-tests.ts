@@ -11,6 +11,7 @@ import { runOtpBrevoTestSuite } from './otp-brevo-auth.test';
 import { runAuthSecurityVerificationTests } from './auth-security-verification.test';
 import { runSingleAdminBootstrapTests } from './single-admin-bootstrap.test';
 import { runStrictAuthFlowTests } from './strict-auth-flow-verification.test';
+import { runCustomerDashboardTests } from './customer-dashboard-verification.test';
 
 async function main() {
   console.log('===========================================================');
@@ -68,6 +69,12 @@ async function main() {
   totalPassed += res8.passed;
   totalFailed += res8.failed;
   allErrors.push(...res8.errors);
+
+  // 9. Exact Customer Dashboard Verification
+  const res9 = await runCustomerDashboardTests();
+  totalPassed += res9.passed;
+  totalFailed += res9.failed;
+  allErrors.push(...res9.errors);
 
   console.log('\n===========================================================');
   console.log(`📊 TEST EXECUTION SUMMARY:`);
