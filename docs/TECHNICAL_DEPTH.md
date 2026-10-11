@@ -19,6 +19,7 @@
 8. [Automated Verification & E2E Validation Matrix](#8-automated-verification--e2e-validation-matrix)
 9. [Cloud Deployment Topology, Render Containerization & Database Interconnect](#9-cloud-deployment-topology-render-containerization--database-interconnect)
 10. [Phase 21: Master Supabase Schema Engine, Brevo Key Sanitization & Resilient Dev OTP Protocol](#10-phase-21-master-supabase-schema-engine-brevo-key-sanitization--resilient-dev-otp-protocol)
+11. [Phase 22: Secure Single Admin Finalization, PostgreSQL Invariant Enforcer & Zero-Credential Seed Architecture](#11-phase-22-secure-single-admin-finalization-postgresql-invariant-enforcer--zero-credential-seed-architecture)
 
 ---
 
@@ -271,6 +272,30 @@ sequenceDiagram
 
 ### 📡 4. Transparent Delivery Error Propagation
 - **Root-Cause Visibility:** `POST /api/auth/register` and `POST /api/auth/login` propagate `challenge.message` directly to the client rather than masking failures with generic 502 messages, pinpointing configuration discrepancies instantly.
+
+---
+
+## 11. Phase 22: Secure Single Admin Finalization, PostgreSQL Invariant Enforcer & Zero-Credential Seed Architecture
+
+Veloura Living guarantees strict least-privilege security and prevents administrative privilege sprawl across both development and production environments.
+
+### 🛡️ 1. PostgreSQL Database Invariant Trigger (`trg_single_admin_user_roles`)
+- **Single Admin Invariant:** A PostgreSQL trigger function `check_single_admin_invariant()` is attached to `user_roles`. It validates that no more than one user possesses the `ADMIN` role. Any unauthorized INSERT or UPDATE attempting to assign a secondary `ADMIN` role is blocked at the database engine level with `RAISE EXCEPTION`.
+- **Audit Ledger Table (`admin_bootstrap_log`):** Dedicated immutable audit trail recording all bootstrap executions (`BOOTSTRAP_CREATED`, `BOOTSTRAP_PRESERVED`, `LEGACY_RECONCILED`), timestamps, admin UUID, and execution metadata.
+
+### 🚫 2. Total Elimination of Insecure Defaults & Demo Password Bypasses
+- **Removal of Password Bypass Shortcuts:** Removed demo bypasses (`$2a$` / `$2b$` prefix shortcuts with hardcoded strings like `"admin123"`, `"manager123"`, `"customer123"`) in both Next.js (`lib/auth/password.ts`) and Node.js (`backend/src/auth/password.ts`). Every password check strictly verifies cryptographic bcrypt salts.
+- **Purged Privileged Defaults:** Completely removed hardcoded `admin@velouraliving.com` and `manager@velouraliving.com` default account creation from runtime memory stores and SQL seed files.
+- **Fail-Closed Role Resolution:** `findUserByEmailAuthoritative()` and `findUserByIdAuthoritative()` return empty arrays (`roles: []`) when no roles are assigned, eliminating privilege inheritance bugs.
+
+### 🔒 3. Self-Promotion Defense & OAuth Takeover Hardening
+- **Sanitized Registration:** `createUser()` sanitizes requested roles to strip `'ADMIN'` and `'MANAGER'`, guaranteeing self-service registrations can only ever be granted `['CUSTOMER']`.
+- **OAuth Guardrail:** `app/api/auth/google/callback/route.ts` rejects Google OAuth sign-in/linking for accounts possessing the `ADMIN` role, safeguarding administrators against third-party provider account takeovers.
+
+### ⚙️ 4. Concurrency-Safe Idempotent Bootstrap CLI (`scripts/seed-admin.ts`)
+- **Advisory Locking:** Protected with transactional advisory lock `pg_advisory_xact_lock(6216480572791833921)` to eliminate race conditions under concurrent CLI runs.
+- **Environment Driven:** Operates strictly on `ADMIN_EMAIL` and `ADMIN_PASSWORD` (min 10 characters).
+- **Idempotency:** Preserves existing credentials on reruns without overwriting active password hashes.
 
 ---
 

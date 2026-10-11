@@ -25,6 +25,7 @@ import {
   createEmailVerificationToken,
   consumeEmailVerificationToken,
   findOrCreateGoogleUser,
+  saveUserRecord,
 } from '../lib/data/userRepository';
 import { hashPassword, verifyPassword } from '../lib/auth/password';
 import { signToken, verifyToken } from '../lib/auth/jwt';
@@ -236,8 +237,36 @@ async function runAuthTestSuite() {
   // TEST SUITE 5: ADMIN AUTHENTICATION & RBAC ROLES
   // --------------------------------------------------------------------------
   console.log('\n📦 [5/6] Admin Authentication & Server-Side RBAC Enforcement:');
-  const adminEmail = 'admin@velouraliving.com';
-  const adminUser = findUserByEmail(adminEmail);
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@velouraliving.com';
+  let adminUser = findUserByEmail(adminEmail);
+  if (!adminUser) {
+    const adminPassHash = await hashPassword('AdminSecurePass123!');
+    const adminId = crypto.randomUUID();
+    adminUser = {
+      user: {
+        id: adminId,
+        email: adminEmail,
+        password_hash: adminPassHash,
+        status: 'ACTIVE',
+        is_email_verified: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      roles: ['ADMIN'],
+      profile: {
+        user_id: adminId,
+        first_name: 'Admin',
+        last_name: 'Test',
+        phone: '',
+        preferred_currency: 'INR',
+        interior_style_preference: 'Warm Minimalist',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      addresses: [],
+    };
+    saveUserRecord(adminUser);
+  }
 
   assert(Boolean(adminUser), 'Master Admin account is persisted and discoverable');
   assert(adminUser!.roles.includes('ADMIN'), 'Master Admin has verified ADMIN role');

@@ -37,36 +37,11 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT '11111111-1111-1111-1111-111111111101', id FROM permissions
 ON CONFLICT DO NOTHING;
 
--- 4. DEFAULT USERS
--- Password hash for 'VelouraAdmin2026!'
-INSERT INTO users (id, email, password_hash, status, is_email_verified)
-VALUES
-    ('33333333-3333-3333-3333-333333333301', 'admin@velouraliving.com', '$2a$12$e9g0/Y7Y2fL/T8g0mXW7teR4lV5.7bB.6o7U8Yw5b3A0vYf4bQ1K2', 'ACTIVE', TRUE),
-    ('33333333-3333-3333-3333-333333333302', 'concierge@velouraliving.com', '$2a$12$e9g0/Y7Y2fL/T8g0mXW7teR4lV5.7bB.6o7U8Yw5b3A0vYf4bQ1K2', 'ACTIVE', TRUE),
-    ('33333333-3333-3333-3333-333333333303', 'client@example.com', '$2a$12$e9g0/Y7Y2fL/T8g0mXW7teR4lV5.7bB.6o7U8Yw5b3A0vYf4bQ1K2', 'ACTIVE', TRUE)
-ON CONFLICT (email) DO NOTHING;
+-- 4. FOUNDATIONAL STORE DATA
+-- NOTE: The Master Administrator account is created EXCLUSIVELY via the secure
+-- server-side bootstrap command: npm run seed:admin (configured via ADMIN_EMAIL and ADMIN_PASSWORD).
+-- Insecure default administrator credentials and automatic admin seeding have been eliminated.
 
--- ASSIGN USER ROLES
-INSERT INTO user_roles (user_id, role_id)
-VALUES
-    ('33333333-3333-3333-3333-333333333301', '11111111-1111-1111-1111-111111111101'), -- Admin
-    ('33333333-3333-3333-3333-333333333302', '11111111-1111-1111-1111-111111111103'), -- Manager
-    ('33333333-3333-3333-3333-333333333303', '11111111-1111-1111-1111-111111111102')  -- Customer
-ON CONFLICT DO NOTHING;
-
--- PROFILES
-INSERT INTO profiles (user_id, first_name, last_name, phone, preferred_currency, interior_style_preference)
-VALUES
-    ('33333333-3333-3333-3333-333333333301', 'Eleanor', 'Vance', '+91 98200 12345', 'INR', 'Warm Minimalist'),
-    ('33333333-3333-3333-3333-333333333302', 'Julian', 'Mercer', '+91 98200 67890', 'INR', 'Japandi Quietude'),
-    ('33333333-3333-3333-3333-333333333303', 'Aarav', 'Mehta', '+91 98111 22334', 'INR', 'Modern Organic')
-ON CONFLICT (user_id) DO NOTHING;
-
--- ADDRESSES
-INSERT INTO addresses (id, user_id, full_name, phone, address_line1, address_line2, landmark, city, state, postal_code, country, is_default_shipping, is_default_billing)
-VALUES
-    ('44444444-4444-4444-4444-444444444401', '33333333-3333-3333-3333-333333333303', 'Aarav Mehta', '+91 98111 22334', 'Penthouse 42B, The Imperial Towers', 'Tardeo Main Road', 'Near Altamount Road', 'Mumbai', 'Maharashtra', '400034', 'India', TRUE, TRUE)
-ON CONFLICT DO NOTHING;
 
 -- 5. CATEGORIES
 INSERT INTO categories (id, name, slug, description, image_url, display_order, is_active)

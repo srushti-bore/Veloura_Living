@@ -54,6 +54,10 @@ export async function GET(request: NextRequest) {
       avatarUrl: googleUser.picture,
     });
 
+    if (userRecord.roles.includes('ADMIN')) {
+      return NextResponse.redirect(`${baseUrl}/?authError=admin_google_signin_disallowed`);
+    }
+
     // Generate Veloura Living JWT token (valid for 7 days)
     const token = await signToken(userRecord.user.id, userRecord.user.email, userRecord.roles);
 

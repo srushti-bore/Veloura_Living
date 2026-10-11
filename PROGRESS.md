@@ -473,9 +473,33 @@ docker run -p 5000:5000 veloura-backend
   - `tests/run-all-tests.ts`: **221/221 (100%) Passed** across all 19 SRS suites.
   - Root & Backend TypeScript compilation: **0 errors**.
 
+### 22. Phase 22: Secure Single Admin Finalization, PostgreSQL Invariant Enforcer & Zero-Credential Seed Architecture ✅
+- **PostgreSQL Single Admin Invariant & Audit Logging (`supabase/migrations/20261011000004_single_admin_invariant.sql`, `supabase/complete_supabase_setup.sql`, `db/schema.sql`, `db/seed.sql`, `backend/src/db/seed.sql`):**
+  - **Single Admin Invariant Trigger:** Implemented database-level invariant function `check_single_admin_invariant()` and trigger `trg_single_admin_user_roles` on `user_roles`. Strictly rejects (`RAISE EXCEPTION`) any INSERT or UPDATE assigning the `ADMIN` role if another active administrator already exists in the database.
+  - **Audit Ledger (`admin_bootstrap_log`):** Created dedicated audit table recording bootstrap execution history: `admin_user_id`, `admin_email`, `bootstrap_action` (`BOOTSTRAP_CREATED`, `BOOTSTRAP_PRESERVED`, `LEGACY_RECONCILED`), `executor_ip`, `executed_at`, and detailed JSON metadata.
+  - **Unified Master DDL:** Integrated the migration, table schema, and trigger directly into `supabase/complete_supabase_setup.sql` for 1-click cloud synchronization.
+- **Elimination of Insecure Defaults & Demo Passwords (`lib/auth/password.ts`, `backend/src/auth/password.ts`, `lib/data/userRepository.ts`, `backend/src/data/authStore.ts`):**
+  - **Zero Password Shortcuts:** Completely removed mock demo password bypasses (`$2a$` / `$2b$` prefix shortcuts with hardcoded strings like `"admin123"`, `"manager123"`, `"customer123"`). All password verifications now enforce authentic cryptographic bcrypt salt checking.
+  - **Purged Default Privileged Seeds:** Removed all static, hardcoded administrator and manager seeds from runtime initializers (`seedDefaultAccounts()` and `initAuthStore()`) and SQL seed files (`db/seed.sql`, `backend/src/db/seed.sql`).
+  - **Fail-Closed Role Fallbacks:** Hardened authoritative user lookups (`findUserByEmailAuthoritative` and `findUserByIdAuthoritative`) to default to an empty role array (`roles: []`) rather than falling back to privileged defaults.
+- **Self-Promotion Defense & OAuth Takeover Prevention (`lib/data/userRepository.ts`, `app/api/auth/google/callback/route.ts`):**
+  - **Role Sanitization on Registration:** Strips `'ADMIN'` and `'MANAGER'` from any self-service registration requests inside `createUser()`, forcing all user registrations strictly to `['CUSTOMER']`.
+  - **OAuth Account Takeover Defense:** Disallowed Google OAuth sign-in and account linking for accounts with the `ADMIN` role, forcing administrators to authenticate strictly via verified server-side password + mandatory 6-digit OTP credentials.
+- **Enterprise Concurrency-Safe Admin Bootstrap CLI (`scripts/seed-admin.ts`, `package.json`):**
+  - **Transactional Advisory Lock:** Employs PostgreSQL transactional advisory lock (`pg_advisory_xact_lock(6216480572791833921)`) guaranteeing that concurrent CLI bootstrap executions execute serially and cannot create duplicate administrators.
+  - **Environment-Driven Configuration:** Reads strictly from `ADMIN_EMAIL` and `ADMIN_PASSWORD` (minimum 10 characters) with zero hardcoded credentials. Fails closed with clean diagnostics if variables are absent or malformed.
+  - **Automatic Legacy Reconciliation:** Detects existing demo admin accounts (e.g. `admin@velouraliving.com`), safely revokes their administrative privileges, and reassigns exclusive `ADMIN` authority to the owner.
+  - **Idempotency Guarantee:** Preserves existing active admin accounts and does not reset or corrupt active password hashes on subsequent runs.
+  - **Test Environment Scoping:** Isolated CLI environment variable loading inside `main()`, preventing local credential leakage during automated test suite execution.
+- **Automated Verification & Test Status:**
+  - `tests/single-admin-bootstrap.test.ts`: **40/40 (100%) Passed** covering password verification, default seed elimination, fail-closed validation, atomicity, invariants, idempotency, self-promotion defense, and customer data preservation.
+  - `tests/run-all-tests.ts`: **261/261 (100%) Passed** across all 20 test suites.
+  - Root & Backend TypeScript compilation: **0 errors**.
+
 ---
 
 👉 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 👉 **Live Frontend Deployment:** Import `Veloura_Living` on [Vercel](https://vercel.com/new) -> Framework Preset `Next.js` -> Deploy.  
 👉 **Live Standalone Backend:** Deploy `backend` subfolder as Web Service on [Render](https://render.com) -> Node / Docker runtime -> Port 10000.
+
 

@@ -563,3 +563,38 @@ CREATE TABLE IF NOT EXISTS pending_registrations (
 CREATE INDEX IF NOT EXISTS idx_pending_registrations_email ON pending_registrations(email);
 CREATE INDEX IF NOT EXISTS idx_pending_registrations_expires_at ON pending_registrations(expires_at);
 
+-- ============================================================================
+-- 13. SINGLE ADMIN INVARIANT & AUDIT LOG (Phase 2 & Phase 3)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS admin_bootstrap_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_email VARCHAR(255) NOT NULL UNIQUE,
+    admin_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    bootstrapped_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    metadata JSONB DEFAULT '{}'::jsonb
+);
+
+CREATE OR REPLACE FUNCTION check_single_admin_invariant()
+RETURNS TRIGGER AS $$
+DECLARE
+    admin_role_id UUID;
+    admin_count INTEGER;
+BEGIN
+    SELECT id INTO admin_role_id FROM roles WHERE name = 'ADMIN';
+    IF NEW.role_id = admin_role_id THEN
+        SELECT COUNT(*) INTO admin_count FROM user_roles WHERE role_id = admin_role_id AND user_id <> NEW.user_id;
+        IF admin_count >= 1 THEN
+            RAISE EXCEPTION 'Veloura Living Security Invariant: Single Admin Policy strictly permits only ONE account with the ADMIN role. Action rejected.';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_single_admin_user_roles ON user_roles;
+CREATE TRIGGER trg_single_admin_user_roles
+BEFORE INSERT OR UPDATE ON user_roles
+FOR EACH ROW
+EXECUTE FUNCTION check_single_admin_invariant();
+

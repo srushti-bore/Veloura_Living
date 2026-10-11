@@ -48,58 +48,9 @@ export async function initAuthStore() {
   if (isInitialized) return;
   isInitialized = true;
 
-  const defaultPasswordHash = await hashPassword('VelouraAdmin2026!');
+  if (process.env.NODE_ENV === 'production') return;
 
-  // 1. Admin Account
-  globalUsers.set('admin@velouraliving.com', {
-    user: {
-      id: '33333333-3333-3333-3333-333333333301',
-      email: 'admin@velouraliving.com',
-      password_hash: defaultPasswordHash,
-      status: 'ACTIVE',
-      is_email_verified: true,
-      created_at: '2026-10-01T00:00:00Z',
-      updated_at: '2026-10-01T00:00:00Z',
-    },
-    roles: ['ADMIN'],
-    profile: {
-      user_id: '33333333-3333-3333-3333-333333333301',
-      first_name: 'Eleanor',
-      last_name: 'Vance',
-      phone: '+91 98200 12345',
-      avatar_url: '/images/team/eleanor.jpg',
-      preferred_currency: 'INR',
-      interior_style_preference: 'Warm Minimalist',
-      created_at: '2026-10-01T00:00:00Z',
-      updated_at: '2026-10-01T00:00:00Z',
-    },
-    addresses: [],
-  });
-
-  // 2. Concierge / Manager Account
-  globalUsers.set('concierge@velouraliving.com', {
-    user: {
-      id: '33333333-3333-3333-3333-333333333302',
-      email: 'concierge@velouraliving.com',
-      password_hash: defaultPasswordHash,
-      status: 'ACTIVE',
-      is_email_verified: true,
-      created_at: '2026-10-01T00:00:00Z',
-      updated_at: '2026-10-01T00:00:00Z',
-    },
-    roles: ['MANAGER'],
-    profile: {
-      user_id: '33333333-3333-3333-3333-333333333302',
-      first_name: 'Julian',
-      last_name: 'Mercer',
-      phone: '+91 98200 67890',
-      preferred_currency: 'INR',
-      interior_style_preference: 'Japandi Quietude',
-      created_at: '2026-10-01T00:00:00Z',
-      updated_at: '2026-10-01T00:00:00Z',
-    },
-    addresses: [],
-  });
+  const defaultPasswordHash = await hashPassword('VelouraClient2026!');
 
   // 3. Verified Client Account
   globalUsers.set('client@example.com', {
@@ -147,6 +98,10 @@ export async function initAuthStore() {
 
 export function findUserByEmail(email: string): UserRecord | undefined {
   return globalUsers.get(email.toLowerCase().trim());
+}
+
+export function getAllUsers(): UserRecord[] {
+  return Array.from(globalUsers.values());
 }
 
 /**
@@ -227,7 +182,7 @@ export async function findUserByEmailAuthoritative(
       const roles: UserRoleEnum[] =
         rolesRes && rolesRes.rows.length > 0
           ? (rolesRes.rows.map((r: any) => r.role_name as any) as UserRoleEnum[])
-          : ['CUSTOMER'];
+          : [];
 
       // Profiles lookup
       const profRes = await queryPostgres<{
@@ -374,7 +329,7 @@ export async function findUserByIdAuthoritative(
       const roles =
         rolesRes && rolesRes.rows.length > 0
           ? rolesRes.rows.map((r: any) => r.role_name as any)
-          : ['CUSTOMER'];
+          : [];
 
       const profRes = await queryPostgres<{
         user_id: string;

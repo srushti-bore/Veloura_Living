@@ -47,13 +47,7 @@ export async function hashPassword(password: string): Promise<string> {
  * Verify a plain-text password against a stored salt:hash string.
  */
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
-  // Support demo seed hashes (fallback for pre-seeded accounts)
-  if (storedHash.startsWith('$2a$') || storedHash.startsWith('$2b$')) {
-    // For demo seed accounts: allow standard demo password 'VelouraAdmin2026!' or 'password123'
-    if (password === 'VelouraAdmin2026!' || password === 'password123' || password === 'Client2026!') {
-      return true;
-    }
-  }
+  if (!password || !storedHash) return false;
 
   const parts = storedHash.split(':');
   if (parts.length !== 2) return false;

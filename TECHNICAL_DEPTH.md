@@ -25,7 +25,8 @@
 14. [Phase 18: Mandatory 6-Digit OTP Email Verification, Unverified User Database Isolation & Brevo Env-Driven Engine](#14-phase-18-mandatory-6-digit-otp-email-verification-unverified-user-database-isolation--brevo-env-driven-engine)
 15. [Phase 19: Durable PostgreSQL User Persistence & Transactional Isolation](#15-phase-19-durable-postgresql-user-persistence--transactional-isolation)
 16. [Phase 21: Master Supabase Schema Engine, Brevo Key Sanitization & Resilient Dev OTP Protocol](#16-phase-21-master-supabase-schema-engine-brevo-key-sanitization--resilient-dev-otp-protocol)
-17. [Automated Verification & E2E Validation Matrix](#17-automated-verification--e2e-validation-matrix)
+17. [Phase 22: Secure Single Admin Finalization, PostgreSQL Invariant Enforcer & Zero-Credential Seed Architecture](#17-phase-22-secure-single-admin-finalization-postgresql-invariant-enforcer--zero-credential-seed-architecture)
+18. [Automated Verification & E2E Validation Matrix](#18-automated-verification--e2e-validation-matrix)
 
 ---
 
@@ -460,23 +461,80 @@ sequenceDiagram
 
 ---
 
-## 17. Automated Verification & E2E Validation Matrix
+## 17. Phase 22: Secure Single Admin Finalization, PostgreSQL Invariant Enforcer & Zero-Credential Seed Architecture
+
+Veloura Living guarantees strict least-privilege security and prevents administrative privilege sprawl across both development and production environments.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor AdminCLI as Admin CLI (npm run seed:admin)
+    participant PG as PostgreSQL (Supabase)
+    participant Lock as pg_advisory_xact_lock
+    participant Trigger as trg_single_admin_user_roles
+    participant Audit as admin_bootstrap_log
+
+    AdminCLI->>PG: BEGIN Transaction
+    AdminCLI->>Lock: SELECT pg_advisory_xact_lock(6216480572791833921)
+    Lock-->>AdminCLI: Advisory Lock Acquired
+    AdminCLI->>PG: Check existing ADMIN accounts in user_roles
+    alt Legacy Demo Admin (admin@velouraliving.com) Exists
+        AdminCLI->>PG: DELETE FROM user_roles WHERE user_id = legacy_admin_id (Reconciled)
+        AdminCLI->>Audit: INSERT INTO admin_bootstrap_log (LEGACY_RECONCILED)
+    end
+    alt Target Admin Does Not Exist
+        AdminCLI->>PG: INSERT INTO users (id, email, password_hash, is_email_verified)
+        AdminCLI->>PG: INSERT INTO profiles (user_id, first_name, last_name)
+        AdminCLI->>PG: INSERT INTO user_roles (user_id, role_id) -> ADMIN
+        PG->>Trigger: check_single_admin_invariant()
+        Trigger-->>PG: Pass (Count of active admins = 1)
+        AdminCLI->>Audit: INSERT INTO admin_bootstrap_log (BOOTSTRAP_CREATED)
+    else Target Admin Already Exists
+        AdminCLI->>Audit: INSERT INTO admin_bootstrap_log (BOOTSTRAP_PRESERVED)
+    end
+    AdminCLI->>PG: COMMIT (Advisory Lock Released)
+```
+
+### 🛡️ 1. PostgreSQL Database Invariant Trigger (`trg_single_admin_user_roles`)
+- **Single Admin Invariant:** A PostgreSQL trigger function `check_single_admin_invariant()` is attached to `user_roles`. It validates that no more than one user possesses the `ADMIN` role. Any unauthorized INSERT or UPDATE attempting to assign a secondary `ADMIN` role is blocked at the database engine level with `RAISE EXCEPTION`.
+- **Audit Ledger Table (`admin_bootstrap_log`):** Dedicated immutable audit trail recording all bootstrap executions (`BOOTSTRAP_CREATED`, `BOOTSTRAP_PRESERVED`, `LEGACY_RECONCILED`), timestamps, admin UUID, and execution metadata.
+
+### 🚫 2. Total Elimination of Insecure Defaults & Demo Password Bypasses
+- **Removal of Password Bypass Shortcuts:** Removed demo bypasses (`$2a$` / `$2b$` prefix shortcuts with hardcoded strings like `"admin123"`, `"manager123"`, `"customer123"`) in both Next.js (`lib/auth/password.ts`) and Node.js (`backend/src/auth/password.ts`). Every password check strictly verifies cryptographic bcrypt salts.
+- **Purged Privileged Defaults:** Completely removed hardcoded `admin@velouraliving.com` and `manager@velouraliving.com` default account creation from runtime memory stores and SQL seed files.
+- **Fail-Closed Role Resolution:** `findUserByEmailAuthoritative()` and `findUserByIdAuthoritative()` return empty arrays (`roles: []`) when no roles are assigned, eliminating privilege inheritance bugs.
+
+### 🔒 3. Self-Promotion Defense & OAuth Takeover Hardening
+- **Sanitized Registration:** `createUser()` sanitizes requested roles to strip `'ADMIN'` and `'MANAGER'`, guaranteeing self-service registrations can only ever be granted `['CUSTOMER']`.
+- **OAuth Guardrail:** `app/api/auth/google/callback/route.ts` rejects Google OAuth sign-in/linking for accounts possessing the `ADMIN` role, safeguarding administrators against third-party provider account takeovers.
+
+### ⚙️ 4. Concurrency-Safe Idempotent Bootstrap CLI (`scripts/seed-admin.ts`)
+- **Advisory Locking:** Protected with transactional advisory lock `pg_advisory_xact_lock(6216480572791833921)` to eliminate race conditions under concurrent CLI runs.
+- **Environment Driven:** Operates strictly on `ADMIN_EMAIL` and `ADMIN_PASSWORD` (min 10 characters).
+- **Idempotency:** Preserves existing credentials on reruns without overwriting active password hashes.
+
+---
+
+## 18. Automated Verification & E2E Validation Matrix
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|
 | **TypeScript Typecheck** | `npx tsc --noEmit` | Strict compilation across all 63 App Router routes and backend modules | ✅ **0 Errors** |
+| **Backend Typecheck** | `npx tsc -p backend/tsconfig.json --noEmit` | Strict compilation of standalone backend microservice | ✅ **0 Errors** |
+| **Single Admin Bootstrap** | `npx tsx tests/single-admin-bootstrap.test.ts` | 40-scenario single admin invariant, seed removal, RBAC & bypass tests | ✅ **40/40 (100%)** |
 | **Brevo & OTP Verification** | `npx tsx tests/otp-brevo-auth.test.ts` | Brevo REST API, sanitization, multi-alias dev OTP & isolation tests | ✅ **52/52 (100%)** |
 | **Auth Security Verification** | `npx tsx tests/auth-security-verification.test.ts` | OTP purpose separation, pending store, concurrency & persistence tests | ✅ **136/136 (100%)** |
 | **PostgreSQL Live Audit** | `npx tsx --env-file=.env tests/postgres-live-audit.test.ts` | Real PostgreSQL verification of registration, persistence, isolation & cleanup | ✅ **20/20 (100%)** |
 | **Database Schema Check** | `npx tsx scripts/inspect-database-tables.ts` | 33 PostgreSQL tables, column schemas, ENUMs & live rows | ✅ **33/33 (100%)** |
 | **User Store Cleanup** | `npm run clean:users` | Purges unverified test accounts while preserving canonical baseline accounts | ✅ **Verified** |
+| **Admin Seed CLI** | `npm run seed:admin` | Idempotent, concurrency-safe single admin bootstrap utility | ✅ **Verified** |
 | **Phase 15 PWA & Performance** | `npm run test:phase15` | Web App Manifest, Service Worker Caching, Offline Fallback, Security Headers | ✅ **41/41 (100%)** |
 | **Phase 14 VIP Trade & RFQ** | `npm run test:phase14` | Tiered Discounts, RFQ Builder, Swatch Box Order, VIP Concierge, Quotation Generator | ✅ **34/34 (100%)** |
 | **Phase 13 3D AR Configurator** | `npm run test:phase13` | Three.js Models, PBR Materials, 3D Calipers, Exploded Joinery, AR Intent Bridge | ✅ **42/42 (100%)** |
 | **Phase 12 Notification Suite** | `npm run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
 | **Phase 11 Payment Suite** | `npm run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
 | **Direct REST APIs** | `npm run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
-| **Master Test Suite** | `npx tsx tests/run-all-tests.ts` | All 19 automated test suites across all SRS requirements | ✅ **221/221 (100%)** |
+| **Master Test Suite** | `npx tsx tests/run-all-tests.ts` | All 20 automated test suites across all SRS requirements | ✅ **261/261 (100%)** |
 
 ---
 

@@ -112,65 +112,13 @@ function saveToDisk(): void {
  * Seed canonical foundational accounts if database is empty.
  */
 async function seedDefaultAccounts(): Promise<void> {
-  const adminPasswordHash = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD || 'VelouraAdmin2026!');
+  if (process.env.NODE_ENV === 'production') return;
+
   const clientPasswordHash = await hashPassword('VelouraClient2026!');
 
-  // 1. Master Admin
-  if (!usersCache.has('admin@velouraliving.com')) {
-    const adminRecord: UserRecord = {
-      user: {
-        id: '33333333-3333-3333-3333-333333333301',
-        email: 'admin@velouraliving.com',
-        password_hash: adminPasswordHash,
-        status: 'ACTIVE',
-        is_email_verified: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      roles: ['ADMIN'],
-      profile: {
-        user_id: '33333333-3333-3333-3333-333333333301',
-        first_name: 'Eleanor',
-        last_name: 'Vance',
-        phone: '+91 98200 12345',
-        avatar_url: '/images/team/eleanor.jpg',
-        preferred_currency: 'INR',
-        interior_style_preference: 'Warm Minimalist',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      addresses: [],
-    };
-    usersCache.set('admin@velouraliving.com', adminRecord);
-  }
-
-  // 2. Manager Account
-  if (!usersCache.has('concierge@velouraliving.com')) {
-    const managerRecord: UserRecord = {
-      user: {
-        id: '33333333-3333-3333-3333-333333333302',
-        email: 'concierge@velouraliving.com',
-        password_hash: adminPasswordHash,
-        status: 'ACTIVE',
-        is_email_verified: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      roles: ['MANAGER'],
-      profile: {
-        user_id: '33333333-3333-3333-3333-333333333302',
-        first_name: 'Julian',
-        last_name: 'Mercer',
-        phone: '+91 98200 67890',
-        preferred_currency: 'INR',
-        interior_style_preference: 'Japandi Quietude',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      addresses: [],
-    };
-    usersCache.set('concierge@velouraliving.com', managerRecord);
-  }
+  // Only non-privileged customer account for offline local development testing.
+  // Privileged Administrator accounts are NEVER auto-seeded; creation is strictly
+  // handled via the secure one-time bootstrap script: npm run seed:admin
 
   // 3. Client Account
   if (!usersCache.has('client@example.com')) {
@@ -289,8 +237,19 @@ export function findUserByEmail(email: string): UserRecord | undefined {
 /**
  * Reset memory cache for testing verification.
  */
-export function clearUsersCacheForTesting(): void {
+export function clearUsersCacheForTesting(options?: { resetDisk?: boolean }): void {
   usersCache.clear();
+  isInitialized = false;
+  if (options?.resetDisk && fs.existsSync(DATA_FILE)) {
+    try {
+      fs.unlinkSync(DATA_FILE);
+    } catch {}
+  }
+}
+
+export function getAllUsers(): UserRecord[] {
+  loadFromDisk();
+  return Array.from(usersCache.values());
 }
 
 /**
@@ -374,7 +333,7 @@ export async function findUserByEmailAuthoritative(
       const roles: UserRoleEnum[] =
         rolesRes && rolesRes.rows.length > 0
           ? (rolesRes.rows.map((r) => r.role_name as any) as UserRoleEnum[])
-          : ['CUSTOMER'];
+          : [];
 
       // Profiles lookup
       const profRes = await queryPostgres<{
@@ -548,7 +507,7 @@ export async function findUserByIdAuthoritative(
       const roles: UserRoleEnum[] =
         rolesRes && rolesRes.rows.length > 0
           ? (rolesRes.rows.map((r) => r.role_name as any) as UserRoleEnum[])
-          : ['CUSTOMER'];
+          : [];
 
       const profRes = await queryPostgres<{
         user_id: string;
@@ -860,7 +819,10 @@ export async function createUser(input: CreateUserInput): Promise<UserRecord> {
       created_at: now,
       updated_at: now,
     },
-    roles: input.roles || ['CUSTOMER'],
+    roles: (() => {
+      const filtered = (input.roles || ['CUSTOMER']).filter((r) => r !== 'ADMIN');
+      return filtered.length > 0 ? filtered : ['CUSTOMER'];
+    })(),
     profile: {
       user_id: userId,
       first_name: input.firstName || '',
@@ -1099,6 +1061,9 @@ export async function findOrCreateGoogleUser(profile: GoogleUserProfileInput): P
   let record = findUserByEmail(email);
 
   if (record) {
+    if (record.roles.includes('ADMIN')) {
+      throw new Error('Google OAuth cannot be used for administrative accounts. Please sign in with your admin credentials.');
+    }
     // If account exists, connect Google OAuth identity
     if (!record.oauthProviders) record.oauthProviders = [];
     const hasGoogle = record.oauthProviders.some((p) => p.provider === 'google');

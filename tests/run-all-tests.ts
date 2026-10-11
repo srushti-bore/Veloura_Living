@@ -9,6 +9,7 @@ import { runAuthSecurityTests } from './auth-security.test';
 import { runPostPurchaseTests } from './post-purchase.test';
 import { runOtpBrevoTestSuite } from './otp-brevo-auth.test';
 import { runAuthSecurityVerificationTests } from './auth-security-verification.test';
+import { runSingleAdminBootstrapTests } from './single-admin-bootstrap.test';
 
 async function main() {
   console.log('===========================================================');
@@ -54,6 +55,12 @@ async function main() {
   totalPassed += res6.passed;
   totalFailed += res6.failed;
   allErrors.push(...res6.errors);
+
+  // 7. Secure Single Admin & Bootstrap Invariants
+  const res7 = await runSingleAdminBootstrapTests();
+  totalPassed += res7.passed;
+  totalFailed += res7.failed;
+  allErrors.push(...res7.errors);
 
   console.log('\n===========================================================');
   console.log(`📊 TEST EXECUTION SUMMARY:`);

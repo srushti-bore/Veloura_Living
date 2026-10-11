@@ -13,10 +13,11 @@ import { queryPostgres, isPostgresAvailable } from '../lib/db/postgres';
 const DATA_FILE = path.join(process.cwd(), '.data', 'users_store.json');
 
 const CANONICAL_EMAILS = [
+  ...(process.env.ADMIN_EMAIL ? [process.env.ADMIN_EMAIL.toLowerCase().trim()] : []),
   'admin@velouraliving.com',
   'concierge@velouraliving.com',
   'client@example.com',
-];
+].filter((email, index, self) => self.indexOf(email) === index);
 
 async function cleanUsers() {
   const isDryRun = process.argv.includes('--dry-run');
