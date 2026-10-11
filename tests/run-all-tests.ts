@@ -10,6 +10,7 @@ import { runPostPurchaseTests } from './post-purchase.test';
 import { runOtpBrevoTestSuite } from './otp-brevo-auth.test';
 import { runAuthSecurityVerificationTests } from './auth-security-verification.test';
 import { runSingleAdminBootstrapTests } from './single-admin-bootstrap.test';
+import { runStrictAuthFlowTests } from './strict-auth-flow-verification.test';
 
 async function main() {
   console.log('===========================================================');
@@ -61,6 +62,12 @@ async function main() {
   totalPassed += res7.passed;
   totalFailed += res7.failed;
   allErrors.push(...res7.errors);
+
+  // 8. Strict Registration, Login & Success Flow Verification (9 Scenarios)
+  const res8 = await runStrictAuthFlowTests();
+  totalPassed += res8.passed;
+  totalFailed += res8.failed;
+  allErrors.push(...res8.errors);
 
   console.log('\n===========================================================');
   console.log(`📊 TEST EXECUTION SUMMARY:`);

@@ -59,6 +59,7 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
     register,
     verifyOtp,
     resendOtp,
+    clearSession,
   } = useAuth();
 
   // Internal view state for standalone page, or synced with modal
@@ -71,6 +72,8 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [authenticatedUserName, setAuthenticatedUserName] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
@@ -88,9 +91,10 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isStandalone, isAuthModalOpen, closeAuthModal]);
 
-  // If already authenticated and on standalone /login page, redirect according to server-verified role
+  // If already authenticated and on standalone /login page on initial landing, redirect according to server-verified role.
+  // Never prematurely redirect while the user is viewing the Login Successful screen!
   useEffect(() => {
-    if (isStandalone && isAuthenticated && user) {
+    if (isStandalone && isAuthenticated && user && !isSuccess && activeView !== 'success') {
       if (user.roles?.includes('ADMIN')) {
         router.push('/admin');
       } else if (returnUrl) {
@@ -99,7 +103,7 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
         router.push('/account');
       }
     }
-  }, [isStandalone, isAuthenticated, user, router, returnUrl]);
+  }, [isStandalone, isAuthenticated, user, router, returnUrl, isSuccess, activeView]);
 
   const setViewMode = useCallback(
     (view: AuthViewMode) => {
@@ -107,6 +111,7 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
       setNoticeMessage(null);
       setIsVerifying(false);
       setIsSuccess(false);
+      setIsRedirecting(false);
       if (view !== 'signin') setSuccessMessage(null);
 
       if (isStandalone || view === 'processing' || view === 'success') {
@@ -142,8 +147,10 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
       setPrefilledEmail(credentials.email);
       setViewMode('otp');
     } else {
-      // Direct success fallback
-      await handlePostAuthRedirect();
+      // In case server bypassed OTP, show reference-matched Login Successful with Continue button
+      const resolvedName = user?.profile?.firstName || credentials.email.split('@')[0] || 'User';
+      setAuthenticatedUserName(resolvedName);
+      setIsSuccess(true);
     }
     return res;
   };
@@ -179,6 +186,7 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
   const handleVerifyOtp = async (otp: string) => {
     const targetEmail = otpChallenge?.email || prefilledEmail;
     const challengeToken = otpChallenge?.challengeToken || '';
+    const challengeType = otpChallenge?.type || 'LOGIN';
 
     setIsLoading(true);
     setIsVerifying(true);
@@ -196,14 +204,39 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
         setIsVerifying(false);
         setIsLoading(false);
         setErrorMessage(res.message || 'Invalid verification code. Please check and try again.');
-      } else {
-        setIsVerifying(false);
-        setIsSuccess(true);
-        // Show Login Successful! screen before authoritative role-based redirect
-        setTimeout(async () => {
-          await handlePostAuthRedirect();
-        }, 900);
+        return res;
       }
+
+      // Strict Flow 1: New User Registration Flow
+      if (challengeType === 'REGISTER') {
+        // Step 5 & 6: The new Customer account is created and persisted securely.
+        // Direct the user to the existing Sign In view because authentication requires separate login.
+        // Completing registration alone must NOT display the Login Successful screen
+        // or grant an active authenticated session.
+        await clearSession();
+        setIsVerifying(false);
+        setIsLoading(false);
+        setIsSuccess(false);
+        setPrefilledEmail(targetEmail);
+        setSuccessMessage('Account created and verified successfully. Please enter your password to sign in.');
+        setViewMode('signin');
+        return res;
+      }
+
+      // Strict Flow 2: Existing User (or New User who signed in) Login OTP Flow
+      // Step 8 & 9: Server verified login OTP. Valid authenticated session established.
+      // Only now display the Login Successful screen matching the attached reference image!
+      setIsVerifying(false);
+      setIsLoading(false);
+      const resolvedName =
+        res.user?.profile?.firstName ||
+        user?.profile?.firstName ||
+        res.user?.email?.split('@')[0] ||
+        user?.email?.split('@')[0] ||
+        'User';
+      setAuthenticatedUserName(resolvedName);
+      setIsSuccess(true);
+      // Wait for user to click "Continue" button — do NOT auto-redirect!
       return res;
     } catch {
       setIsVerifying(false);
@@ -224,8 +257,9 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
     return res;
   };
 
-  // Authoritative server-verified role-based redirect
+  // Authoritative server-verified role-based redirect executed upon Continue click
   const handlePostAuthRedirect = async () => {
+    setIsRedirecting(true);
     if (onSuccess) onSuccess();
 
     try {
@@ -293,7 +327,16 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
       {isProcessingScreen ? (
         <OtpProcessingView />
       ) : isSuccessScreen ? (
-        <AuthSuccessView />
+        <AuthSuccessView
+          userName={
+            authenticatedUserName ||
+            user?.profile?.firstName ||
+            user?.email?.split('@')[0] ||
+            'User'
+          }
+          onContinue={handlePostAuthRedirect}
+          isLoading={isRedirecting}
+        />
       ) : (
         <div className="flex flex-col justify-between h-full space-y-5">
           {/* Top Header with official logo and view heading */}

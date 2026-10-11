@@ -26,9 +26,10 @@ interface AuthContextType {
   closeAuthModal: () => void;
   login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; requiresOtp?: boolean; challengeToken?: string; email?: string; message?: string }>;
   register: (data: { email: string; password: string; firstName?: string; lastName?: string; phone?: string }) => Promise<{ success: boolean; requiresOtp?: boolean; challengeToken?: string; email?: string; message?: string }>;
-  verifyOtp: (params: { email: string; challengeToken: string; otp: string }) => Promise<{ success: boolean; message?: string }>;
+  verifyOtp: (params: { email: string; challengeToken: string; otp: string }) => Promise<{ success: boolean; message?: string; user?: UserSession }>;
   resendOtp: (params: { email: string; challengeToken: string }) => Promise<{ success: boolean; message?: string; cooldownSeconds?: number }>;
   logout: () => Promise<void>;
+  clearSession: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateProfile: (profileData: Partial<DbProfile>) => Promise<boolean>;
   addAddress: (addressData: any) => Promise<DbAddress | null>;
@@ -227,11 +228,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       await refreshUser();
-      closeAuthModal();
+      // Keep modal open so the reference-matched Login Successful screen can be displayed
       setOtpChallenge(null);
-      return { success: true };
+      return { success: true, user: data.data?.user };
     } catch {
       return { success: false, message: 'Network error during verification.' };
+    }
+  };
+
+  const clearSession = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } finally {
+      setUser(null);
+      setProfile(null);
+      setAddresses([]);
+      setPermissions([]);
+      setOtpChallenge(null);
     }
   };
 
@@ -361,6 +374,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verifyOtp,
         resendOtp,
         logout,
+        clearSession,
         refreshUser,
         updateProfile,
         addAddress,
