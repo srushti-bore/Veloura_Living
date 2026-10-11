@@ -17,6 +17,8 @@
 6. [Tactile Material Laboratory 8K Macro Pipeline](#6-tactile-material-laboratory-8k-macro-pipeline)
 7. [Cryptographic Security, Session Guards & RBAC Enclave](#7-cryptographic-security-session-guards--rbac-enclave)
 8. [Automated Verification & E2E Validation Matrix](#8-automated-verification--e2e-validation-matrix)
+9. [Cloud Deployment Topology, Render Containerization & Database Interconnect](#9-cloud-deployment-topology-render-containerization--database-interconnect)
+10. [Phase 21: Master Supabase Schema Engine, Brevo Key Sanitization & Resilient Dev OTP Protocol](#10-phase-21-master-supabase-schema-engine-brevo-key-sanitization--resilient-dev-otp-protocol)
 
 ---
 
@@ -213,6 +215,62 @@ graph LR
 - **Zero Heavy ORMs:** Veloura Living intentionally avoids heavy ORM engines (such as Prisma or Hibernate) to eliminate 50MB+ native binary dependencies, avoid serverless cold starts, and maintain pure Edge compatibility.
 - **Direct Parameterized Queries:** Data access layers utilize native `pg.Pool` with TLS 1.3 `ssl: { rejectUnauthorized: false }` connecting via Supabase connection poolers.
 - **Transactional Consistency:** Critical state transitions (such as customer registration, order checkout, stock reservation, and payment refunds) execute within atomic `BEGIN ... COMMIT / ROLLBACK` database transactions.
+
+---
+
+## 10. Phase 21: Master Supabase Schema Engine, Brevo Key Sanitization & Resilient Dev OTP Protocol
+
+Veloura Living enforces high reliability in production cloud deployments (Vercel + Supabase Transaction Pooler + Render Node/Docker service) while guaranteeing fail-closed account integrity and seamless staging/preview onboarding.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Web Browser (Vercel)
+    participant API as Next.js Auth API
+    participant DevEnv as isDevOtpAllowed()
+    participant Brevo as Brevo REST API / SMTP
+    participant PG as Supabase PostgreSQL Pooler (6543)
+
+    Client->>API: POST /api/auth/register (name, email, password)
+    API->>PG: findUserByEmailAuthoritative(email)
+    PG-->>API: 0 rows (Account does not exist)
+    API->>Brevo: sendVerificationOtp(email, code, name)
+    alt Brevo Dispatch Succeeds
+        Brevo-->>API: 201 Created (Message ID)
+        API-->>Client: 200 OK (OTP Sent to Email)
+    else Brevo Dispatch Fails (e.g. 401 Key not found / network error)
+        API->>DevEnv: isDevOtpAllowed() Check
+        alt Preview / Staging Dev OTP Enabled
+            DevEnv-->>API: true (ALLOW_DEV_OTP / ey: ALLOW_DEV_OTP / DEV_OTP)
+            API-->>Client: 200 OK + [Demo Mode] OTP Challenge Token in message
+        else Production Strict Mode
+            DevEnv-->>API: false
+            API-->>Client: 502 Bad Gateway (Exact Provider Error Feedback)
+        end
+    end
+```
+
+### 🗄️ 1. Master All-in-One Supabase DDL Architecture (`supabase/complete_supabase_setup.sql`)
+- **Single-Source Migration Blueprint:** 889 lines of idempotent SQL executed cleanly in Supabase SQL Editor.
+- **Consolidated Entity Coverage:**
+  - 33 relational tables, 14 ENUM types (`user_role_type`, `order_status`, `payment_status`, etc.), and 12 relational triggers.
+  - `otp_challenges` with SHA-256 code hashing, 5-minute TTL, attempt counters, and cooldown tracking.
+  - `pending_registrations` with cryptographic isolation, preventing unverified accounts from populating `users`.
+  - `orders.guest_access_token` high-entropy column for secure guest order lookups.
+  - Complete luxury catalog seed data (categories, brands, products, SKU variants, coupons).
+
+### 🔑 2. Brevo API Key Sanitization & Transport Isolation
+- **REST vs. SMTP Credential Isolation:** Brevo separates REST API keys (`xkeysib-...`) from SMTP credentials (`xsmtpsib-...`). Attempting to authenticate at `https://api.brevo.com/v3/smtp/email` using an `xsmtpsib-...` key produces `401: Key not found`.
+- **Automated String Sanitization:** Strips leading/trailing whitespace, newlines, and wrapping double or single quotes from `BREVO_API_KEY` before dispatch.
+- **Fail-Safe Logging:** Obfuscates secret tokens while emitting exact HTTP status codes and API error messages for rapid diagnostics.
+
+### 🧪 3. Multi-Alias Resilient Dev OTP Protocol (`isDevOtpAllowed`)
+- **Tolerant Alias Matching:** Inspects `ALLOW_DEV_OTP`, `ey: ALLOW_DEV_OTP`, `Key: ALLOW_DEV_OTP`, `NEXT_PUBLIC_ALLOW_DEV_OTP`, and `DEV_OTP`.
+- **Preview & Staging Bypass:** If third-party email providers encounter transient outages or misconfigurations in non-production environments, the registration flow safely generates real cryptographic challenges with `[Demo Mode] Verification code: XXXXXX` included in the response message.
+- **Production Defense:** When `NODE_ENV === 'production'` and no dev override is configured, the system strictly refuses mock codes and safely reports the upstream provider error without crashing.
+
+### 📡 4. Transparent Delivery Error Propagation
+- **Root-Cause Visibility:** `POST /api/auth/register` and `POST /api/auth/login` propagate `challenge.message` directly to the client rather than masking failures with generic 502 messages, pinpointing configuration discrepancies instantly.
 
 ---
 

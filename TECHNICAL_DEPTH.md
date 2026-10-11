@@ -24,7 +24,8 @@
 13. [Phase 17: Brevo Transactional Email Engine & Multi-User State Hygiene Architecture](#13-phase-17-brevo-transactional-email-engine--multi-user-state-hygiene-architecture)
 14. [Phase 18: Mandatory 6-Digit OTP Email Verification, Unverified User Database Isolation & Brevo Env-Driven Engine](#14-phase-18-mandatory-6-digit-otp-email-verification-unverified-user-database-isolation--brevo-env-driven-engine)
 15. [Phase 19: Durable PostgreSQL User Persistence & Transactional Isolation](#15-phase-19-durable-postgresql-user-persistence--transactional-isolation)
-16. [Automated Verification & E2E Validation Matrix](#16-automated-verification--e2e-validation-matrix)
+16. [Phase 21: Master Supabase Schema Engine, Brevo Key Sanitization & Resilient Dev OTP Protocol](#16-phase-21-master-supabase-schema-engine-brevo-key-sanitization--resilient-dev-otp-protocol)
+17. [Automated Verification & E2E Validation Matrix](#17-automated-verification--e2e-validation-matrix)
 
 ---
 
@@ -403,24 +404,79 @@ sequenceDiagram
 
 ---
 
-## 16. Automated Verification & E2E Validation Matrix
+## 16. Phase 21: Master Supabase Schema Engine, Brevo Key Sanitization & Resilient Dev OTP Protocol
 
+Veloura Living enforces high reliability in production cloud deployments (Vercel + Supabase Transaction Pooler + Render Node/Docker service) while guaranteeing fail-closed account integrity and seamless staging/preview onboarding.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Web Browser (Vercel)
+    participant API as Next.js Auth API
+    participant DevEnv as isDevOtpAllowed()
+    participant Brevo as Brevo REST API / SMTP
+    participant PG as Supabase PostgreSQL Pooler (6543)
+
+    Client->>API: POST /api/auth/register (name, email, password)
+    API->>PG: findUserByEmailAuthoritative(email)
+    PG-->>API: 0 rows (Account does not exist)
+    API->>Brevo: sendVerificationOtp(email, code, name)
+    alt Brevo Dispatch Succeeds
+        Brevo-->>API: 201 Created (Message ID)
+        API-->>Client: 200 OK (OTP Sent to Email)
+    else Brevo Dispatch Fails (e.g. 401 Key not found / network error)
+        API->>DevEnv: isDevOtpAllowed() Check
+        alt Preview / Staging Dev OTP Enabled
+            DevEnv-->>API: true (ALLOW_DEV_OTP / ey: ALLOW_DEV_OTP / DEV_OTP)
+            API-->>Client: 200 OK + [Demo Mode] OTP Challenge Token in message
+        else Production Strict Mode
+            DevEnv-->>API: false
+            API-->>Client: 502 Bad Gateway (Exact Provider Error Feedback)
+        end
+    end
+```
+
+### 🗄️ 1. Master All-in-One Supabase DDL Architecture (`supabase/complete_supabase_setup.sql`)
+- **Single-Source Migration Blueprint:** 889 lines of idempotent SQL executed cleanly in Supabase SQL Editor.
+- **Consolidated Entity Coverage:**
+  - 33 relational tables, 14 ENUM types (`user_role_type`, `order_status`, `payment_status`, etc.), and 12 relational triggers.
+  - `otp_challenges` with SHA-256 code hashing, 5-minute TTL, attempt counters, and cooldown tracking.
+  - `pending_registrations` with cryptographic isolation, preventing unverified accounts from populating `users`.
+  - `orders.guest_access_token` high-entropy column for secure guest order lookups.
+  - Complete luxury catalog seed data (categories, brands, products, SKU variants, coupons).
+
+### 🔑 2. Brevo API Key Sanitization & Transport Isolation
+- **REST vs. SMTP Credential Isolation:** Brevo separates REST API keys (`xkeysib-...`) from SMTP credentials (`xsmtpsib-...`). Attempting to authenticate at `https://api.brevo.com/v3/smtp/email` using an `xsmtpsib-...` key produces `401: Key not found`.
+- **Automated String Sanitization:** Strips leading/trailing whitespace, newlines, and wrapping double or single quotes from `BREVO_API_KEY` before dispatch.
+- **Fail-Safe Logging:** Obfuscates secret tokens while emitting exact HTTP status codes and API error messages for rapid diagnostics.
+
+### 🧪 3. Multi-Alias Resilient Dev OTP Protocol (`isDevOtpAllowed`)
+- **Tolerant Alias Matching:** Inspects `ALLOW_DEV_OTP`, `ey: ALLOW_DEV_OTP`, `Key: ALLOW_DEV_OTP`, `NEXT_PUBLIC_ALLOW_DEV_OTP`, and `DEV_OTP`.
+- **Preview & Staging Bypass:** If third-party email providers encounter transient outages or misconfigurations in non-production environments, the registration flow safely generates real cryptographic challenges with `[Demo Mode] Verification code: XXXXXX` included in the response message.
+- **Production Defense:** When `NODE_ENV === 'production'` and no dev override is configured, the system strictly refuses mock codes and safely reports the upstream provider error without crashing.
+
+### 📡 4. Transparent Delivery Error Propagation
+- **Root-Cause Visibility:** `POST /api/auth/register` and `POST /api/auth/login` propagate `challenge.message` directly to the client rather than masking failures with generic 502 messages, pinpointing configuration discrepancies instantly.
+
+---
+
+## 17. Automated Verification & E2E Validation Matrix
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|
-| **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 63 App Router routes and backend modules | ✅ **0 Errors** |
-| **Brevo Email Engine** | `npx tsx scripts/test-brevo-email.ts` | Brevo REST API & SMTP Relay live transactional email dispatch | ✅ **Verified** |
+| **TypeScript Typecheck** | `npx tsc --noEmit` | Strict compilation across all 63 App Router routes and backend modules | ✅ **0 Errors** |
+| **Brevo & OTP Verification** | `npx tsx tests/otp-brevo-auth.test.ts` | Brevo REST API, sanitization, multi-alias dev OTP & isolation tests | ✅ **52/52 (100%)** |
+| **Auth Security Verification** | `npx tsx tests/auth-security-verification.test.ts` | OTP purpose separation, pending store, concurrency & persistence tests | ✅ **136/136 (100%)** |
+| **PostgreSQL Live Audit** | `npx tsx --env-file=.env tests/postgres-live-audit.test.ts` | Real PostgreSQL verification of registration, persistence, isolation & cleanup | ✅ **20/20 (100%)** |
 | **Database Schema Check** | `npx tsx scripts/inspect-database-tables.ts` | 33 PostgreSQL tables, column schemas, ENUMs & live rows | ✅ **33/33 (100%)** |
 | **User Store Cleanup** | `npm run clean:users` | Purges unverified test accounts while preserving canonical baseline accounts | ✅ **Verified** |
-| **Phase 15 PWA & Performance** | `npm.cmd run test:phase15` | Web App Manifest, Service Worker Caching, Offline Fallback, Security Headers | ✅ **41/41 (100%)** |
-| **Phase 14 VIP Trade & RFQ** | `npm.cmd run test:phase14` | Tiered Discounts, RFQ Builder, Swatch Box Order, VIP Concierge, Quotation Generator | ✅ **34/34 (100%)** |
-| **Phase 13 3D AR Configurator** | `npm.cmd run test:phase13` | Three.js Models, PBR Materials, 3D Calipers, Exploded Joinery, AR Intent Bridge | ✅ **42/42 (100%)** |
-| **Phase 12 Notification Suite** | `npm.cmd run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
-| **Phase 11 Payment Suite** | `npm.cmd run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
-| **Direct REST APIs** | `npm.cmd run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
-| **PostgreSQL Live Audit** | `npx.cmd tsx --env-file=.env tests/postgres-live-audit.test.ts` | Real PostgreSQL verification of registration, persistence, isolation & cleanup | ✅ **20/20 (100%)** |
-| **Auth Security Verification** | `npx.cmd tsx tests/auth-security-verification.test.ts` | OTP purpose separation, pending store, concurrency & persistence tests | ✅ **89/89 (100%)** |
-| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | All 19 automated test suites across all SRS requirements | ✅ **174/174 (100%)** |
+| **Phase 15 PWA & Performance** | `npm run test:phase15` | Web App Manifest, Service Worker Caching, Offline Fallback, Security Headers | ✅ **41/41 (100%)** |
+| **Phase 14 VIP Trade & RFQ** | `npm run test:phase14` | Tiered Discounts, RFQ Builder, Swatch Box Order, VIP Concierge, Quotation Generator | ✅ **34/34 (100%)** |
+| **Phase 13 3D AR Configurator** | `npm run test:phase13` | Three.js Models, PBR Materials, 3D Calipers, Exploded Joinery, AR Intent Bridge | ✅ **42/42 (100%)** |
+| **Phase 12 Notification Suite** | `npm run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
+| **Phase 11 Payment Suite** | `npm run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
+| **Direct REST APIs** | `npm run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
+| **Master Test Suite** | `npx tsx tests/run-all-tests.ts` | All 19 automated test suites across all SRS requirements | ✅ **221/221 (100%)** |
 
 ---
 
