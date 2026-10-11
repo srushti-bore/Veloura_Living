@@ -82,7 +82,161 @@ function loadOrdersFromDisk(): void {
   }
 }
 
+// Canonical reference orders matching the exact admin dashboard design
+const refOrders: DetailedOrder[] = [
+  {
+    id: 'ord-ref-1248',
+    order_number: 'VL001248',
+    user_id: 'user-priya-sharma',
+    status: 'DELIVERED',
+    payment_status: 'SUCCESS',
+    subtotal: 3499.0,
+    discount_total: 0.0,
+    tax_total: 0.0,
+    shipping_total: 0.0,
+    grand_total: 3499.0,
+    customer_info: {
+      full_name: 'Priya Sharma',
+      email: 'priya.sharma@example.com',
+      phone: '+91 98200 11223',
+      shipping_address: 'Flat 402, Lotus Grand, Indiranagar',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      postal_code: '560038',
+    },
+    items: [
+      {
+        id: 'item-ref-1248',
+        order_id: 'ord-ref-1248',
+        variant_id: 'var-aurelia-sofa',
+        product_name: 'Aurelia Minimalist Cushion Set',
+        sku: 'VEL-AUR-CSH',
+        unit_price: 3499.0,
+        quantity: 1,
+        total_price: 3499.0,
+        created_at: '2026-04-12T14:30:00Z',
+      },
+    ],
+    created_at: '2026-04-12T14:30:00Z',
+    updated_at: '2026-04-12T17:00:00Z',
+  },
+  {
+    id: 'ord-ref-1247',
+    order_number: 'VL001247',
+    user_id: 'user-rohit-mehta',
+    status: 'PROCESSING',
+    payment_status: 'SUCCESS',
+    subtotal: 6999.0,
+    discount_total: 0.0,
+    tax_total: 0.0,
+    shipping_total: 0.0,
+    grand_total: 6999.0,
+    customer_info: {
+      full_name: 'Rohit Mehta',
+      email: 'rohit.mehta@example.com',
+      phone: '+91 98333 44556',
+      shipping_address: 'Villa 18, Palm Meadows, Whitefield',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      postal_code: '560066',
+    },
+    items: [
+      {
+        id: 'item-ref-1247',
+        order_id: 'ord-ref-1247',
+        variant_id: 'var-linen-duvet',
+        product_name: 'Pure French Linen Quilt & Shams',
+        sku: 'VEL-LIN-QTS',
+        unit_price: 6999.0,
+        quantity: 1,
+        total_price: 6999.0,
+        created_at: '2026-04-12T10:15:00Z',
+      },
+    ],
+    created_at: '2026-04-12T10:15:00Z',
+    updated_at: '2026-04-12T10:20:00Z',
+  },
+  {
+    id: 'ord-ref-1246',
+    order_number: 'VL001246',
+    user_id: 'user-neha-patel',
+    status: 'SHIPPED',
+    payment_status: 'SUCCESS',
+    subtotal: 2499.0,
+    discount_total: 0.0,
+    tax_total: 0.0,
+    shipping_total: 0.0,
+    grand_total: 2499.0,
+    customer_info: {
+      full_name: 'Neha Patel',
+      email: 'neha.patel@example.com',
+      phone: '+91 98444 77889',
+      shipping_address: 'B-1204, Oberoi Sky City, Borivali East',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      postal_code: '400066',
+    },
+    items: [
+      {
+        id: 'item-ref-1246',
+        order_id: 'ord-ref-1246',
+        variant_id: 'var-travertine-tray',
+        product_name: 'Hand-Carved Travertine Catchall Tray',
+        sku: 'VEL-TRV-TRY',
+        unit_price: 2499.0,
+        quantity: 1,
+        total_price: 2499.0,
+        created_at: '2026-04-11T16:45:00Z',
+      },
+    ],
+    created_at: '2026-04-11T16:45:00Z',
+    updated_at: '2026-04-12T09:00:00Z',
+  },
+  {
+    id: 'ord-ref-1245',
+    order_number: 'VL001245',
+    user_id: 'user-arjun-rao',
+    status: 'DELIVERED',
+    payment_status: 'SUCCESS',
+    subtotal: 4999.0,
+    discount_total: 0.0,
+    tax_total: 0.0,
+    shipping_total: 0.0,
+    grand_total: 4999.0,
+    customer_info: {
+      full_name: 'Arjun Rao',
+      email: 'arjun.rao@example.com',
+      phone: '+91 98555 99001',
+      shipping_address: 'Plot 77, Jubilee Hills, Road No. 36',
+      city: 'Hyderabad',
+      state: 'Telangana',
+      postal_code: '500033',
+    },
+    items: [
+      {
+        id: 'item-ref-1245',
+        order_id: 'ord-ref-1245',
+        variant_id: 'var-walnut-bookends',
+        product_name: 'Sculptural Solid Walnut Bookend Duo',
+        sku: 'VEL-WNT-BKE',
+        unit_price: 4999.0,
+        quantity: 1,
+        total_price: 4999.0,
+        created_at: '2026-04-11T11:20:00Z',
+      },
+    ],
+    created_at: '2026-04-11T11:20:00Z',
+    updated_at: '2026-04-11T15:00:00Z',
+  },
+];
+
 export function initOrderStore() {
+  refOrders.forEach((ro) => {
+    if (!ordersStore.has(ro.id)) {
+      ordersStore.set(ro.id, ro);
+    }
+  });
+
   if (isOrderStoreInitialized) return;
   isOrderStoreInitialized = true;
   loadOrdersFromDisk();

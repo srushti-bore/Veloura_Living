@@ -12,6 +12,7 @@ import { runAuthSecurityVerificationTests } from './auth-security-verification.t
 import { runSingleAdminBootstrapTests } from './single-admin-bootstrap.test';
 import { runStrictAuthFlowTests } from './strict-auth-flow-verification.test';
 import { runCustomerDashboardTests } from './customer-dashboard-verification.test';
+import { runAdminDashboardTests } from './admin-dashboard-verification.test';
 
 async function main() {
   console.log('===========================================================');
@@ -75,6 +76,12 @@ async function main() {
   totalPassed += res9.passed;
   totalFailed += res9.failed;
   allErrors.push(...res9.errors);
+
+  // 10. Exact Admin Dashboard Verification
+  const res10 = await runAdminDashboardTests();
+  totalPassed += res10.passed;
+  totalFailed += res10.failed;
+  allErrors.push(...res10.errors);
 
   console.log('\n===========================================================');
   console.log(`📊 TEST EXECUTION SUMMARY:`);

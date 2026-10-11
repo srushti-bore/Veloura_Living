@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/auth/session';
 import { getAllOrders } from '@/lib/data/orderStore';
 import { getProducts } from '@/lib/data/catalogStore';
 import { getReviews, getReturns, getRefunds } from '@/lib/data/postPurchaseStore';
+import { getAllUsers } from '@/lib/data/userRepository';
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,12 +36,17 @@ export async function GET(request: NextRequest) {
       CANCELLED: orders.filter((o) => o.status === 'CANCELLED').length,
     };
 
+    const allUserRecords = getAllUsers();
+    const totalCustomers = allUserRecords.filter((u) => !u.roles.includes('ADMIN')).length || 1;
+
     return successResponse(
       {
         totalRevenue: totalGrossRevenue,
         totalOrders,
+        totalCustomers,
         averageOrderValue,
         totalProducts,
+        activeProducts: products.filter((p) => p.availability !== 'out_of_stock').length,
         lowStockCount: lowStockItems.length,
         lowStockItems: lowStockItems.map((p) => ({
           id: p.id,

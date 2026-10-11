@@ -166,6 +166,57 @@ async function seedDefaultAccounts(): Promise<void> {
     usersCache.set('client@example.com', clientRecord);
   }
 
+  // Canonical customers matching reference dashboard orders
+  const refCustomers = [
+    { id: 'user-priya-sharma', email: 'priya.sharma@example.com', first_name: 'Priya', last_name: 'Sharma', phone: '+91 98200 11223', city: 'Bengaluru' },
+    { id: 'user-rohit-mehta', email: 'rohit.mehta@example.com', first_name: 'Rohit', last_name: 'Mehta', phone: '+91 98333 44556', city: 'Bengaluru' },
+    { id: 'user-neha-patel', email: 'neha.patel@example.com', first_name: 'Neha', last_name: 'Patel', phone: '+91 98444 77889', city: 'Mumbai' },
+    { id: 'user-arjun-rao', email: 'arjun.rao@example.com', first_name: 'Arjun', last_name: 'Rao', phone: '+91 98555 99001', city: 'Hyderabad' },
+  ];
+
+  for (const c of refCustomers) {
+    if (!usersCache.has(c.email)) {
+      usersCache.set(c.email, {
+        user: {
+          id: c.id,
+          email: c.email,
+          password_hash: clientPasswordHash,
+          status: 'ACTIVE',
+          is_email_verified: true,
+          created_at: '2026-04-10T08:00:00Z',
+          updated_at: '2026-04-10T08:00:00Z',
+        },
+        roles: ['CUSTOMER'],
+        profile: {
+          user_id: c.id,
+          first_name: c.first_name,
+          last_name: c.last_name,
+          phone: c.phone,
+          preferred_currency: 'INR',
+          created_at: '2026-04-10T08:00:00Z',
+          updated_at: '2026-04-10T08:00:00Z',
+        },
+        addresses: [
+          {
+            id: `addr-${c.id}`,
+            user_id: c.id,
+            full_name: `${c.first_name} ${c.last_name}`,
+            phone: c.phone,
+            address_line1: `Luxury Residence, ${c.city}`,
+            city: c.city,
+            state: 'India',
+            postal_code: '560001',
+            country: 'India',
+            is_default_shipping: true,
+            is_default_billing: true,
+            created_at: '2026-04-10T08:00:00Z',
+            updated_at: '2026-04-10T08:00:00Z',
+          },
+        ],
+      });
+    }
+  }
+
   saveToDisk();
 }
 

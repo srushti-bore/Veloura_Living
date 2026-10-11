@@ -85,6 +85,23 @@ export function createCoupon(data: Omit<DbCoupon, 'id' | 'created_at' | 'usage_c
   return newCoupon;
 }
 
+export function toggleCouponStatus(id: string): DbCoupon | undefined {
+  initPricingStore();
+  const coupon = couponsStore.find((c) => c.id === id);
+  if (coupon) {
+    coupon.is_active = !coupon.is_active;
+    return coupon;
+  }
+  return undefined;
+}
+
+export function deleteCoupon(id: string): boolean {
+  initPricingStore();
+  const initialLen = couponsStore.length;
+  couponsStore = couponsStore.filter((c) => c.id !== id);
+  return couponsStore.length < initialLen;
+}
+
 export function validateCoupon(
   code: string,
   subtotal: number,
