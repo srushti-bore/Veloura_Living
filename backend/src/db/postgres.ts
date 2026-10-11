@@ -70,8 +70,8 @@ export function getPostgresPool(): Pool | null {
   try {
     pool = new Pool(config);
 
-    pool.on('error', (err) => {
-      console.warn('⚠️ [PostgreSQL Pool Error (Backend)]:', err.message);
+    pool.on('error', (err: any) => {
+      console.warn('⚠️ [PostgreSQL Pool Error (Backend)]:', err?.message || err);
     });
 
     return pool;

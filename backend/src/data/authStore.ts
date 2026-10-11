@@ -226,7 +226,7 @@ export async function findUserByEmailAuthoritative(
       }
       const roles: UserRoleEnum[] =
         rolesRes && rolesRes.rows.length > 0
-          ? (rolesRes.rows.map((r) => r.role_name as any) as UserRoleEnum[])
+          ? (rolesRes.rows.map((r: any) => r.role_name as any) as UserRoleEnum[])
           : ['CUSTOMER'];
 
       // Profiles lookup
@@ -373,7 +373,7 @@ export async function findUserByIdAuthoritative(
       }
       const roles =
         rolesRes && rolesRes.rows.length > 0
-          ? rolesRes.rows.map((r) => r.role_name as any)
+          ? rolesRes.rows.map((r: any) => r.role_name as any)
           : ['CUSTOMER'];
 
       const profRes = await queryPostgres<{

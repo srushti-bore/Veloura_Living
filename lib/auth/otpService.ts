@@ -390,14 +390,21 @@ export async function createOtpChallenge(params: {
 
   const isSimulated = dispatchResult.deliveryStatus === 'SIMULATED' || dispatchResult.isMock;
 
+  if (!isProduction) {
+    console.log(`\n======================================================`);
+    console.log(`🏛️ [VELOURA DEV OTP] Dispatched to: ${normalizedEmail}`);
+    console.log(`🔑 6-DIGIT VERIFICATION CODE: ${otp}`);
+    console.log(`======================================================\n`);
+  }
+
   return {
     challengeToken,
     email: normalizedEmail,
     expiresInSeconds: Math.floor(OTP_EXPIRY_MS / 1000),
     cooldownSeconds: Math.floor(RESEND_COOLDOWN_MS / 1000),
     emailDispatched: true,
-    message: isSimulated
-      ? `[Development Simulation] Verification code dispatched to ${normalizedEmail}. Valid for 10 minutes.`
+    message: isSimulated && !isProduction
+      ? `[Dev Mode] Verification code: ${otp}`
       : `Verification code dispatched to ${normalizedEmail}. Valid for 10 minutes.`,
   };
 }
@@ -872,8 +879,8 @@ export async function resendOtpChallenge(params: {
 
   if (hasPg) {
     const pgSaved = await saveChallengeToPostgres(updatedChallenge);
-    if (!pgSaved) {
-      // Database persistence failed! Preserve previous challenge! Do NOT report success!
+    if (!pgSaved && isProduction) {
+      // Database persistence failed in production! Preserve previous challenge! Do NOT report success!
       return {
         success: false,
         error: 'Failed to update verification challenge in database. Your previous verification code remains valid.',
@@ -893,12 +900,19 @@ export async function resendOtpChallenge(params: {
 
   const isSimulated = dispatchResult.deliveryStatus === 'SIMULATED' || dispatchResult.isMock;
 
+  if (!isProduction) {
+    console.log(`\n======================================================`);
+    console.log(`🏛️ [VELOURA DEV RESEND OTP] Dispatched to: ${normalizedEmail}`);
+    console.log(`🔑 6-DIGIT VERIFICATION CODE: ${candidateOtp}`);
+    console.log(`======================================================\n`);
+  }
+
   return {
     success: true,
     challengeToken: challenge.challengeToken,
     cooldownSeconds: 30,
-    message: isSimulated
-      ? `[Development Simulation] New verification code dispatched to ${normalizedEmail}.`
+    message: isSimulated && !isProduction
+      ? `[Dev Mode] New verification code: ${candidateOtp}`
       : 'New verification code dispatched to your email.',
   };
 }

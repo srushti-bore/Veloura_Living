@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       challengeToken: challenge.challengeToken,
       expiresInSeconds: challenge.expiresInSeconds,
       cooldownSeconds: challenge.cooldownSeconds,
-      message: 'Account created. Verification code dispatched to your email.',
+      message: challenge.message || 'Account created. Verification code dispatched to your email.',
     };
 
     return successResponse(responseData, 201);
