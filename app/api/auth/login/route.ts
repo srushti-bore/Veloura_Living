@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     if (!challenge.emailDispatched || !challenge.challengeToken) {
       return errorResponse(
-        'Unable to deliver verification code. Please check your email or try again shortly.',
+        challenge.message || 'Unable to deliver verification code. Please check your email or try again shortly.',
         502,
         'EMAIL_DISPATCH_FAILED'
       );

@@ -366,7 +366,9 @@ export async function createOtpChallenge(params: {
         expiresInSeconds: 0,
         cooldownSeconds: 0,
         emailDispatched: false,
-        message: 'Unable to deliver verification code. Please check your email or try again shortly.',
+        message: dispatchResult.error
+          ? `Unable to deliver verification code (${dispatchResult.error}). Please check your email or try again shortly.`
+          : 'Unable to deliver verification code. Please check your email or try again shortly.',
       };
     }
   }
