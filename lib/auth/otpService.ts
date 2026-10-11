@@ -352,19 +352,23 @@ export async function createOtpChallenge(params: {
     type: params.type,
   });
 
+  const allowDevOtp = process.env.ALLOW_DEV_OTP === 'true';
+
   if (!dispatchResult.success || dispatchResult.deliveryStatus === 'TIMEOUT_UNKNOWN' || dispatchResult.deliveryStatus === 'REJECTED' || dispatchResult.deliveryStatus === 'FAILED_PRECHECK') {
-    // If dispatch failed or timed out, do NOT save or expose unusable challenge
-    activeChallenges.delete(challengeToken);
-    emailToChallengeMap.delete(normalizedEmail);
-    saveChallengesToDisk();
-    return {
-      challengeToken: '',
-      email: normalizedEmail,
-      expiresInSeconds: 0,
-      cooldownSeconds: 0,
-      emailDispatched: false,
-      message: 'Unable to deliver verification code. Please check your email or try again shortly.',
-    };
+    if (!allowDevOtp) {
+      // If dispatch failed or timed out, do NOT save or expose unusable challenge
+      activeChallenges.delete(challengeToken);
+      emailToChallengeMap.delete(normalizedEmail);
+      saveChallengesToDisk();
+      return {
+        challengeToken: '',
+        email: normalizedEmail,
+        expiresInSeconds: 0,
+        cooldownSeconds: 0,
+        emailDispatched: false,
+        message: 'Unable to deliver verification code. Please check your email or try again shortly.',
+      };
+    }
   }
 
   // Attempt database persistence
@@ -388,9 +392,9 @@ export async function createOtpChallenge(params: {
   emailToChallengeMap.set(normalizedEmail, challengeToken);
   saveChallengesToDisk();
 
-  const isSimulated = dispatchResult.deliveryStatus === 'SIMULATED' || dispatchResult.isMock;
+  const isSimulated = dispatchResult.deliveryStatus === 'SIMULATED' || dispatchResult.isMock || !dispatchResult.success;
 
-  if (!isProduction) {
+  if (!isProduction || allowDevOtp) {
     console.log(`\n======================================================`);
     console.log(`🏛️ [VELOURA DEV OTP] Dispatched to: ${normalizedEmail}`);
     console.log(`🔑 6-DIGIT VERIFICATION CODE: ${otp}`);
@@ -403,7 +407,9 @@ export async function createOtpChallenge(params: {
     expiresInSeconds: Math.floor(OTP_EXPIRY_MS / 1000),
     cooldownSeconds: Math.floor(RESEND_COOLDOWN_MS / 1000),
     emailDispatched: true,
-    message: isSimulated && !isProduction
+    message: allowDevOtp
+      ? `Verification code: ${otp} (Demo Mode)`
+      : isSimulated && !isProduction
       ? `[Dev Mode] Verification code: ${otp}`
       : `Verification code dispatched to ${normalizedEmail}. Valid for 10 minutes.`,
   };

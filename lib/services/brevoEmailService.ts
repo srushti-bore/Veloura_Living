@@ -81,8 +81,9 @@ export class BrevoEmailService {
     }
 
     // Check if live Brevo API key is available
+    const allowDevOtp = process.env.ALLOW_DEV_OTP === 'true';
     if (!apiKey || apiKey.includes('placeholder') || apiKey.includes('your-') || apiKey.length < 10) {
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV === 'production' && !allowDevOtp) {
         console.error('[Brevo Configuration Error] Live Brevo API key is missing or invalid in production environment.');
         return {
           success: false,
