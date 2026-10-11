@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 
-export type AuthViewMode = 'signin' | 'signup' | 'forgot' | 'otp';
+export type AuthViewMode = 'signin' | 'signup' | 'forgot' | 'otp' | 'processing' | 'success';
 
 export interface SocialProviderConfig {
   id: 'google' | 'apple' | string;

@@ -9,6 +9,8 @@ export * from './SignInView';
 export * from './SignUpView';
 export * from './ForgotPasswordView';
 export * from './OtpVerificationView';
+export * from './OtpProcessingView';
+export * from './AuthSuccessView';
 export * from './AuthFooter';
 export * from './AuthExperience';
 export * from './AuthModal';

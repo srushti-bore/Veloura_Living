@@ -9,6 +9,8 @@ import { SignInView } from './SignInView';
 import { SignUpView } from './SignUpView';
 import { ForgotPasswordView } from './ForgotPasswordView';
 import { OtpVerificationView } from './OtpVerificationView';
+import { OtpProcessingView } from './OtpProcessingView';
+import { AuthSuccessView } from './AuthSuccessView';
 import { AuthFooter } from './AuthFooter';
 import { AuthViewMode } from './types';
 
@@ -61,9 +63,14 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
 
   // Internal view state for standalone page, or synced with modal
   const [internalView, setInternalView] = useState<AuthViewMode>(initialView);
-  const activeView = isStandalone ? internalView : authModalView;
+  const activeView =
+    isStandalone || internalView === 'processing' || internalView === 'success'
+      ? internalView
+      : authModalView;
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
@@ -98,9 +105,11 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
     (view: AuthViewMode) => {
       setErrorMessage(null);
       setNoticeMessage(null);
+      setIsVerifying(false);
+      setIsSuccess(false);
       if (view !== 'signin') setSuccessMessage(null);
 
-      if (isStandalone) {
+      if (isStandalone || view === 'processing' || view === 'success') {
         setInternalView(view);
       } else {
         openAuthModal(view);
@@ -172,22 +181,36 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
     const challengeToken = otpChallenge?.challengeToken || '';
 
     setIsLoading(true);
+    setIsVerifying(true);
     setErrorMessage(null);
     setNoticeMessage(null);
 
-    const res = await verifyOtp({
-      email: targetEmail,
-      challengeToken,
-      otp,
-    });
-    setIsLoading(false);
+    try {
+      const res = await verifyOtp({
+        email: targetEmail,
+        challengeToken,
+        otp,
+      });
 
-    if (!res.success) {
-      setErrorMessage(res.message || 'Invalid verification code.');
-    } else {
-      await handlePostAuthRedirect();
+      if (!res.success) {
+        setIsVerifying(false);
+        setIsLoading(false);
+        setErrorMessage(res.message || 'Invalid verification code. Please check and try again.');
+      } else {
+        setIsVerifying(false);
+        setIsSuccess(true);
+        // Show Login Successful! screen before authoritative role-based redirect
+        setTimeout(async () => {
+          await handlePostAuthRedirect();
+        }, 900);
+      }
+      return res;
+    } catch {
+      setIsVerifying(false);
+      setIsLoading(false);
+      setErrorMessage('Network error during verification. Please try again.');
+      return { success: false, message: 'Network error' };
     }
-    return res;
   };
 
   const handleResendOtp = async () => {
@@ -259,93 +282,102 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
     return undefined;
   };
 
+  const isProcessingScreen = isVerifying || activeView === 'processing';
+  const isSuccessScreen = isSuccess || activeView === 'success';
+
   const content = (
     <AuthContainer
       onClose={closeAuthModal}
-      showCloseButton={!isStandalone}
+      showCloseButton={!isStandalone && !isProcessingScreen && !isSuccessScreen}
     >
-      <div className="flex flex-col justify-between h-full space-y-5">
-        {/* Top Header with official logo and view heading */}
-        <AuthHeader
-          title={getHeaderTitle()}
-          subtitle={getHeaderSubtitle()}
-          align={activeView === 'otp' ? 'center' : 'left'}
-        />
+      {isProcessingScreen ? (
+        <OtpProcessingView />
+      ) : isSuccessScreen ? (
+        <AuthSuccessView />
+      ) : (
+        <div className="flex flex-col justify-between h-full space-y-5">
+          {/* Top Header with official logo and view heading */}
+          <AuthHeader
+            title={getHeaderTitle()}
+            subtitle={getHeaderSubtitle()}
+            align={activeView === 'otp' ? 'center' : 'left'}
+          />
 
-        {/* Dynamic Provider / Feature Notice (e.g. Apple sign-in guidance) */}
-        {noticeMessage && (
-          <div className="p-3 bg-[#FAF4ED] border border-[#D8B486]/50 text-[#7A4E2D] text-xs font-sans rounded-xl animate-fade-in flex items-start justify-between gap-2">
-            <span>{noticeMessage}</span>
-            <button
-              type="button"
-              onClick={() => setNoticeMessage(null)}
-              className="text-[#7A4E2D] hover:text-[#4A2C1A] text-xs font-semibold"
-            >
-              ✕
-            </button>
+          {/* Dynamic Provider / Feature Notice (e.g. Apple sign-in guidance) */}
+          {noticeMessage && (
+            <div className="p-3 bg-[#FAF4ED] border border-[#D8B486]/50 text-[#7A4E2D] text-xs font-sans rounded-xl animate-fade-in flex items-start justify-between gap-2">
+              <span>{noticeMessage}</span>
+              <button
+                type="button"
+                onClick={() => setNoticeMessage(null)}
+                className="text-[#7A4E2D] hover:text-[#4A2C1A] text-xs font-semibold"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* View Switcher */}
+          <div className="flex-1 flex flex-col justify-center">
+            {activeView === 'signin' && (
+              <SignInView
+                onSubmit={handleSignIn}
+                onForgotPassword={() => setViewMode('forgot')}
+                isLoading={isLoading}
+                errorMessage={errorMessage}
+                clearError={() => setErrorMessage(null)}
+                successMessage={successMessage}
+                initialEmail={prefilledEmail}
+                onNotice={(msg) => setNoticeMessage(msg)}
+              />
+            )}
+
+            {activeView === 'signup' && (
+              <SignUpView
+                onSubmit={handleSignUp}
+                isLoading={isLoading}
+                errorMessage={errorMessage}
+                clearError={() => setErrorMessage(null)}
+                onNotice={(msg) => setNoticeMessage(msg)}
+              />
+            )}
+
+            {activeView === 'otp' && (
+              <OtpVerificationView
+                email={otpChallenge?.email || prefilledEmail || 'user@example.com'}
+                challengeToken={otpChallenge?.challengeToken || ''}
+                onVerify={handleVerifyOtp}
+                onResend={handleResendOtp}
+                onBackToSignIn={() => setViewMode('signin')}
+                isLoading={isLoading}
+                errorMessage={errorMessage}
+                clearError={() => setErrorMessage(null)}
+                successMessage={successMessage}
+              />
+            )}
+
+            {activeView === 'forgot' && (
+              <ForgotPasswordView
+                onBackToSignIn={() => setViewMode('signin')}
+                isLoading={isLoading}
+                setIsLoading={setIsLoading}
+                errorMessage={errorMessage}
+                setErrorMessage={setErrorMessage}
+              />
+            )}
           </div>
-        )}
 
-        {/* View Switcher */}
-        <div className="flex-1 flex flex-col justify-center">
-          {activeView === 'signin' && (
-            <SignInView
-              onSubmit={handleSignIn}
-              onForgotPassword={() => setViewMode('forgot')}
-              isLoading={isLoading}
-              errorMessage={errorMessage}
-              clearError={() => setErrorMessage(null)}
-              successMessage={successMessage}
-              initialEmail={prefilledEmail}
-              onNotice={(msg) => setNoticeMessage(msg)}
-            />
-          )}
-
-          {activeView === 'signup' && (
-            <SignUpView
-              onSubmit={handleSignUp}
-              isLoading={isLoading}
-              errorMessage={errorMessage}
-              clearError={() => setErrorMessage(null)}
-              onNotice={(msg) => setNoticeMessage(msg)}
-            />
-          )}
-
-          {activeView === 'otp' && (
-            <OtpVerificationView
-              email={otpChallenge?.email || prefilledEmail || 'user@example.com'}
-              challengeToken={otpChallenge?.challengeToken || ''}
-              onVerify={handleVerifyOtp}
-              onResend={handleResendOtp}
-              onBackToSignIn={() => setViewMode('signin')}
-              isLoading={isLoading}
-              errorMessage={errorMessage}
-              clearError={() => setErrorMessage(null)}
-              successMessage={successMessage}
-            />
-          )}
-
-          {activeView === 'forgot' && (
-            <ForgotPasswordView
-              onBackToSignIn={() => setViewMode('signin')}
-              isLoading={isLoading}
-              setIsLoading={setIsLoading}
-              errorMessage={errorMessage}
-              setErrorMessage={setErrorMessage}
+          {/* Bottom Footer with View Switch and Legal Links (hidden on OTP view where Back to login is integrated) */}
+          {activeView !== 'otp' && (
+            <AuthFooter
+              view={activeView}
+              onSwitchView={setViewMode}
+              termsUrl="/terms"
+              privacyUrl="/privacy"
             />
           )}
         </div>
-
-        {/* Bottom Footer with View Switch and Legal Links (hidden on OTP view where Back to login is integrated) */}
-        {activeView !== 'otp' && (
-          <AuthFooter
-            view={activeView}
-            onSwitchView={setViewMode}
-            termsUrl="/terms"
-            privacyUrl="/privacy"
-          />
-        )}
-      </div>
+      )}
     </AuthContainer>
   );
 

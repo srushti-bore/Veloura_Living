@@ -547,6 +547,24 @@ docker run -p 5000:5000 veloura-backend
   - Production build: **73/73 routes compiled successfully (0 errors)**.
   - Master test suite: **261/261 tests passed 100%**.
 
+### 25. Phase 25: OTP Verification Processing Screen & Success Redirection Architecture ✅
+- **Reference-Matched Visual Processing Design:**
+  - Implemented dedicated `components/auth/OtpProcessingView.tsx` matching the reference image.
+  - **Left Panel:** Preserves the luxury living-room artwork with continuous slow GSAP cinematic zoom (`scale: 1.05`).
+  - **Right Panel:** Warm ivory/cream background (`#FAF7F2`), centered official Veloura Living logo (`veloura-exact-logo@2x.png`), refined circular mocha loader (`#8D654A`), centered heading *"Verifying…"*, and supporting editorial text *"Please wait while we confirm your identity."*.
+- **GSAP Continuous Loader Rotation & Micro-Interactions:**
+  - Refined continuous 360-degree rotation on the circular loading ring using `gsap.to` with `linear` ease and `transformOrigin: '50% 50%'`.
+  - Subtle entrance transition for the loader, heading, and supporting message (`gsap.fromTo` with `stagger: 0.08`).
+  - Clean lifecycle teardown on unmount with `ctx.revert()` and respect for `prefers-reduced-motion`.
+- **Authentication Lifecycle & Role-Based Redirection:**
+  - Active display strictly during server-side OTP verification requests.
+  - Seamless transition to `components/auth/AuthSuccessView.tsx` (*"Login Successful!"*) upon successful verification.
+  - Authoritative server-verified role redirect: Admin accounts directed to `/admin`, Customer accounts to `/account` or intended destination.
+  - Clear error recovery: Failed verification immediately transitions back to the 6-box input with specific feedback.
+- **Verification & Build Status:**
+  - Production build: **73/73 routes compiled successfully (0 errors)**.
+  - Master test suite: **261/261 tests passed 100%**.
+
 ---
 
 👉 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
