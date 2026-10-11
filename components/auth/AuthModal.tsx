@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { AuthExperience } from './AuthExperience';
 
 export { AuthExperience };
@@ -14,5 +14,9 @@ export { AuthExperience };
  * - Reusable across initial entry, header profile click, and protected account flows
  */
 export function AuthModal() {
-  return <AuthExperience />;
+  return (
+    <Suspense fallback={null}>
+      <AuthExperience />
+    </Suspense>
+  );
 }

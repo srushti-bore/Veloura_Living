@@ -26,7 +26,8 @@
 15. [Phase 19: Durable PostgreSQL User Persistence & Transactional Isolation](#15-phase-19-durable-postgresql-user-persistence--transactional-isolation)
 16. [Phase 21: Master Supabase Schema Engine, Brevo Key Sanitization & Resilient Dev OTP Protocol](#16-phase-21-master-supabase-schema-engine-brevo-key-sanitization--resilient-dev-otp-protocol)
 17. [Phase 22: Secure Single Admin Finalization, PostgreSQL Invariant Enforcer & Zero-Credential Seed Architecture](#17-phase-22-secure-single-admin-finalization-postgresql-invariant-enforcer--zero-credential-seed-architecture)
-18. [Automated Verification & E2E Validation Matrix](#18-automated-verification--e2e-validation-matrix)
+18. [Phase 23: Premium Editorial Login Experience & Reference-Matched Split-Screen Architecture](#18-phase-23-premium-editorial-login-experience--reference-matched-split-screen-architecture)
+19. [Automated Verification & E2E Validation Matrix](#19-automated-verification--e2e-validation-matrix)
 
 ---
 
@@ -515,7 +516,47 @@ sequenceDiagram
 
 ---
 
-## 18. Automated Verification & E2E Validation Matrix
+## 18. Phase 23: Premium Editorial Login Experience & Reference-Matched Split-Screen Architecture
+
+Veloura Living enforces an editorial, warm luxury authentication experience matching the visual composition:
+
+### 🎨 1. Split-Screen Architectural Composition
+- **Outer Shell:** Refined rounded rectangular card (`rounded-3xl` / `rounded-[32px]`) with soft diffuse elevation (`shadow-[0_25px_70px_-15px_rgba(42,26,18,0.18)]`), warm border (`border-[#E6DDD0]`), on an Ivory/Sand canvas (`#EFE8DF`).
+- **Left Panel (Lifestyle Experience):**
+  - Photorealistic morning-sunshine living room interior photograph (`public/images/veloura-auth-lifestyle.webp`).
+  - Editorial headline (*"Beautiful Spaces. Better Living."*) in italic serif typography (`Cormorant Garamond`).
+  - **GSAP Continuous Slow Cinematic Image Zoom:** Seamless alternating scale animation (`scale: 1` to `scale: 1.06`, 10s duration, `ease: "sine.inOut"`, `yoyo: true, repeat: -1`). Applied strictly to the image wrapper within an `overflow-hidden` container; respects `prefers-reduced-motion` and cleanly terminates GSAP tweens on component unmount.
+- **Right Panel (Authentication Form):**
+  - Official Veloura Living armchair & plant transparent logo asset (`public/logo-clean.png`).
+  - Warm solid cream surface (`#FAF7F2`) with dark walnut-brown typography (`#2B1D14`, `#4A2C1A`).
+  - Accessible form controls: Email address with outline Mail icon, Password with outline Lock icon and show/hide toggle, Remember Me checkbox, and Forgot password? link.
+  - Primary Continue button (`#4A2C1A`), Google OAuth button (`/api/auth/google`), and graceful Apple authentication placeholder.
+  - Bottom legal notice with Terms of Service & Privacy Policy links, accompanied by a subtle 4-point luxury star/sparkle icon.
+
+### 🧩 2. Modular & Future-Ready Architecture
+- Decoupled into specialized, reusable components:
+  - `components/auth/types.ts`: Strongly typed configuration for views, providers, inputs, and animations.
+  - `components/auth/AuthContainer.tsx`: Split-screen layout and GSAP entrance animations.
+  - `components/auth/LifestylePanel.tsx`: Lifestyle image presentation and cinematic zoom animation.
+  - `components/auth/AuthHeader.tsx`: Official logo asset and view heading.
+  - `components/auth/AuthInput.tsx`: Accessible input with leading icons and password toggles.
+  - `components/auth/AuthButton.tsx`: Button with hover/press feedback and loading spinner.
+  - `components/auth/SocialAuthButtons.tsx`: Configurable OAuth buttons with provider status handling.
+  - `components/auth/SignInView.tsx`, `SignUpView.tsx`, `ForgotPasswordView.tsx`, `OtpVerificationView.tsx`.
+  - `components/auth/AuthFooter.tsx`: View switching links and legal disclaimers.
+  - `components/auth/AuthExperience.tsx`: State machine orchestration, role routing, and dual standalone/modal support.
+  - `app/login/page.tsx`: Dedicated full-page route at `/login`.
+
+### 🛡️ 3. Uncompromised Security & Server-Verified Role Routing
+- Preserves mandatory 6-digit email OTP verification for both Customer and Administrator logins.
+- Post-authentication navigation verifies roles directly from authoritative server claims (`user.roles`):
+  - Users with `ADMIN` role are routed to `/admin`.
+  - Standard `CUSTOMER` accounts are routed to `/account` or `returnUrl`.
+- Never trusts client-side role claims or bypasses security checks.
+
+---
+
+## 19. Automated Verification & E2E Validation Matrix
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|

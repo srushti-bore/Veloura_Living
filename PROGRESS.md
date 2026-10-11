@@ -496,6 +496,33 @@ docker run -p 5000:5000 veloura-backend
   - `tests/run-all-tests.ts`: **261/261 (100%) Passed** across all 20 test suites.
   - Root & Backend TypeScript compilation: **0 errors**.
 
+### 23. Phase 23: Premium Editorial Login Experience & Reference-Matched Split-Screen Architecture ✅
+- **Visual Reference Match & Editorial Composition:**
+  - Implemented split-screen authentication architecture inside a refined rounded container (`rounded-3xl` / `rounded-[32px]`, `border-[#E6DDD0]`, `shadow-[0_25px_70px_-15px_rgba(42,26,18,0.18)]`).
+  - **Left Panel (Lifestyle Experience):** Realistic warm morning-light living room photograph (`public/images/veloura-auth-lifestyle.webp`), elegant serif italic typography (*"Beautiful Spaces. Better Living."*), and ambient gradient overlay.
+  - **Right Panel (Authentication Form):** Official transparent Veloura Living armchair & plant logo asset (`public/logo-clean.png`), warm ivory/cream background (`#FAF7F2`), dark walnut-brown typography (`#2B1D14`, `#4A2C1A`), and subtle beige borders (`#E2D8CC`).
+- **GSAP Continuous Slow Cinematic Image Zoom Animation:**
+  - Implemented seamless alternating scale animation on the lifestyle image (`scale: 1` to `scale: 1.06` and back to `scale: 1`) using `ease: "sine.inOut"` over 10 seconds with `yoyo: true, repeat: -1`.
+  - Applied transform exclusively to the image wrapper, clipped cleanly within `overflow-hidden`.
+  - Respects `prefers-reduced-motion` and cleanly terminates GSAP tweens on component unmount.
+- **GSAP Micro-Interactions & Form Transitions:**
+  - Gentle entrance animation for the authentication container (`opacity: 0, y: 18 -> opacity: 1, y: 0`).
+  - Staggered reveal for form elements using `gsap.context()`.
+  - Soft hover/press feedback for primary and social action buttons.
+  - Smooth focus transitions on form inputs.
+- **Modular, Future-Ready Architecture (`components/auth/*`):**
+  - Completely decoupled into reusable components: `AuthContainer`, `LifestylePanel`, `AuthHeader`, `AuthInput`, `AuthButton`, `SocialAuthButtons`, `SignInView`, `SignUpView`, `ForgotPasswordView`, `OtpVerificationView`, `AuthFooter`, `AuthExperience`, and `AuthModal`.
+  - Strongly typed configuration via `components/auth/types.ts`.
+  - Dedicated full-page route at `app/login/page.tsx` wrapped in `<Suspense>`.
+- **Existing Authentication Security & Flow Preservation:**
+  - Preserved mandatory 6-digit email OTP verification for both Customer and Admin accounts.
+  - Server-verified role routing: Admins routed to `/admin`, Customers routed to destination/account.
+  - Social authentication extensibility: Google OAuth connects directly to `/api/auth/google`, while Apple authentication provides graceful feedback when unconfigured without faking logins.
+- **Verification & Build Status:**
+  - Turbopack production compilation: **72/72 routes compiled successfully (0 errors)**.
+  - TypeScript type checking: **0 errors** across frontend and backend.
+  - Master test suite: **261/261 tests passed 100%**.
+
 ---
 
 👉 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  

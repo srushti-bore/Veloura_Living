@@ -1,17 +1,45 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
-import { X } from 'lucide-react';
-import { AuthLifestyleImage } from './AuthLifestyleImage';
-import { AuthTabs } from './AuthTabs';
-import { SignInForm } from './SignInForm';
-import { SignUpForm } from './SignUpForm';
-import { ForgotPasswordForm } from './ForgotPasswordForm';
-import { OtpVerificationForm } from './OtpVerificationForm';
+import { AuthContainer } from './AuthContainer';
+import { AuthHeader } from './AuthHeader';
+import { SignInView } from './SignInView';
+import { SignUpView } from './SignUpView';
+import { ForgotPasswordView } from './ForgotPasswordView';
+import { OtpVerificationView } from './OtpVerificationView';
+import { AuthFooter } from './AuthFooter';
+import { AuthViewMode } from './types';
 
-export function AuthExperience() {
+interface AuthExperienceProps {
+  isStandalone?: boolean;
+  initialView?: AuthViewMode;
+  returnUrl?: string;
+  onSuccess?: () => void;
+}
+
+export const AuthExperience: React.FC<AuthExperienceProps> = ({
+  isStandalone = false,
+  initialView = 'signin',
+  returnUrl: propReturnUrl,
+  onSuccess,
+}) => {
+  const router = useRouter();
+  const [returnUrl, setReturnUrl] = useState(propReturnUrl || '');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !propReturnUrl) {
+      const params = new URLSearchParams(window.location.search);
+      const qUrl = params.get('returnUrl') || params.get('redirect');
+      if (qUrl) setReturnUrl(qUrl);
+    }
+  }, [propReturnUrl]);
+
   const {
+    user,
+    isAuthenticated,
+    isAdmin,
     isAuthModalOpen,
     authModalView,
     otpChallenge,
@@ -23,13 +51,19 @@ export function AuthExperience() {
     resendOtp,
   } = useAuth();
 
+  // Internal view state for standalone page, or synced with modal
+  const [internalView, setInternalView] = useState<AuthViewMode>(initialView);
+  const activeView = isStandalone ? internalView : authModalView;
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [prefilledEmail, setPrefilledEmail] = useState<string>('');
 
-  // Close on Escape key
+  // Close modal on Escape key if in modal mode
   useEffect(() => {
+    if (isStandalone) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isAuthModalOpen) {
         closeAuthModal();
@@ -37,19 +71,62 @@ export function AuthExperience() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAuthModalOpen, closeAuthModal]);
+  }, [isStandalone, isAuthModalOpen, closeAuthModal]);
 
-  if (!isAuthModalOpen) return null;
+  // If already authenticated and on standalone /login page, redirect according to server-verified role
+  useEffect(() => {
+    if (isStandalone && isAuthenticated && user) {
+      if (user.roles?.includes('ADMIN')) {
+        router.push('/admin');
+      } else if (returnUrl) {
+        router.push(returnUrl);
+      } else {
+        router.push('/account');
+      }
+    }
+  }, [isStandalone, isAuthenticated, user, router, returnUrl]);
 
-  const handleSignIn = async (credentials: { email: string; password: string }) => {
+  const setViewMode = useCallback(
+    (view: AuthViewMode) => {
+      setErrorMessage(null);
+      setNoticeMessage(null);
+      if (view !== 'signin') setSuccessMessage(null);
+
+      if (isStandalone) {
+        setInternalView(view);
+      } else {
+        openAuthModal(view);
+      }
+    },
+    [isStandalone, openAuthModal]
+  );
+
+  // If in modal mode and modal is closed, render nothing
+  if (!isStandalone && !isAuthModalOpen) return null;
+
+  const handleSignIn = async (credentials: {
+    email: string;
+    password: string;
+    rememberMe?: boolean;
+  }) => {
     setIsLoading(true);
     setErrorMessage(null);
-    const res = await login(credentials);
+    setNoticeMessage(null);
+
+    const res = await login({
+      email: credentials.email,
+      password: credentials.password,
+    });
     setIsLoading(false);
+
     if (!res.success) {
       setErrorMessage(res.message || 'Invalid email or password.');
     } else if (res.requiresOtp) {
       setPrefilledEmail(credentials.email);
+      setViewMode('otp');
+    } else {
+      // Direct success fallback
+      await handlePostAuthRedirect();
     }
     return res;
   };
@@ -63,17 +140,21 @@ export function AuthExperience() {
   }) => {
     setIsLoading(true);
     setErrorMessage(null);
+    setNoticeMessage(null);
     setSuccessMessage(null);
+
     const res = await register(data);
     setIsLoading(false);
+
     if (!res.success) {
       setErrorMessage(res.message || 'Registration failed. Please verify your details.');
     } else if (res.requiresOtp) {
       setPrefilledEmail(data.email);
+      setViewMode('otp');
     } else {
       setPrefilledEmail(data.email);
       setSuccessMessage('Account created successfully. Please sign in with your credentials.');
-      openAuthModal('signin');
+      setViewMode('signin');
     }
     return res;
   };
@@ -84,14 +165,19 @@ export function AuthExperience() {
 
     setIsLoading(true);
     setErrorMessage(null);
+    setNoticeMessage(null);
+
     const res = await verifyOtp({
       email: targetEmail,
       challengeToken,
       otp,
     });
     setIsLoading(false);
+
     if (!res.success) {
       setErrorMessage(res.message || 'Invalid verification code.');
+    } else {
+      await handlePostAuthRedirect();
     }
     return res;
   };
@@ -107,152 +193,154 @@ export function AuthExperience() {
     return res;
   };
 
+  // Authoritative server-verified role-based redirect
+  const handlePostAuthRedirect = async () => {
+    if (onSuccess) onSuccess();
+
+    try {
+      const meRes = await fetch('/api/auth/me');
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        const verifiedRoles: string[] = meData?.data?.user?.roles || [];
+
+        if (verifiedRoles.includes('ADMIN')) {
+          router.push('/admin');
+          if (!isStandalone) closeAuthModal();
+          return;
+        }
+      }
+    } catch {
+      // ignore network error
+    }
+
+    if (returnUrl) {
+      router.push(returnUrl);
+    } else if (isStandalone) {
+      router.push('/account');
+    }
+
+    if (!isStandalone) {
+      closeAuthModal();
+    }
+  };
+
+  const getHeaderTitle = () => {
+    switch (activeView) {
+      case 'signup':
+        return 'Create your account';
+      case 'otp':
+        return 'Security Verification';
+      case 'forgot':
+        return 'Recover password';
+      case 'signin':
+      default:
+        return 'Sign in to your account';
+    }
+  };
+
+  const content = (
+    <AuthContainer
+      onClose={closeAuthModal}
+      showCloseButton={!isStandalone}
+    >
+      <div className="flex flex-col justify-between h-full space-y-5">
+        {/* Top Header with official logo and view heading */}
+        <AuthHeader title={getHeaderTitle()} />
+
+        {/* Dynamic Provider / Feature Notice (e.g. Apple sign-in guidance) */}
+        {noticeMessage && (
+          <div className="p-3 bg-[#FAF4ED] border border-[#D8B486]/50 text-[#7A4E2D] text-xs font-sans rounded-xl animate-fade-in flex items-start justify-between gap-2">
+            <span>{noticeMessage}</span>
+            <button
+              type="button"
+              onClick={() => setNoticeMessage(null)}
+              className="text-[#7A4E2D] hover:text-[#4A2C1A] text-xs font-semibold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* View Switcher */}
+        <div className="flex-1 flex flex-col justify-center">
+          {activeView === 'signin' && (
+            <SignInView
+              onSubmit={handleSignIn}
+              onForgotPassword={() => setViewMode('forgot')}
+              isLoading={isLoading}
+              errorMessage={errorMessage}
+              clearError={() => setErrorMessage(null)}
+              successMessage={successMessage}
+              initialEmail={prefilledEmail}
+              onNotice={(msg) => setNoticeMessage(msg)}
+            />
+          )}
+
+          {activeView === 'signup' && (
+            <SignUpView
+              onSubmit={handleSignUp}
+              isLoading={isLoading}
+              errorMessage={errorMessage}
+              clearError={() => setErrorMessage(null)}
+              onNotice={(msg) => setNoticeMessage(msg)}
+            />
+          )}
+
+          {activeView === 'otp' && (
+            <OtpVerificationView
+              email={otpChallenge?.email || prefilledEmail || 'your email'}
+              challengeToken={otpChallenge?.challengeToken || ''}
+              onVerify={handleVerifyOtp}
+              onResend={handleResendOtp}
+              onBackToSignIn={() => setViewMode('signin')}
+              isLoading={isLoading}
+              errorMessage={errorMessage}
+              clearError={() => setErrorMessage(null)}
+              successMessage={successMessage}
+            />
+          )}
+
+          {activeView === 'forgot' && (
+            <ForgotPasswordView
+              onBackToSignIn={() => setViewMode('signin')}
+              isLoading={isLoading}
+              setIsLoading={setIsLoading}
+              errorMessage={errorMessage}
+              setErrorMessage={setErrorMessage}
+            />
+          )}
+        </div>
+
+        {/* Bottom Footer with View Switch and Legal Links */}
+        <AuthFooter
+          view={activeView}
+          onSwitchView={setViewMode}
+          termsUrl="/terms"
+          privacyUrl="/privacy"
+        />
+      </div>
+    </AuthContainer>
+  );
+
+  // Standalone Full-Page Layout on warm ivory/sand canvas
+  if (isStandalone) {
+    return (
+      <div className="min-h-screen w-full bg-[#EFE8DF] flex items-center justify-center p-4 sm:p-6 md:p-8 lg:p-12 font-sans select-text">
+        {content}
+      </div>
+    );
+  }
+
+  // Modal Backdrop Mode (when opened from Header or in-flow actions)
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-[#3B2418]/60 animate-fade-in"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-[#2B1810]/60 backdrop-blur-xs animate-fade-in"
       onClick={closeAuthModal}
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
     >
-      {/* 
-        Solid Cream/Ivory Authentication Modal Container
-        Strictly NO Glassmorphism: Solid surface, elegant borders, restrained luxury proportions
-      */}
-      <div
-        className="relative w-full max-w-4xl bg-[#FBF8F3] rounded-xl md:rounded-2xl border border-[#D8C4AD] shadow-[0_25px_60px_-15px_rgba(59,36,24,0.25)] overflow-hidden transition-all duration-300"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Desktop / Tablet Split Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 min-h-[580px]">
-          {/* Left Side: Editorial Lifestyle Image (5 cols) */}
-          <div className="hidden md:block md:col-span-5 relative">
-            <AuthLifestyleImage />
-          </div>
-
-          {/* Right Side: Solid Authentication Surface (7 cols) */}
-          <div className="col-span-1 md:col-span-7 flex flex-col justify-between p-6 sm:p-8 md:p-10 bg-[#FBF8F3]">
-            {/* Top Bar / Branding */}
-            <div>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      id="auth-modal-title"
-                      className="font-serif text-xl sm:text-2xl font-medium tracking-[0.25em] text-[#4A2C1A]"
-                    >
-                      VELOURA
-                    </span>
-                    <span className="w-1 h-1 rounded-full bg-[#7A4E2D]" />
-                    <span className="text-[10px] sm:text-[11px] uppercase tracking-[0.25em] text-[#7A4E2D] font-sans font-medium">
-                      Concierge Access
-                    </span>
-                  </div>
-                  <p className="text-[11px] sm:text-xs text-[#735E4E] font-sans font-light mt-0.5 tracking-wide">
-                    Your space, thoughtfully curated.
-                  </p>
-                </div>
-
-                {/* Subtle Close Button */}
-                <button
-                  type="button"
-                  onClick={closeAuthModal}
-                  className="p-1.5 text-[#735E4E] hover:text-[#3B2418] hover:bg-[#F7F0E7] rounded-full transition-colors cursor-pointer"
-                  aria-label="Close authentication modal"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Navigation Tabs (Hidden in forgot-password and OTP verification mode) */}
-              {authModalView !== 'forgot' && authModalView !== 'otp' && (
-                <AuthTabs
-                  activeTab={authModalView}
-                  onTabChange={(tab) => {
-                    setErrorMessage(null);
-                    if (tab !== 'signin') setSuccessMessage(null);
-                    openAuthModal(tab);
-                  }}
-                />
-              )}
-
-              {/* Active View Form */}
-              <div className="mt-2">
-                {authModalView === 'signin' && (
-                  <SignInForm
-                    onSubmit={handleSignIn}
-                    onForgotPassword={() => {
-                      setErrorMessage(null);
-                      setSuccessMessage(null);
-                      openAuthModal('forgot');
-                    }}
-                    onSwitchToSignUp={() => {
-                      setErrorMessage(null);
-                      setSuccessMessage(null);
-                      openAuthModal('signup');
-                    }}
-                    isLoading={isLoading}
-                    errorMessage={errorMessage}
-                    clearError={() => setErrorMessage(null)}
-                    successMessage={successMessage}
-                    initialEmail={prefilledEmail}
-                  />
-                )}
-
-                {authModalView === 'signup' && (
-                  <SignUpForm
-                    onSubmit={handleSignUp}
-                    onSwitchToSignIn={() => {
-                      setErrorMessage(null);
-                      openAuthModal('signin');
-                    }}
-                    isLoading={isLoading}
-                    errorMessage={errorMessage}
-                    clearError={() => setErrorMessage(null)}
-                  />
-                )}
-
-                {authModalView === 'otp' && (
-                  <OtpVerificationForm
-                    email={otpChallenge?.email || prefilledEmail || 'your email'}
-                    challengeToken={otpChallenge?.challengeToken || ''}
-                    onVerify={handleVerifyOtp}
-                    onResend={handleResendOtp}
-                    onBackToSignIn={() => {
-                      setErrorMessage(null);
-                      setSuccessMessage(null);
-                      openAuthModal('signin');
-                    }}
-                    isLoading={isLoading}
-                    errorMessage={errorMessage}
-                    clearError={() => setErrorMessage(null)}
-                    successMessage={successMessage}
-                  />
-                )}
-
-                {authModalView === 'forgot' && (
-                  <ForgotPasswordForm
-                    onBackToSignIn={() => {
-                      setErrorMessage(null);
-                      openAuthModal('signin');
-                    }}
-                    isLoading={isLoading}
-                    setIsLoading={setIsLoading}
-                    errorMessage={errorMessage}
-                    setErrorMessage={setErrorMessage}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Bottom Footer Assurance Note */}
-            <div className="mt-6 pt-4 border-t border-[#D8C4AD]/60 flex items-center justify-between text-[11px] font-sans text-[#735E4E]/80">
-              <span>Private Architectural Atelier</span>
-              <span>256-Bit Encrypted Concierge</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      {content}
     </div>
   );
-}
+};
