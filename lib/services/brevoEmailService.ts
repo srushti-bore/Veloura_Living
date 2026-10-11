@@ -45,16 +45,29 @@ export class BrevoEmailService {
   private static instance: BrevoEmailService;
 
   private getApiKey(): string | undefined {
-    return process.env.BREVO_API_KEY || process.env.SMTP_PASS || process.env.BREVO_KEY;
+    const raw = process.env.BREVO_API_KEY || process.env.BREVO_KEY;
+    if (raw) {
+      const clean = raw.trim().replace(/^["']|["']$/g, '');
+      if (clean.length > 5) return clean;
+    }
+
+    const smtpPass = process.env.SMTP_PASS;
+    if (smtpPass) {
+      const clean = smtpPass.trim().replace(/^["']|["']$/g, '');
+      // Only use SMTP_PASS if it looks like an API key (starts with xkeysib-), not an SMTP password (xsmtpsib-)
+      if (clean.startsWith('xkeysib-')) return clean;
+    }
+
+    return undefined;
   }
 
   private getDefaultSender(): BrevoSender {
-    const rawFrom = process.env.SMTP_FROM || process.env.BREVO_SENDER_NAME || 'Veloura Living Atelier';
-    const rawEmail = process.env.SMTP_USER || process.env.BREVO_SENDER_EMAIL || 'concierge@velouraliving.com';
+    const rawFrom = process.env.BREVO_SENDER_NAME || process.env.SMTP_FROM || 'Veloura Living Atelier';
+    const rawEmail = process.env.BREVO_SENDER_EMAIL || process.env.SMTP_USER || 'concierge@velouraliving.com';
     
     const emailMatch = rawFrom.match(/<([^>]+)>/);
-    const email = emailMatch ? emailMatch[1] : rawEmail;
-    const name = rawFrom.includes('<') ? rawFrom.split('<')[0].trim() : 'Veloura Living Atelier';
+    const email = (emailMatch ? emailMatch[1] : rawEmail).trim().replace(/^["']|["']$/g, '');
+    const name = (rawFrom.includes('<') ? rawFrom.split('<')[0].trim() : rawFrom).trim().replace(/^["']|["']$/g, '');
 
     return {
       name: name || 'Veloura Living Atelier',
@@ -81,7 +94,10 @@ export class BrevoEmailService {
     }
 
     // Check if live Brevo API key is available
-    const allowDevOtp = process.env.ALLOW_DEV_OTP === 'true';
+    const allowDevOtp =
+      (process.env.ALLOW_DEV_OTP || process.env['ey: ALLOW_DEV_OTP'] || process.env['Key: ALLOW_DEV_OTP'] || process.env.NEXT_PUBLIC_ALLOW_DEV_OTP || '')
+        .toLowerCase()
+        .trim() === 'true';
     if (!apiKey || apiKey.includes('placeholder') || apiKey.includes('your-') || apiKey.length < 10) {
       if (process.env.NODE_ENV === 'production' && !allowDevOtp) {
         console.error('[Brevo Configuration Error] Live Brevo API key is missing or invalid in production environment.');

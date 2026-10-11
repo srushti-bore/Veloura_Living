@@ -78,6 +78,23 @@ const MAX_ATTEMPTS = 5;
 const MAX_RESENDS = 3;
 
 const DATA_DIR = path.join(process.cwd(), '.data');
+
+export function isDevOtpAllowed(): boolean {
+  const candidates = [
+    process.env.ALLOW_DEV_OTP,
+    process.env['ey: ALLOW_DEV_OTP'],
+    process.env['Key: ALLOW_DEV_OTP'],
+    process.env['key: ALLOW_DEV_OTP'],
+    process.env.NEXT_PUBLIC_ALLOW_DEV_OTP,
+    process.env.DEV_OTP,
+  ];
+
+  return candidates.some((c) => {
+    if (!c) return false;
+    const clean = c.toLowerCase().trim().replace(/^["']|["']$/g, '');
+    return clean === 'true' || clean === '1' || clean === 'yes' || clean === 'on';
+  });
+}
 const CHALLENGES_FILE = path.join(DATA_DIR, 'otp_challenges.json');
 
 function ensureDataDir(): void {
@@ -352,7 +369,7 @@ export async function createOtpChallenge(params: {
     type: params.type,
   });
 
-  const allowDevOtp = process.env.ALLOW_DEV_OTP === 'true';
+  const allowDevOtp = isDevOtpAllowed();
 
   if (!dispatchResult.success || dispatchResult.deliveryStatus === 'TIMEOUT_UNKNOWN' || dispatchResult.deliveryStatus === 'REJECTED' || dispatchResult.deliveryStatus === 'FAILED_PRECHECK') {
     if (!allowDevOtp) {
