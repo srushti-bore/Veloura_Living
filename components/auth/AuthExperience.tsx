@@ -29,10 +29,18 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
   const [returnUrl, setReturnUrl] = useState(propReturnUrl || '');
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !propReturnUrl) {
+    if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const qUrl = params.get('returnUrl') || params.get('redirect');
-      if (qUrl) setReturnUrl(qUrl);
+      if (qUrl && !propReturnUrl) setReturnUrl(qUrl);
+
+      const qEmail = params.get('email');
+      if (qEmail) setPrefilledEmail(qEmail);
+
+      const qView = params.get('view');
+      if (qView && ['signin', 'signup', 'otp', 'forgot'].includes(qView)) {
+        setInternalView(qView as AuthViewMode);
+      }
     }
   }, [propReturnUrl]);
 
@@ -229,13 +237,26 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
       case 'signup':
         return 'Create your account';
       case 'otp':
-        return 'Security Verification';
+        return 'Verify Your Email';
       case 'forgot':
         return 'Recover password';
       case 'signin':
       default:
         return 'Sign in to your account';
     }
+  };
+
+  const getHeaderSubtitle = () => {
+    if (activeView === 'otp') {
+      const emailDisplay = otpChallenge?.email || prefilledEmail || 'user@example.com';
+      return (
+        <span className="inline-block text-[#5C4535] leading-relaxed">
+          We&apos;ve sent a 6-digit OTP to
+          <span className="block font-medium text-[#2B1D14] mt-0.5">{emailDisplay}</span>
+        </span>
+      );
+    }
+    return undefined;
   };
 
   const content = (
@@ -245,7 +266,11 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
     >
       <div className="flex flex-col justify-between h-full space-y-5">
         {/* Top Header with official logo and view heading */}
-        <AuthHeader title={getHeaderTitle()} />
+        <AuthHeader
+          title={getHeaderTitle()}
+          subtitle={getHeaderSubtitle()}
+          align={activeView === 'otp' ? 'center' : 'left'}
+        />
 
         {/* Dynamic Provider / Feature Notice (e.g. Apple sign-in guidance) */}
         {noticeMessage && (
@@ -288,7 +313,7 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
 
           {activeView === 'otp' && (
             <OtpVerificationView
-              email={otpChallenge?.email || prefilledEmail || 'your email'}
+              email={otpChallenge?.email || prefilledEmail || 'user@example.com'}
               challengeToken={otpChallenge?.challengeToken || ''}
               onVerify={handleVerifyOtp}
               onResend={handleResendOtp}
@@ -311,13 +336,15 @@ export const AuthExperience: React.FC<AuthExperienceProps> = ({
           )}
         </div>
 
-        {/* Bottom Footer with View Switch and Legal Links */}
-        <AuthFooter
-          view={activeView}
-          onSwitchView={setViewMode}
-          termsUrl="/terms"
-          privacyUrl="/privacy"
-        />
+        {/* Bottom Footer with View Switch and Legal Links (hidden on OTP view where Back to login is integrated) */}
+        {activeView !== 'otp' && (
+          <AuthFooter
+            view={activeView}
+            onSwitchView={setViewMode}
+            termsUrl="/terms"
+            privacyUrl="/privacy"
+          />
+        )}
       </div>
     </AuthContainer>
   );

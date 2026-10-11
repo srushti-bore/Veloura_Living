@@ -519,8 +519,32 @@ docker run -p 5000:5000 veloura-backend
   - Server-verified role routing: Admins routed to `/admin`, Customers routed to destination/account.
   - Social authentication extensibility: Google OAuth connects directly to `/api/auth/google`, while Apple authentication provides graceful feedback when unconfigured without faking logins.
 - **Verification & Build Status:**
-  - Turbopack production compilation: **72/72 routes compiled successfully (0 errors)**.
+  - Turbopack production compilation: **73/73 routes compiled successfully (0 errors)**.
   - TypeScript type checking: **0 errors** across frontend and backend.
+  - Master test suite: **261/261 tests passed 100%**.
+
+### 24. Phase 24: Premium OTP Verification Page & 6-Box Reference Implementation ✅
+- **Reference-Matched Visual Design:**
+  - Dedicated full-page route at `app/verify-otp/page.tsx` as well as modal integration via `AuthExperience`.
+  - **Left Panel:** Exact high-resolution morning sunlit living room artwork (`public/images/veloura-auth-lifestyle.webp`, 840x1342) with continuous slow GSAP cinematic zoom (`scale: 1.05`).
+  - **Right Panel:** Centered official Veloura Living logo (`veloura-exact-logo@2x.png`), centered heading *"Verify Your Email"*, subtitle *"We've sent a 6-digit OTP to [email]"*, 6 individual rounded OTP input boxes, countdown timer *"Resend OTP in 00:45"*, prominent espresso brown *"Verify"* button, centered *"Back to login"* link, and subtle luxury sparkle.
+- **Functional 6-Box Input & Navigation:**
+  - Individual digit auto-advancing on input.
+  - Full keyboard navigation: Backspace retreats to previous box, Arrow keys navigate left/right.
+  - Native clipboard paste: Pasting full 6-digit code populates all 6 boxes seamlessly and triggers verification.
+  - Mobile numeric keypad optimization (`inputMode="numeric"`, `pattern="[0-9]*"`).
+- **Backend-Driven Countdown & Resend:**
+  - Real-time countdown timer formatted as `mm:ss` (e.g. `00:45`).
+  - Rate-limit protected resend with backend cooldown integration.
+  - Clear error notifications and processing spinner states.
+- **Server-Verified Security & RBAC Routing:**
+  - Never trusts client-side role assertions.
+  - Directs verified Admins to `/admin` and Customers to destination/`/account`.
+- **GSAP Micro-Interactions:**
+  - Restrained staggered reveal animation for the 6 boxes (`gsap.fromTo` with `stagger: 0.05`).
+  - Smooth focus and border transitions with reduced-motion respect and timeline cleanup.
+- **Verification & Build Status:**
+  - Production build: **73/73 routes compiled successfully (0 errors)**.
   - Master test suite: **261/261 tests passed 100%**.
 
 ---
