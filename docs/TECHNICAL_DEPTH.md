@@ -190,4 +190,30 @@ Unauthenticated visitors and standard `CUSTOMER` accounts navigating to `/admin`
 
 ---
 
+## 9. Cloud Deployment Topology, Render Containerization & Database Interconnect
+
+The production architecture orchestrates three cloud tiers:
+
+```mermaid
+graph LR
+    User([Client Web Browser]) -->|HTTPS Storefront| Vercel[Vercel Serverless Edge - Next.js 16]
+    User -->|API / Swagger Docs| Render[Render Container - Node.js REST API]
+    Vercel -->|NEXT_PUBLIC_BACKEND_URL| Render
+    Render -->|CORS APP_URL Whitelist| Vercel
+    Vercel -->|DATABASE_URL: Transaction Pooler 6543| Supabase[(Supabase PostgreSQL)]
+    Render -->|DATABASE_URL: Session Pooler 5432| Supabase
+```
+
+### 🐳 1. Render Container Specification (`backend/Dockerfile`)
+- **Multi-Stage Build Pipeline:** Alpine Linux `node:20-alpine` base image ensuring minimal attack surface and fast layer caching.
+- **Dependency Isolation:** `backend/package.json` specifies locked runtime dependencies (`pg: ^8.23.1`) and dev dependencies (`@types/pg`, `@types/node`, `typescript`), installed via `npm ci --omit=dev`.
+- **Strict Compilation:** Standalone `tsconfig.json` compiles TypeScript source directly to `dist/server.js` with `"types": ["node", "pg"]`.
+
+### 🗄️ 2. PostgreSQL Connection Pooling & Zero-ORM Philosophy (CON-004 & CON-006)
+- **Zero Heavy ORMs:** Veloura Living intentionally avoids heavy ORM engines (such as Prisma or Hibernate) to eliminate 50MB+ native binary dependencies, avoid serverless cold starts, and maintain pure Edge compatibility.
+- **Direct Parameterized Queries:** Data access layers utilize native `pg.Pool` with TLS 1.3 `ssl: { rejectUnauthorized: false }` connecting via Supabase connection poolers.
+- **Transactional Consistency:** Critical state transitions (such as customer registration, order checkout, stock reservation, and payment refunds) execute within atomic `BEGIN ... COMMIT / ROLLBACK` database transactions.
+
+---
+
 *Authored by Antigravity Engineering for Veloura Living — October 2026.*
