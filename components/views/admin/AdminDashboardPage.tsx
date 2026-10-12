@@ -267,7 +267,7 @@ export const AdminDashboardPage: React.FC = () => {
         materials: prodData.materials || ['Solid Oak', 'Bouclé'],
         colors: ['Warm Beige', 'Natural Oak'],
         tags: ['New Arrival'],
-        images: ['/images/products/veloura_solis_boucle_chair.jpg'],
+        images: prodData.images?.length ? prodData.images : ['/images/products/veloura_solis_boucle_chair.jpg'],
         description: prodData.description || 'Handcrafted bespoke piece.',
         story: 'Harmonic lines tailored for serene luxury spaces.',
         craftsmanship: 'Kiln-dried solid timber frame.',

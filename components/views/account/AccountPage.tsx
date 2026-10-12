@@ -38,7 +38,10 @@ import {
   Edit3,
   ExternalLink,
   ChevronRight,
+  ChevronLeft,
   FileText,
+  Sparkles,
+  Camera,
 } from 'lucide-react';
 
 type DashboardTab =
@@ -106,8 +109,49 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
   const [userOrders, setUserOrders] = useState<any[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
-  // Hero carousel state
+  // Hero carousel & atmosphere state
   const [heroSlide, setHeroSlide] = useState(0);
+  const [isAtmosphereMenuOpen, setIsAtmosphereMenuOpen] = useState(false);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
+
+  // Load persisted hero banner preference and custom avatar
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedSlide = localStorage.getItem('veloura_customer_banner_idx');
+      if (savedSlide !== null && !isNaN(Number(savedSlide))) {
+        setHeroSlide(Number(savedSlide));
+      }
+      const savedAvatar = localStorage.getItem('veloura_customer_avatar');
+      if (savedAvatar) {
+        setCustomAvatarUrl(savedAvatar);
+      }
+    }
+  }, []);
+
+  const handleSelectBanner = (idx: number) => {
+    setHeroSlide(idx);
+    setIsAtmosphereMenuOpen(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('veloura_customer_banner_idx', String(idx));
+    }
+  };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setCustomAvatarUrl(reader.result);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('veloura_customer_avatar', reader.result);
+          }
+          setProfileSuccessMsg('Profile photograph updated successfully.');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Search state inside hero
   const [heroSearchQuery, setHeroSearchQuery] = useState('');
@@ -188,6 +232,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
       : user?.email ? user.email.split('@')[0] : 'Customer';
 
   const customerAvatar =
+    customAvatarUrl ||
     profile?.avatar_url ||
     user?.profile?.avatarUrl ||
     '/images/dashboard/default-customer-avatar.jpg';
@@ -356,18 +401,28 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
   // Hero Carousel slides content
   const heroSlides = [
     {
+      name: 'Warm Minimalist',
       titleLine1: 'Your Dream Space',
       titleLine2: 'Awaits',
       subtitle: 'Discover furniture that feels like home.',
       image: '/images/dashboard/customer-dashboard-hero.jpg',
     },
     {
+      name: 'Architectural Salon',
       titleLine1: 'Curated Architectural',
       titleLine2: 'Living',
       subtitle: 'Handcrafted solid oak & bouclé contours tailored for comfort.',
+      image: '/images/rooms/veloura_ultra_luxury_living_hero.jpg',
+    },
+    {
+      name: 'Japandi Sanctuary',
+      titleLine1: 'Organic Serenity &',
+      titleLine2: 'Calm',
+      subtitle: 'Natural woven rattan, travertine, and minimalist timber elegance.',
       image: '/images/rooms/veloura_luxury_living_room_hero.jpg',
     },
     {
+      name: 'Twilight Illumination',
       titleLine1: 'Spaces Made for',
       titleLine2: 'Connection',
       subtitle: 'Sculptural tables & ambient brass illumination for timeless living.',
@@ -640,11 +695,11 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
             <div className="space-y-6 lg:space-y-7 animate-fadeIn">
               
               {/* 1. Large Warm Living-Room Hero Banner */}
-              <section className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm p-7 sm:p-9 md:p-11 min-h-[260px] sm:min-h-[290px] md:min-h-[310px] flex flex-col justify-between">
+              <section className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm p-7 sm:p-9 md:p-11 min-h-[280px] sm:min-h-[310px] md:min-h-[330px] flex flex-col justify-between">
                 {/* Background Image */}
                 <Image
                   src={currentHero.image}
-                  alt="Veloura Dream Space"
+                  alt={currentHero.name}
                   fill
                   priority
                   sizes="(max-width: 1024px) 100vw, 1160px"
@@ -652,10 +707,65 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
                 />
 
                 {/* Ambient Contrast Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[#21140D]/75 via-[#21140D]/40 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#21140D]/80 via-[#21140D]/45 to-transparent pointer-events-none" />
+
+                {/* Top Atmospheric Control Bar */}
+                <div className="relative z-20 flex items-center justify-between w-full">
+                  <div className="text-[10px] uppercase tracking-widest text-[#E6DDD0] font-semibold bg-black/30 px-3 py-1 rounded-full backdrop-blur-xs">
+                    Curated Atmosphere
+                  </div>
+
+                  {/* Atmosphere Customizer Dropdown */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsAtmosphereMenuOpen(!isAtmosphereMenuOpen)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white text-xs font-medium transition-all shadow-sm cursor-pointer"
+                      title="Switch Atmosphere"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[#F5EFE6]" />
+                      <span>{currentHero.name}</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isAtmosphereMenuOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {isAtmosphereMenuOpen && (
+                      <div
+                        className="absolute right-0 mt-2 w-72 bg-white/95 backdrop-blur-xl rounded-2xl p-3 shadow-2xl border border-[#EADBCC] z-40 space-y-2 animate-fadeIn"
+                        onMouseLeave={() => setIsAtmosphereMenuOpen(false)}
+                      >
+                        <div className="text-[10px] font-semibold text-[#8C7A6B] uppercase tracking-wider px-1">
+                          Select Space Atmosphere
+                        </div>
+                        <div className="space-y-1.5">
+                          {heroSlides.map((slide, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleSelectBanner(idx)}
+                              className={`w-full flex items-center gap-3 p-2 rounded-xl text-left transition-all cursor-pointer ${
+                                heroSlide === idx
+                                  ? 'bg-[#FAF2E8] border border-[#D5C2B1] shadow-2xs'
+                                  : 'hover:bg-[#F9F5F0]'
+                              }`}
+                            >
+                              <div className="relative w-12 h-9 rounded-lg overflow-hidden shrink-0 border border-black/10">
+                                <Image src={slide.image} alt={slide.name} fill className="object-cover" sizes="48px" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-semibold text-[#2B1810] truncate">{slide.name}</div>
+                                <div className="text-[10px] text-[#8C7A6B] truncate">{slide.subtitle}</div>
+                              </div>
+                              {heroSlide === idx && <Check className="w-3.5 h-3.5 text-[#55361F] shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Editorial Heading & Subtitle */}
-                <div className="relative z-10 max-w-xl">
+                <div className="relative z-10 max-w-xl my-3">
                   <h1 className="font-serif text-3xl sm:text-4xl md:text-[42px] font-medium text-white leading-[1.12] drop-shadow-sm">
                     {currentHero.titleLine1} <br />
                     {currentHero.titleLine2}
@@ -666,7 +776,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
                 </div>
 
                 {/* Product Search Bar */}
-                <div className="relative z-20 mt-6 sm:mt-8">
+                <div className="relative z-20 mt-4 sm:mt-6">
                   <form
                     onSubmit={handleHeroSearch}
                     className="w-full max-w-[620px] bg-white rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.16)] p-1.5 sm:p-2 flex items-center gap-2 border border-white/80"
@@ -704,7 +814,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
                           className="flex items-center gap-3 p-2 hover:bg-[#FAF7F2] rounded-xl cursor-pointer transition-colors"
                         >
                           <div className="w-10 h-10 rounded-lg overflow-hidden relative bg-[#F7F2EA] shrink-0">
-                            <Image src={item.images?.[0] || '/images/products/sofa.jpg'} alt={item.name} fill className="object-cover" />
+                            <Image src={item.images?.[0] || '/images/products/veloura_serpentine_modular_sofa.jpg'} alt={item.name} fill className="object-cover" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-semibold text-[#2B1810] truncate">{item.name}</div>
@@ -716,20 +826,42 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
                   )}
                 </div>
 
-                {/* Carousel Navigation Dots */}
-                <div className="relative z-10 flex items-center justify-center gap-2 pt-4">
-                  {heroSlides.map((_, idx) => (
+                {/* Carousel Navigation Dots and Quick Switcher */}
+                <div className="relative z-10 flex items-center justify-between pt-3">
+                  <div className="flex items-center gap-1.5">
                     <button
-                      key={idx}
-                      onClick={() => setHeroSlide(idx)}
-                      className={`transition-all duration-300 cursor-pointer ${
-                        heroSlide === idx
-                          ? 'w-6 h-1.5 bg-white rounded-full'
-                          : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/80 rounded-full'
-                      }`}
-                      aria-label={`Switch to hero slide ${idx + 1}`}
-                    />
-                  ))}
+                      type="button"
+                      onClick={() => handleSelectBanner((heroSlide - 1 + heroSlides.length) % heroSlides.length)}
+                      className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/35 backdrop-blur-xs flex items-center justify-center text-white transition-colors cursor-pointer"
+                      title="Previous Atmosphere"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectBanner((heroSlide + 1) % heroSlides.length)}
+                      className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/35 backdrop-blur-xs flex items-center justify-center text-white transition-colors cursor-pointer"
+                      title="Next Atmosphere"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {heroSlides.map((slide, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSelectBanner(idx)}
+                        className={`transition-all duration-300 cursor-pointer ${
+                          heroSlide === idx
+                            ? 'w-6 h-1.5 bg-white rounded-full'
+                            : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/80 rounded-full'
+                        }`}
+                        title={slide.name}
+                        aria-label={`Switch to atmosphere ${slide.name}`}
+                      />
+                    ))}
+                  </div>
                 </div>
               </section>
 
@@ -1074,7 +1206,7 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
                           >
                             <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shrink-0 relative border border-[#EADBCC]">
                               <Image
-                                src={item.image || '/images/products/sofa.jpg'}
+                                src={item.image || '/images/products/veloura_serpentine_modular_sofa.jpg'}
                                 alt={item.name}
                                 fill
                                 className="object-cover"
@@ -1319,12 +1451,23 @@ export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboar
 
               <form onSubmit={handleProfileSave} className="bg-white rounded-3xl p-6 sm:p-8 border border-[#EADBCC] space-y-5 shadow-2xs">
                 <div className="flex items-center gap-4 pb-4 border-b border-[#F0E6D8]">
-                  <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#EADBCC]">
-                    <Image src={customerAvatar} alt={customerDisplayName} fill className="object-cover object-top" />
+                  <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#EADBCC] group">
+                    <Image src={customerAvatar} alt={customerDisplayName} fill className="object-cover object-top" sizes="64px" />
+                    <label className="absolute inset-0 bg-black/45 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                      <Camera className="w-4 h-4" />
+                      <span className="text-[9px] font-semibold mt-0.5">Edit</span>
+                      <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                    </label>
                   </div>
                   <div>
                     <div className="font-serif font-bold text-lg text-[#2B1810]">{customerDisplayName}</div>
-                    <div className="text-xs text-[#7D6B5D]">{user?.email} • Verified Customer</div>
+                    <div className="text-xs text-[#7D6B5D] flex items-center gap-2">
+                      <span>{user?.email} • Verified Customer</span>
+                      <label className="text-xs text-[#55361F] font-semibold underline cursor-pointer hover:text-[#2B1810]">
+                        Change Photo
+                        <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                      </label>
+                    </div>
                   </div>
                 </div>
 
