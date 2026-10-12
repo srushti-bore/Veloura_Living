@@ -9,8 +9,12 @@ export const Footer: React.FC = () => {
   const pathname = usePathname();
   const { navigate, rooms } = useStore();
 
-  // Suppress consumer store footer on standalone dashboards (admin console & customer account)
-  if (pathname?.startsWith('/admin') || pathname?.startsWith('/account')) {
+  // Suppress consumer store footer on standalone dashboards (Admin, Customer Account, Orders)
+  if (
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/account') ||
+    pathname?.startsWith('/orders')
+  ) {
     return null;
   }
 

@@ -10,7 +10,11 @@ export const AmbientSoundscape: React.FC = () => {
   const pathname = usePathname();
 
   // Suppress ambient soundscape player on administrative and customer dashboards
-  if (pathname?.startsWith('/admin') || pathname?.startsWith('/account')) {
+  if (
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/account') ||
+    pathname?.startsWith('/orders')
+  ) {
     return null;
   }
 

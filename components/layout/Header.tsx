@@ -130,8 +130,12 @@ export const Header: React.FC = () => {
     }
   };
 
-  // Suppress public store header on admin dashboard console
-  if (pathname?.startsWith('/admin')) {
+  // Suppress public store header on dashboard consoles (Admin, Customer Account, Orders)
+  if (
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/account') ||
+    pathname?.startsWith('/orders')
+  ) {
     return null;
   }
 

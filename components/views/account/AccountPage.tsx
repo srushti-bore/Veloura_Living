@@ -50,7 +50,11 @@ type DashboardTab =
   | 'reviews'
   | 'settings';
 
-export const AccountPage: React.FC = () => {
+export interface AccountPageProps {
+  initialTab?: DashboardTab;
+}
+
+export const AccountPage: React.FC<AccountPageProps> = ({ initialTab = 'dashboard' }) => {
   const { wishlist, cart, setIsCartOpen, allProducts, navigate } = useStore();
   const {
     user,
@@ -68,7 +72,31 @@ export const AccountPage: React.FC = () => {
   const { unreadCount, openDrawer: openNotificationDrawer } = useNotifications();
 
   // Navigation state
-  const [activeTab, setActiveTab] = useState<DashboardTab>('dashboard');
+  const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab);
+
+  // Synchronize active tab from URL query (?tab=...) or pathname
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as DashboardTab | null;
+      const validTabs: DashboardTab[] = [
+        'dashboard',
+        'orders',
+        'wishlist',
+        'addresses',
+        'profile',
+        'reviews',
+        'settings',
+      ];
+      if (tabParam && validTabs.includes(tabParam)) {
+        setActiveTab(tabParam);
+      } else if (window.location.pathname.startsWith('/orders')) {
+        setActiveTab('orders');
+      } else if (initialTab) {
+        setActiveTab(initialTab);
+      }
+    }
+  }, [initialTab]);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -352,15 +380,15 @@ export const AccountPage: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="min-h-screen bg-[#F7F2EA] py-4 sm:py-6 md:py-8 lg:py-10 px-2 sm:px-4 md:px-6 lg:px-8 font-sans select-text"
+      className="min-h-screen lg:h-screen w-full bg-[#EFE9DF] sm:bg-[#F7F2EA] flex items-center justify-center p-2 sm:p-4 lg:p-6 overflow-x-hidden lg:overflow-hidden font-sans select-text"
     >
       {/* Outer Rounded Container matching the Reference Image */}
-      <div className="w-full max-w-[1440px] mx-auto bg-[#F7F2EA] rounded-[24px] sm:rounded-[32px] md:rounded-[36px] overflow-hidden border border-[#E6DDD0] shadow-[0_20px_60px_-15px_rgba(42,26,18,0.12)] flex flex-col lg:flex-row min-h-[780px] lg:min-h-[820px]">
+      <div className="w-full max-w-[1440px] lg:h-[calc(100vh-2rem)] xl:h-[calc(100vh-3rem)] max-h-[960px] bg-[#FAF7F2] rounded-[24px] sm:rounded-[32px] md:rounded-[36px] overflow-hidden border border-[#E6DDD0] shadow-[0_20px_60px_-15px_rgba(42,26,18,0.12)] flex flex-col lg:flex-row">
         
         {/* ========================================================= */}
         {/* LEFT SIDEBAR — DARK WARM BROWN (#3B2213)                   */}
         {/* ========================================================= */}
-        <aside className="w-full lg:w-[260px] xl:w-[280px] shrink-0 bg-[#3B2213] text-[#FAF7F2] p-6 sm:p-7 flex flex-col justify-between select-none">
+        <aside className="w-full lg:w-[260px] xl:w-[280px] shrink-0 bg-[#3B2213] text-[#FAF7F2] p-6 sm:p-7 flex flex-col justify-between select-none lg:h-full lg:overflow-y-auto">
           <div>
             {/* 1. Official Veloura Living Logo at Top */}
             <div className="mb-7 sm:mb-8 text-center flex flex-col items-center">
@@ -447,7 +475,7 @@ export const AccountPage: React.FC = () => {
           </div>
 
           {/* 4. Logout Link at Bottom */}
-          <div className="pt-6 border-t border-white/10 mt-6">
+          <div className="pt-6 border-t border-white/10 mt-6 shrink-0">
             <button
               onClick={() => logout()}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-[#D5C7B8] hover:text-[#FAF7F2] hover:bg-[#482D1B] transition-colors cursor-pointer"
@@ -461,7 +489,7 @@ export const AccountPage: React.FC = () => {
         {/* ========================================================= */}
         {/* RIGHT MAIN SURFACE (#FAF7F2)                              */}
         {/* ========================================================= */}
-        <main className="flex-1 bg-[#FAF7F2] p-5 sm:p-7 md:p-8 lg:p-9 flex flex-col justify-between space-y-6 lg:space-y-7 overflow-x-hidden">
+        <main className="flex-1 bg-[#FAF7F2] p-5 sm:p-7 md:p-8 lg:p-9 flex flex-col space-y-6 lg:space-y-7 overflow-x-hidden lg:overflow-y-auto">
           
           {/* Top Utility Header Bar */}
           <header className="flex items-center justify-between gap-4 pb-1">
@@ -474,6 +502,15 @@ export const AccountPage: React.FC = () => {
 
             {/* Top-Right Navigation Icons & Profile */}
             <div className="ml-auto flex items-center gap-3 sm:gap-4 md:gap-5 text-[#5C4535] relative">
+              {/* Return to Storefront link */}
+              <Link
+                href="/shop"
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-[#7D6B5D] hover:text-[#2B1810] px-3 py-1.5 rounded-full hover:bg-[#F2E8DC] transition-colors"
+                title="Return to Boutique Shop"
+              >
+                <span>Store</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
               {/* Notification Icon */}
               <button
                 onClick={openNotificationDrawer}
