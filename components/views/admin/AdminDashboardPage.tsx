@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { gsap } from 'gsap';
 import { useStore } from '@/hooks/useStore';
 import { useAuth } from '@/providers/AuthProvider';
@@ -592,41 +593,43 @@ export const AdminDashboardPage: React.FC = () => {
 
   // 3. Authenticated Admin Dashboard Layout matching Reference Image Exactly
   return (
-    <div className="min-h-screen bg-[#ECE7E0] p-3 sm:p-5 lg:p-8 font-sans text-[#2E1E12] flex items-center justify-center">
+    <div className="min-h-screen md:h-screen w-full bg-[#ECE7E0] p-2 sm:p-4 lg:p-6 font-sans text-[#2E1E12] flex items-center justify-center overflow-x-hidden md:overflow-hidden">
       {/* Master Rounded Container */}
-      <div className="w-full max-w-[1340px] bg-[#F7F2EA] rounded-[28px] sm:rounded-[32px] border border-[#E6DDD0] shadow-[0_20px_60px_-15px_rgba(40,25,15,0.08)] overflow-hidden flex flex-col md:flex-row min-h-[820px]">
+      <div className="w-full max-w-[1400px] h-full md:h-[calc(100vh-2rem)] lg:h-[calc(100vh-3rem)] max-h-[960px] bg-[#F7F2EA] rounded-[24px] sm:rounded-[28px] lg:rounded-[32px] border border-[#E6DDD0] shadow-[0_20px_60px_-15px_rgba(40,25,15,0.08)] overflow-hidden flex flex-col md:flex-row">
         {/* Left Dark Warm-Brown Sidebar (#3B2213) */}
-        <aside className="w-full md:w-60 lg:w-64 bg-[#3B2213] text-[#F7F2EA] flex flex-col shrink-0 px-4 py-6 justify-between select-none">
+        <aside className="w-full md:w-60 lg:w-64 bg-[#3B2213] text-[#F7F2EA] flex flex-col shrink-0 px-4 py-5 justify-between select-none h-full overflow-y-auto">
           <div>
             {/* 1. Veloura Living Logo */}
-            <div className="flex flex-col items-center text-center pt-2 pb-5 border-b border-white/10">
-              {/* Sofa & Plant Brand Icon */}
-              <div className="w-10 h-7 relative mb-1.5 opacity-90 flex items-center justify-center">
-                <svg viewBox="0 0 48 36" fill="none" className="w-full h-full text-[#D4AF37]">
-                  <path
-                    d="M10 24V14C10 11.7909 11.7909 10 14 10H30C32.2091 10 34 11.7909 34 14V24"
-                    stroke="#D4AF37"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-                  <rect x="6" y="16" width="6" height="12" rx="3" fill="#D4AF37" />
-                  <rect x="32" y="16" width="6" height="12" rx="3" fill="#D4AF37" />
-                  <rect x="10" y="22" width="24" height="6" rx="2" fill="#D4AF37" />
-                  <path d="M12 28V32M32 28V32" stroke="#D4AF37" strokeWidth="2.5" strokeLinecap="round" />
-                  <circle cx="41" cy="9" r="3.5" fill="#C5B4A1" />
-                  <path d="M41 12.5V28" stroke="#C5B4A1" strokeWidth="1.5" strokeLinecap="round" />
-                  <path d="M38 18C41 17 41 14 41 14" stroke="#C5B4A1" strokeWidth="1.5" strokeLinecap="round" />
-                  <path d="M44 19C41 18 41 15 41 15" stroke="#C5B4A1" strokeWidth="1.5" strokeLinecap="round" />
-                  <rect x="38.5" y="23" width="5" height="5" rx="1" fill="#D4AF37" />
-                </svg>
+            <Link href="/" className="block transition-transform hover:scale-[1.02]" title="Go to Storefront">
+              <div className="flex flex-col items-center text-center pt-2 pb-5 border-b border-white/10">
+                {/* Sofa & Plant Brand Icon */}
+                <div className="w-10 h-7 relative mb-1.5 opacity-90 flex items-center justify-center">
+                  <svg viewBox="0 0 48 36" fill="none" className="w-full h-full text-[#D4AF37]">
+                    <path
+                      d="M10 24V14C10 11.7909 11.7909 10 14 10H30C32.2091 10 34 11.7909 34 14V24"
+                      stroke="#D4AF37"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                    <rect x="6" y="16" width="6" height="12" rx="3" fill="#D4AF37" />
+                    <rect x="32" y="16" width="6" height="12" rx="3" fill="#D4AF37" />
+                    <rect x="10" y="22" width="24" height="6" rx="2" fill="#D4AF37" />
+                    <path d="M12 28V32M32 28V32" stroke="#D4AF37" strokeWidth="2.5" strokeLinecap="round" />
+                    <circle cx="41" cy="9" r="3.5" fill="#C5B4A1" />
+                    <path d="M41 12.5V28" stroke="#C5B4A1" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M38 18C41 17 41 14 41 14" stroke="#C5B4A1" strokeWidth="1.5" strokeLinecap="round" />
+                    <path d="M44 19C41 18 41 15 41 15" stroke="#C5B4A1" strokeWidth="1.5" strokeLinecap="round" />
+                    <rect x="38.5" y="23" width="5" height="5" rx="1" fill="#D4AF37" />
+                  </svg>
+                </div>
+                <span className="font-serif tracking-[0.25em] text-sm font-bold text-[#F7F2EA] uppercase">
+                  VELOURA
+                </span>
+                <span className="tracking-[0.35em] text-[8px] text-[#C5B4A1] uppercase font-semibold">
+                  LIVING
+                </span>
               </div>
-              <span className="font-serif tracking-[0.25em] text-sm font-bold text-[#F7F2EA] uppercase">
-                VELOURA
-              </span>
-              <span className="tracking-[0.35em] text-[8px] text-[#C5B4A1] uppercase font-semibold">
-                LIVING
-              </span>
-            </div>
+            </Link>
 
             {/* 2. Admin Profile Section */}
             <div className="flex items-center gap-3 px-2 py-4 my-2 border-b border-white/10">
@@ -682,7 +685,7 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           {/* 4. Bottom Logout */}
-          <div className="pt-4 border-t border-white/10 mt-6">
+          <div className="pt-3 border-t border-white/10 mt-4 shrink-0">
             <button
               onClick={async () => {
                 await logout();
@@ -697,9 +700,9 @@ export const AdminDashboardPage: React.FC = () => {
         </aside>
 
         {/* Right Main Content Area */}
-        <main className="flex-1 bg-[#F7F2EA] flex flex-col overflow-y-auto">
+        <main className="flex-1 bg-[#F7F2EA] flex flex-col h-full overflow-hidden">
           {/* Top Navigation Bar */}
-          <header className="px-6 sm:px-8 pt-6 pb-4 flex items-center justify-between gap-4 border-b border-[#EAE2D7]/60">
+          <header className="px-6 sm:px-8 pt-5 pb-4 flex items-center justify-between gap-4 border-b border-[#EAE2D7]/60 shrink-0">
             {/* Search Input with Placeholder "Search anything..." */}
             <div className="relative w-full max-w-sm sm:max-w-md">
               <Search className="w-4 h-4 text-[#A89886] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -905,7 +908,7 @@ export const AdminDashboardPage: React.FC = () => {
           )}
 
           {/* Tab Content Router */}
-          <div className="flex-1 p-6 sm:p-8 space-y-6">
+          <div className="flex-1 p-6 sm:p-8 space-y-6 overflow-y-auto">
             {activeTab === 'dashboard' && (
               <div ref={contentSectionRef} className="space-y-6">
                 {/* Dashboard Header */}

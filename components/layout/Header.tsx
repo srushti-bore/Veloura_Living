@@ -130,6 +130,11 @@ export const Header: React.FC = () => {
     }
   };
 
+  // Suppress public store header on admin dashboard console
+  if (pathname?.startsWith('/admin')) {
+    return null;
+  }
+
   const isRoomsActive = pathname.startsWith('/rooms');
   const isStudioActive = pathname.startsWith('/studio') || pathname.startsWith('/configurator');
   const isCheckout = pathname?.startsWith('/checkout');

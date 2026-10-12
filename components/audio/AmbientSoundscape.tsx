@@ -1,11 +1,19 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { Volume2, VolumeX, Sparkles, Music, Waves, Flame, CloudRain, SunMedium } from 'lucide-react';
 
 type SoundscapePreset = 'fireside' | 'rain' | 'calm';
 
 export const AmbientSoundscape: React.FC = () => {
+  const pathname = usePathname();
+
+  // Suppress ambient soundscape player on administrative and customer dashboards
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/account')) {
+    return null;
+  }
+
   const [isPlaying, setIsPlaying] = useState(false);
   const [activePreset, setActivePreset] = useState<SoundscapePreset>('fireside');
   const [volume, setVolume] = useState(0.4);

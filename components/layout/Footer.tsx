@@ -1,11 +1,18 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { useStore } from '@/hooks/useStore';
 import { ShieldCheck, Truck, RefreshCw, Sparkles, MapPin, Mail, ArrowRight } from 'lucide-react';
 
 export const Footer: React.FC = () => {
+  const pathname = usePathname();
   const { navigate, rooms } = useStore();
+
+  // Suppress consumer store footer on standalone dashboards (admin console & customer account)
+  if (pathname?.startsWith('/admin') || pathname?.startsWith('/account')) {
+    return null;
+  }
 
   return (
     <footer className="bg-[#211E1B] text-[#EEE9E1] pt-16 pb-12 border-t border-[#4A2C1A]/20">
