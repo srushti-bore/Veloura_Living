@@ -1,13 +1,50 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useStore } from '@/hooks/useStore';
-import { ShieldCheck, Truck, RefreshCw, Sparkles, MapPin, Mail, ArrowRight } from 'lucide-react';
+import { ShieldCheck, Truck, RefreshCw, Sparkles, MapPin, Mail, ArrowRight, Check } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   const pathname = usePathname();
   const { navigate, rooms } = useStore();
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+
+  const handleNewsletterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newsletterEmail || !newsletterEmail.includes('@')) {
+      setSubmitStatus('error');
+      setFeedbackMessage('Please enter a valid email address.');
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+    setFeedbackMessage('');
+    try {
+      const res = await fetch('/api/marketing/newsletter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newsletterEmail }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSubmitStatus('success');
+        setFeedbackMessage('Thank you for joining The Considered Home.');
+        setNewsletterEmail('');
+      } else {
+        setSubmitStatus('error');
+        setFeedbackMessage(data.error?.message || 'Unable to subscribe. Please try again.');
+      }
+    } catch {
+      setSubmitStatus('error');
+      setFeedbackMessage('Network connection issue. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Suppress consumer store footer on standalone dashboards (Admin, Customer Account, Orders)
   if (
@@ -190,22 +227,39 @@ export const Footer: React.FC = () => {
             <p className="text-xs text-[#9C9287] leading-relaxed">
               Receive seasonal lookbooks, spatial styling essays, and early access to numbered hardwood editions.
             </p>
-            <form onSubmit={(e) => { e.preventDefault(); alert('Thank you for joining Veloura Considered Home.'); }} className="space-y-2">
+            <form onSubmit={handleNewsletterSubmit} className="space-y-2">
               <div className="relative">
                 <input
                   type="email"
                   placeholder="Your personal email..."
                   required
-                  className="w-full bg-[#332E29] border border-[#514A43] rounded-lg px-3.5 py-2 text-xs text-white placeholder-[#9C9287] focus:outline-none focus:border-[#8B5A2B] focus:ring-1 focus:ring-[#8B5A2B] transition-all"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  disabled={isSubmitting}
+                  className="w-full bg-[#332E29] border border-[#514A43] rounded-lg px-3.5 py-2 text-xs text-white placeholder-[#9C9287] focus:outline-none focus:border-[#8B5A2B] focus:ring-1 focus:ring-[#8B5A2B] transition-all disabled:opacity-50"
                 />
                 <button
                   type="submit"
-                  className="absolute right-1.5 top-1.5 bg-[#8B5A2B] text-white p-1 rounded hover:bg-[#A47A45] active:scale-90 transition-all cursor-pointer"
+                  disabled={isSubmitting}
+                  className="absolute right-1.5 top-1.5 bg-[#8B5A2B] text-white p-1 rounded hover:bg-[#A47A45] active:scale-90 transition-all cursor-pointer disabled:opacity-50"
                   title="Subscribe"
                 >
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  {submitStatus === 'success' ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-300" />
+                  ) : (
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  )}
                 </button>
               </div>
+              {feedbackMessage && (
+                <p
+                  className={`text-[11px] leading-tight transition-opacity duration-300 ${
+                    submitStatus === 'success' ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                >
+                  {feedbackMessage}
+                </p>
+              )}
             </form>
           </div>
         </div>

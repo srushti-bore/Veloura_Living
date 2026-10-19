@@ -84,7 +84,7 @@ const DEFAULT_IDENTITY: CheckoutIdentityState = {
   fullName: '',
   email: '',
   phone: '',
-  keepUpdated: true,
+  keepUpdated: false,
   isGuest: false,
   notificationChannel: 'whatsapp',
 };

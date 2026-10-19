@@ -13,6 +13,7 @@ import { runSingleAdminBootstrapTests } from './single-admin-bootstrap.test';
 import { runStrictAuthFlowTests } from './strict-auth-flow-verification.test';
 import { runCustomerDashboardTests } from './customer-dashboard-verification.test';
 import { runAdminDashboardTests } from './admin-dashboard-verification.test';
+import { runMarketingConsentTestSuite } from './marketing-consent-and-campaign-safety.test';
 
 async function main() {
   console.log('===========================================================');
@@ -82,6 +83,12 @@ async function main() {
   totalPassed += res10.passed;
   totalFailed += res10.failed;
   allErrors.push(...res10.errors);
+
+  // 11. Marketing Consent, Unsubscribe & Campaign Deduplication Safety (n8n & Brevo Ready)
+  const res11 = await runMarketingConsentTestSuite();
+  totalPassed += res11.passed;
+  totalFailed += res11.failed;
+  allErrors.push(...res11.errors);
 
   console.log('\n===========================================================');
   console.log(`📊 TEST EXECUTION SUMMARY:`);

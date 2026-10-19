@@ -5,6 +5,7 @@ export * from './product';
 export * from './room';
 export * from './cart';
 export * from './order';
+export * from './marketing';
 
 import { Product } from './product';
 

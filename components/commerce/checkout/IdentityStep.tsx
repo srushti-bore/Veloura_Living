@@ -20,6 +20,22 @@ export const IdentityStep: React.FC = () => {
       return;
     }
     setError(null);
+
+    // Persist explicit marketing consent choice to backend
+    if (identity.email) {
+      fetch('/api/marketing/consent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: identity.email,
+          isOptedIn: Boolean(identity.keepUpdated),
+          source: 'CHECKOUT',
+        }),
+      }).catch((err) => {
+        console.warn('Marketing consent dispatch notice:', err);
+      });
+    }
+
     markStepCompleted(1);
     router.push('/checkout/delivery');
   };

@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "test": "npx -y tsx tests/run-all-tests.ts",
+    "test:marketing": "npx -y tsx tests/marketing-consent-and-campaign-safety.test.ts",
     "test:auth": "npx -y tsx tests/phase-production-auth-test.ts",
     "test:otp-brevo": "npx -y tsx tests/otp-brevo-auth.test.ts",
     "db:setup": "npx -y tsx scripts/setup-database.ts",

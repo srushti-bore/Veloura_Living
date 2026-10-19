@@ -32,7 +32,8 @@
 21. [Phase 26: Strict Step-by-Step Registration & Login Security Pipeline](#21-phase-26-strict-step-by-step-registration--login-security-pipeline)
 22. [Phase 27: Quiet Luxury Customer Dashboard & Dynamic Identity Personalization](#22-phase-27-quiet-luxury-customer-dashboard--dynamic-identity-personalization)
 23. [Phase 28: Reference-Matched Admin Operations Cockpit & Complete Management Suite](#23-phase-28-reference-matched-admin-operations-cockpit--complete-management-suite)
-24. [Automated Verification & E2E Validation Matrix](#24-automated-verification--e2e-validation-matrix)
+24. [Phase 29: Marketing Consent, Unsubscribe Management & Campaign Safety Architecture](#24-phase-29-marketing-consent-unsubscribe-management--campaign-safety-architecture)
+25. [Automated Verification & E2E Validation Matrix](#25-automated-verification--e2e-validation-matrix)
 
 ---
 
@@ -654,13 +655,38 @@ Veloura Living implements a reference-matched OTP verification page (`app/verify
 
 ---
 
-## 24. Automated Verification & E2E Validation Matrix
+## 24. Phase 29: Marketing Consent, Unsubscribe Management & Campaign Safety Architecture
+
+### 🛡️ 1. Regulatory Consent Persistence & Default Opt-Out
+- **Zero Inferred Consent:** All registered and guest users default to `is_opted_in = false` with `consented_at = null`. Marketing consent requires an explicit, un-coerced affirmative user gesture.
+- **Checkout Integration:** `keepUpdated` checkbox in `providers/CheckoutProvider.tsx` defaults to `false`. When completed, `IdentityStep.tsx` dispatches an explicit payload to `POST /api/marketing/consent`.
+- **Newsletter Subscription:** Footer subscription form validates RFC-compliant email formats and records `FOOTER_NEWSLETTER` consent source.
+- **Cross-Account Tampering Defense:** Users cannot alter marketing preferences for any other account. If a session token exists, the target email MUST match `session.email`, otherwise the API responds with `403 Forbidden`.
+
+### 🔕 2. Idempotent Unsubscribe Engine & Provider Webhook
+- **Cryptographic Unsubscribe Tokens:** Every customer consent record contains a high-entropy 256-bit unguessable `unsubscribe_token` (`crypto.randomBytes(32).toString('hex')`).
+- **1-Click Luxury Landing Page (`/unsubscribe`):** Token-based unsubscription allows seamless single-click opt-out directly from email footers without requiring authentication, while explicitly reassuring customers that transactional order notifications and security OTPs remain active.
+- **Brevo Webhook Ingestion (`POST /api/marketing/brevo-webhook`):** Validates the incoming webhook signature/secret and idempotently updates `customer_marketing_consents` upon `unsubscribe`, `spam`, or `hard_bounce` events.
+- **Festival Campaign Invariant:** Creating new marketing campaigns or festive promotions never re-subscribes customers who have previously opted out.
+
+### 🎯 3. Campaign Deduplication & Atomic Concurrency Safety (n8n Ready)
+- **Database Unique Constraint:** `uq_campaign_recipient (campaign_key, email)` guarantees that no customer can ever have more than one dispatch queued or sent for a given campaign.
+- **Audience Population:** `populate_campaign_dispatches(p_campaign_key, p_target_segment)` filters strictly for `is_opted_in = true`, `unsubscribed_at IS NULL`, non-bounced, and active customer accounts.
+- **Atomic Job Claiming (`claim_campaign_dispatches`):** Distributed n8n worker instances claim pending dispatches concurrently using `SELECT ... FOR UPDATE SKIP LOCKED` into `CLAIMED` status, preventing duplicate sends across worker nodes.
+- **Safe Outcome Tracking (`record_dispatch_result`):**
+  - Distinguishes between `PENDING`, `CLAIMED`, `ACCEPTED`, `DELIVERED`, `FAILED`, `BOUNCED`, and `TIMEOUT_AMBIGUOUS`.
+  - Quarantines gateway timeouts under `TIMEOUT_AMBIGUOUS` with error details, preventing blind retries from producing duplicate marketing emails.
+
+---
+
+## 25. Automated Verification & E2E Validation Matrix
 
 | Test Suite | Execution Command | Coverage & Scope | Status |
 |---|---|---|---|
-| **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 74 App Router routes and backend modules | ✅ **0 Errors** |
+| **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 75 App Router routes and backend modules | ✅ **0 Errors** |
 | **Backend Typecheck** | `npx.cmd tsc -p backend/tsconfig.json --noEmit` | Strict compilation of standalone backend microservice | ✅ **0 Errors** |
-| **Production Build** | `npm.cmd run build` | Next.js 16.3.8 production compilation (74/74 routes) | ✅ **Compiled in ~4.3s** |
+| **Production Build** | `npm.cmd run build` | Next.js 16.3.8 production compilation (75/75 routes) | ✅ **Compiled (0 errors)** |
+| **Marketing & Campaign Safety** | `npm.cmd run test:marketing` | 36 consent persistence, unsubscribe, webhook, deduplication & n8n worker claim tests | ✅ **36/36 (100%)** |
 | **Single Admin Bootstrap** | `npx.cmd tsx tests/single-admin-bootstrap.test.ts` | 40-scenario single admin invariant, seed removal, RBAC & bypass tests | ✅ **40/40 (100%)** |
 | **Strict Auth Flow Verification** | `npx.cmd tsx tests/strict-auth-flow-verification.test.ts` | 35 strict registration, login OTP, error recovery & role routing tests | ✅ **35/35 (100%)** |
 | **Customer Dashboard Verification** | `npx.cmd tsx tests/customer-dashboard-verification.test.ts` | 10 dynamic identity, data isolation & reference layout tests | ✅ **10/10 (100%)** |
@@ -668,7 +694,7 @@ Veloura Living implements a reference-matched OTP verification page (`app/verify
 | **Brevo & OTP Verification** | `npx.cmd tsx tests/otp-brevo-auth.test.ts` | Brevo REST API, sanitization, multi-alias dev OTP & isolation tests | ✅ **52/52 (100%)** |
 | **Auth Security Verification** | `npx.cmd tsx tests/auth-security-verification.test.ts` | OTP purpose separation, pending store, concurrency & persistence tests | ✅ **136/136 (100%)** |
 | **PostgreSQL Live Audit** | `npx.cmd tsx --env-file=.env tests/postgres-live-audit.test.ts` | Real PostgreSQL verification of registration, persistence, isolation & cleanup | ✅ **20/20 (100%)** |
-| **Database Schema Check** | `npx.cmd tsx scripts/inspect-database-tables.ts` | 33 PostgreSQL tables, column schemas, ENUMs & live rows | ✅ **33/33 (100%)** |
+| **Database Schema Check** | `npx.cmd tsx scripts/inspect-database-tables.ts` | 36 PostgreSQL tables, column schemas, ENUMs & live rows | ✅ **36/36 (100%)** |
 | **User Store Cleanup** | `npm.cmd run clean:users` | Purges unverified test accounts while preserving canonical baseline accounts | ✅ **Verified** |
 | **Admin Seed CLI** | `npm.cmd run seed:admin` | Idempotent, concurrency-safe single admin bootstrap utility | ✅ **Verified** |
 | **Phase 15 PWA & Performance** | `npm.cmd run test:phase15` | Web App Manifest, Service Worker Caching, Offline Fallback, Security Headers | ✅ **41/41 (100%)** |
@@ -677,9 +703,10 @@ Veloura Living implements a reference-matched OTP verification page (`app/verify
 | **Phase 12 Notification Suite** | `npm.cmd run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
 | **Phase 11 Payment Suite** | `npm.cmd run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
 | **Direct REST APIs** | `npm.cmd run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
-| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | All automated test suites across all SRS requirements | ✅ **314/314 (100%)** |
+| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | All automated test suites across all SRS requirements | ✅ **350/350 (100%)** |
 
 ---
 
 *Authored by Antigravity Engineering for Veloura Living — October 2026.*
+
 

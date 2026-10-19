@@ -7,6 +7,7 @@ export * from './api';
 export * from './auth';
 export * from './shopHover';
 export * from './notification';
+export * from './marketing';
 
 import { Product } from './product';
 

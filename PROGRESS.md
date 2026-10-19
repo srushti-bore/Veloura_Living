@@ -645,10 +645,44 @@ docker run -p 5000:5000 veloura-backend
   - **0 TypeScript errors**.
   - **314/314 Master Tests Passing (100%)**.
 
+### 29. Phase 29: Marketing Consent, Unsubscribe Management & Campaign Safety Architecture (n8n & Brevo Ready) ✅
+- **Objective & Invariants:**
+  - Designed robust compliance, auditability, and safety rails for upcoming n8n festive email marketing campaigns via Brevo.
+  - Strict default opt-out: All existing and new customers remain opted out of promotional communications unless explicit affirmative consent is captured.
+  - Zero cross-contamination between transactional authentication emails (Brevo OTP) and marketing campaigns.
+  - No customer preferences can be tampered with by unauthorized sessions (401/403 security guard).
+  - DB-level uniqueness and deduplication to prevent double-emailing customers.
+  - Concurrency-safe job claiming (`FOR UPDATE SKIP LOCKED`) for multi-worker n8n execution.
+  - Zero promotional emails sent during test/audit cycles; zero exposure of secrets.
+- **Database Schema & Migrations (`supabase/migrations/20261019000001_marketing_consent_and_campaign_safety.sql` & `supabase/complete_supabase_setup.sql`):**
+  - `customer_marketing_consents`: Stores email, `user_id`, `is_opted_in` (default `false`), `consent_source` (`CHECKOUT`, `FOOTER_NEWSLETTER`, `ACCOUNT_SETTINGS`, `IMPORT_LEGACY`, `ADMIN_OVERRIDE`), `consented_at`, `unsubscribed_at`, `unsubscribe_reason`, `unsubscribe_token` (`gen_random_bytes(32)`), and metadata.
+  - `marketing_campaigns`: Tracks `campaign_key` (e.g. `diwali-2026-luxury-suite`), festive theme, status (`DRAFT`, `SCHEDULED`, `RUNNING`, `PAUSED`, `COMPLETED`, `CANCELLED`), target segment, total recipients.
+  - `marketing_campaign_dispatches`: Tracks granular delivery jobs with database-level uniqueness constraint `uq_campaign_recipient (campaign_key, email)`. States: `PENDING`, `CLAIMED`, `ACCEPTED`, `DELIVERED`, `FAILED`, `BOUNCED`, `TIMEOUT_AMBIGUOUS`.
+  - Stored Procedures: `claim_campaign_dispatches` (atomic row claiming with lock skip), `populate_campaign_dispatches` (idempotent audience queuing), `unsubscribe_customer_by_token`, and `unsubscribe_customer_by_email`.
+- **API Endpoints & Integration Infrastructure:**
+  - `POST /api/marketing/consent`: Captures authenticated and guest checkout consent. Enforces identity verification to prevent unauthorized preference modification.
+  - `POST /api/marketing/newsletter`: Affirmative footer newsletter subscription with email format validation and luxury user feedback.
+  - `POST /api/marketing/unsubscribe`: Token- and email-based idempotent unsubscribe endpoint.
+  - `POST /api/marketing/brevo-webhook`: Provider event listener for `unsubscribe`, `spam`, and `hard_bounce` with timing-safe webhook secret verification.
+  - `POST /api/marketing/campaigns/eligible`: Secured endpoint for n8n to query clean, consented audiences (strictly excludes unsubscribed/bounced/opted-out users).
+  - `POST /api/marketing/campaigns/claim`: Atomic batch claiming endpoint for distributed n8n worker nodes.
+  - `POST /api/marketing/campaigns/result`: Records dispatch outcomes with safe retry handling (quarantines `TIMEOUT_AMBIGUOUS` without blind retries).
+- **Frontend Experience:**
+  - Checkout (`providers/CheckoutProvider.tsx` & `components/commerce/checkout/IdentityStep.tsx`): `keepUpdated` defaulted to `false` for regulatory compliance; submits explicit consent on identity step completion.
+  - Footer (`components/layout/Footer.tsx`): Connected to live newsletter API with subtle loading state and quiet luxury confirmation.
+  - Unsubscribe Landing Page (`app/unsubscribe/page.tsx`): Dedicated luxury page supporting 1-click token unsubscribe, feedback capture, and explicit reassurance that transactional order and security OTP emails remain fully functional.
+- **Automated Verification Suite (`tests/marketing-consent-and-campaign-safety.test.ts`):**
+  - 36 automated test cases covering consent granting, consent absence, footer subscription validation, unauthorized tampering defense (403), idempotent unsubscribe, Brevo webhook events, audience filtering, campaign deduplication, concurrent worker claiming, and ambiguous timeout tracking.
+- **Production Compilation & Master Test Suite:**
+  - **75/75 Next.js App Router routes compiled cleanly (0 errors)**.
+  - **0 TypeScript errors (`tsc --noEmit`)**.
+  - **350/350 Master Tests Passing (100%)**.
+
 ---
 
 👉 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 👉 **Live Frontend Deployment:** Import `Veloura_Living` on [Vercel](https://vercel.com/new) -> Framework Preset `Next.js` -> Deploy.  
 👉 **Live Standalone Backend:** Deploy `backend` subfolder as Web Service on [Render](https://render.com) -> Node / Docker runtime -> Port 10000.
+
 
 
