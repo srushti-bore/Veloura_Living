@@ -522,25 +522,48 @@ export async function populateCampaignDispatches(campaignKey: string): Promise<n
 export async function claimCampaignDispatches(
   campaignKey: string,
   workerId: string,
-  batchSize: number = 50
+  batchSize: number = 50,
+  targetEmail?: string
 ): Promise<ClaimedDispatchItem[]> {
   await initMarketingStore();
   const hasPg = await isPostgresAvailable();
+  const normalizedTargetEmail = targetEmail ? targetEmail.toLowerCase().trim() : undefined;
 
   if (hasPg) {
     try {
-      const res = await queryPostgres<{
-        dispatch_id: string;
-        campaign_id: string;
-        campaign_key: string;
-        email: string;
-        first_name: string;
-        last_name: string;
-        unsubscribe_token: string;
-      }>(
-        'SELECT * FROM claim_campaign_dispatches($1, $2, $3);',
-        [campaignKey, workerId, batchSize]
-      );
+      let res;
+      try {
+        res = await queryPostgres<{
+          dispatch_id: string;
+          campaign_id: string;
+          campaign_key: string;
+          email: string;
+          first_name: string;
+          last_name: string;
+          unsubscribe_token: string;
+        }>(
+          'SELECT * FROM claim_campaign_dispatches($1, $2, $3, $4);',
+          [campaignKey, workerId, batchSize, normalizedTargetEmail || null]
+        );
+      } catch (err: any) {
+        // If 4-arg function is not found and targetEmail was NOT requested, fallback to 3-arg function
+        if (!normalizedTargetEmail) {
+          res = await queryPostgres<{
+            dispatch_id: string;
+            campaign_id: string;
+            campaign_key: string;
+            email: string;
+            first_name: string;
+            last_name: string;
+            unsubscribe_token: string;
+          }>(
+            'SELECT * FROM claim_campaign_dispatches($1, $2, $3);',
+            [campaignKey, workerId, batchSize]
+          );
+        } else {
+          throw err;
+        }
+      }
 
       if (res && res.rows.length > 0) {
         return res.rows.map((row) => ({
@@ -565,6 +588,11 @@ export async function claimCampaignDispatches(
 
   for (const dispatch of dispatchesCache.values()) {
     if (dispatch.campaign_key === campaignKey && dispatch.status === 'PENDING' && dispatch.attempts < dispatch.max_attempts) {
+      // Deterministic test-recipient isolation: if target email is specified, strictly filter
+      if (normalizedTargetEmail && dispatch.email.toLowerCase().trim() !== normalizedTargetEmail) {
+        continue;
+      }
+
       const consent = consentsCache.get(dispatch.email.toLowerCase().trim());
       // Re-verify they are still opted-in and not unsubscribed
       if (!consent || !consent.is_opted_in || consent.unsubscribed_at) {

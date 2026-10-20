@@ -708,6 +708,322 @@ export async function runMarketingConsentTestSuite(): Promise<{
     (process.env as any).NODE_ENV = originalClaimNodeEnv;
   }
 
+  // -------------------------------------------------------------
+  // 15. Deterministic Test-Recipient Isolation & Allowlist Security
+  // -------------------------------------------------------------
+  console.log('\n--- 15. Deterministic Test-Recipient Isolation & Allowlist Security ---');
+  const origIsoApiKey = process.env.MARKETING_API_KEY;
+  const origIsoN8nKey = process.env.N8N_MARKETING_KEY;
+  const origIsoAllowlist = process.env.MARKETING_TEST_ALLOWLIST;
+  const origIsoNodeEnv = process.env.NODE_ENV;
+
+  const spiedCreate = marketingCampaignService.createOrGetCampaign;
+  const spiedPopulate = marketingCampaignService.populateCampaignDispatches;
+  const spiedClaim = marketingCampaignService.claimCampaignDispatches;
+
+  let isoCreateCalls = 0;
+  let isoPopulateCalls = 0;
+  let isoClaimCalls = 0;
+  let lastClaimTargetEmail: string | undefined = undefined;
+
+  marketingCampaignService.createOrGetCampaign = async (campaign) => {
+    isoCreateCalls++;
+    return {
+      id: 'mock-campaign-id',
+      campaign_key: campaign.campaignKey,
+      title: campaign.title,
+      subject: campaign.subject,
+      status: 'ACTIVE',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any;
+  };
+
+  marketingCampaignService.populateCampaignDispatches = async (_campaignKey) => {
+    isoPopulateCalls++;
+    return 1;
+  };
+
+  marketingCampaignService.claimCampaignDispatches = async (_campaignKey, worker, limit, targetEmail) => {
+    isoClaimCalls++;
+    lastClaimTargetEmail = targetEmail;
+    return [
+      {
+        dispatchId: 'mock-dispatch-iso-1',
+        campaignId: 'mock-campaign-id',
+        campaignKey: _campaignKey,
+        email: targetEmail || 'default@veloura.com',
+        firstName: 'Test',
+        lastName: 'Recipient',
+        unsubscribeToken: 'test-token-iso',
+      },
+    ];
+  };
+
+  try {
+    delete process.env.N8N_MARKETING_KEY;
+    process.env.MARKETING_API_KEY = 'test-marketing-key';
+    (process.env as any).NODE_ENV = 'production';
+
+    // 15.1 - 15.3: Missing allowlist rejects with HTTP 403 and zero mutation calls
+    delete process.env.MARKETING_TEST_ALLOWLIST;
+    isoCreateCalls = 0;
+    isoPopulateCalls = 0;
+    isoClaimCalls = 0;
+
+    const missingAllowlistReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: {
+        campaignKey: 'diwali-2026-luxury-suite',
+        testRecipientEmail: 'tester@veloura.com',
+      },
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const missingAllowlistRes = await claimPostHandler(missingAllowlistReq);
+    assert(missingAllowlistRes.status === 403, '15.1 Missing MARKETING_TEST_ALLOWLIST rejects with HTTP 403');
+    const missingAllowlistJson = await missingAllowlistRes.json();
+    assert(missingAllowlistJson.error?.code === 'FORBIDDEN', '15.2 Missing allowlist returns FORBIDDEN error code');
+    assert(
+      isoCreateCalls === 0 && isoPopulateCalls === 0 && isoClaimCalls === 0,
+      '15.3 Zero store mutation calls when allowlist is missing'
+    );
+
+    // 15.4 - 15.5: Empty allowlist rejects with HTTP 403 and zero mutation calls
+    process.env.MARKETING_TEST_ALLOWLIST = '   ';
+    isoCreateCalls = 0;
+    isoPopulateCalls = 0;
+    isoClaimCalls = 0;
+
+    const emptyAllowlistReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: {
+        campaignKey: 'diwali-2026-luxury-suite',
+        testRecipientEmail: 'tester@veloura.com',
+      },
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const emptyAllowlistRes = await claimPostHandler(emptyAllowlistReq);
+    assert(emptyAllowlistRes.status === 403, '15.4 Empty MARKETING_TEST_ALLOWLIST rejects with HTTP 403');
+    assert(
+      isoCreateCalls === 0 && isoPopulateCalls === 0 && isoClaimCalls === 0,
+      '15.5 Zero store mutation calls when allowlist is whitespace/empty'
+    );
+
+    // 15.6 - 15.7: Recipient not in allowlist rejects with HTTP 403 and zero mutation calls
+    process.env.MARKETING_TEST_ALLOWLIST = 'authorized-tester@veloura.com, qa-lead@veloura.com';
+    isoCreateCalls = 0;
+    isoPopulateCalls = 0;
+    isoClaimCalls = 0;
+
+    const unlistedReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: {
+        campaignKey: 'diwali-2026-luxury-suite',
+        testRecipientEmail: 'unauthorized-user@external.com',
+      },
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const unlistedRes = await claimPostHandler(unlistedReq);
+    assert(unlistedRes.status === 403, '15.6 Recipient not in MARKETING_TEST_ALLOWLIST rejects with HTTP 403');
+    assert(
+      isoCreateCalls === 0 && isoPopulateCalls === 0 && isoClaimCalls === 0,
+      '15.7 Zero store mutation calls when recipient is not allowlisted'
+    );
+
+    // 15.8 - 15.9: Malformed testRecipientEmail rejects with HTTP 400 and zero mutation calls
+    isoCreateCalls = 0;
+    isoPopulateCalls = 0;
+    isoClaimCalls = 0;
+
+    const malformedEmailReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: {
+        campaignKey: 'diwali-2026-luxury-suite',
+        testRecipientEmail: 'invalid-email-format',
+      },
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const malformedEmailRes = await claimPostHandler(malformedEmailReq);
+    assert(malformedEmailRes.status === 400, '15.8 Malformed testRecipientEmail rejects with HTTP 400');
+    const malformedEmailJson = await malformedEmailRes.json();
+    assert(malformedEmailJson.error?.code === 'VALIDATION_ERROR', '15.9 Malformed email returns VALIDATION_ERROR');
+
+    // 15.10 - 15.13: Email normalization works (trim + lowercase matching and forwarding)
+    process.env.MARKETING_TEST_ALLOWLIST = '  Authorized-Tester@Veloura.COM , other@veloura.com  ';
+    isoCreateCalls = 0;
+    isoPopulateCalls = 0;
+    isoClaimCalls = 0;
+    lastClaimTargetEmail = undefined;
+
+    const normalizedReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: {
+        campaignKey: 'diwali-2026-luxury-suite',
+        testRecipientEmail: '   AUTHORIZED-TESTER@VELOURA.COM   ',
+      },
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const normalizedRes = await claimPostHandler(normalizedReq);
+    assert(normalizedRes.status === 200, '15.10 Normalized testRecipientEmail succeeds with HTTP 200');
+    const normalizedJson = await normalizedRes.json();
+    assert(normalizedJson.data?.testRecipientEmail === 'authorized-tester@veloura.com', '15.11 Response echoes normalized email');
+    assert(lastClaimTargetEmail === 'authorized-tester@veloura.com', '15.12 Target email passed to store is normalized to lowercase trim');
+    assert(isoClaimCalls === 1, '15.13 claimCampaignDispatches called with normalized email filter');
+
+    // -------------------------------------------------------------
+    // Store-Level Multi-Recipient Isolation & Fallback Prevention
+    // -------------------------------------------------------------
+    marketingCampaignService.createOrGetCampaign = spiedCreate;
+    marketingCampaignService.populateCampaignDispatches = spiedPopulate;
+    marketingCampaignService.claimCampaignDispatches = spiedClaim;
+
+    clearMarketingCacheForTesting();
+
+    const isoCampaignKey = 'diwali-iso-test-campaign';
+    await createOrGetCampaign({
+      campaignKey: isoCampaignKey,
+      title: 'Festive Isolation Test',
+      subject: 'Curated Elegance',
+    });
+
+    // Register 3 customers:
+    // Customer 1: real customer 1 (opted in, eligible)
+    // Customer 2: designated test inbox (opted in, eligible)
+    // Customer 3: real customer 2 (opted in, eligible)
+    await recordMarketingConsent({
+      email: 'customer-early@veloura.com',
+      isOptedIn: true,
+      source: 'CHECKOUT',
+    });
+    await recordMarketingConsent({
+      email: 'designated-test@veloura.com',
+      isOptedIn: true,
+      source: 'CHECKOUT',
+    });
+    await recordMarketingConsent({
+      email: 'customer-late@veloura.com',
+      isOptedIn: true,
+      source: 'CHECKOUT',
+    });
+
+    // Populate all 3 dispatches
+    const populatedCount = await populateCampaignDispatches(isoCampaignKey);
+    assert(populatedCount === 3, '15.14 3 recipients successfully populated for isolation test');
+
+    // 15.15 - 15.16: Test claim specifying ONLY 'designated-test@veloura.com'
+    const testClaimResult = await claimCampaignDispatches(
+      isoCampaignKey,
+      'test-worker-iso',
+      10,
+      'designated-test@veloura.com'
+    );
+    assert(testClaimResult.length === 1, '15.15 Exactly 1 item claimed when test recipient specified');
+    assert(
+      testClaimResult[0].email.toLowerCase() === 'designated-test@veloura.com',
+      '15.16 Claimed item matches designated test recipient exclusively'
+    );
+
+    // 15.17 - 15.19: Unrestricted claim proves remaining non-test customers remained PENDING and untouched
+    const remainingUnrestrictedClaim = await claimCampaignDispatches(
+      isoCampaignKey,
+      'test-worker-check',
+      10
+    );
+    assert(remainingUnrestrictedClaim.length === 2, '15.17 Both non-test customers remained PENDING and available');
+    const remainingEmails = remainingUnrestrictedClaim.map((c) => c.email.toLowerCase());
+    assert(
+      remainingEmails.includes('customer-early@veloura.com') && remainingEmails.includes('customer-late@veloura.com'),
+      '15.18 Real customers were completely untouched by the test claim'
+    );
+    assert(
+      !remainingEmails.includes('designated-test@veloura.com'),
+      '15.19 Designated test recipient was already claimed and not duplicated'
+    );
+
+    // 15.20 - 15.22: Unsubscribed or ineligible test recipient returns ZERO items and never falls back
+    clearMarketingCacheForTesting();
+    const fallbackCampaignKey = 'diwali-fallback-prevention-test';
+    await createOrGetCampaign({
+      campaignKey: fallbackCampaignKey,
+      title: 'Fallback Prevention Test',
+      subject: 'Exclusivity',
+    });
+
+    // Seed real customer (opted in)
+    await recordMarketingConsent({
+      email: 'real-shopper@veloura.com',
+      isOptedIn: true,
+      source: 'CHECKOUT',
+    });
+    // Seed test customer (initially opted in, then unsubscribed)
+    await recordMarketingConsent({
+      email: 'unsubscribed-tester@veloura.com',
+      isOptedIn: true,
+      source: 'CHECKOUT',
+    });
+    await populateCampaignDispatches(fallbackCampaignKey);
+
+    // Unsubscribe the test customer
+    await unsubscribeCustomer({ email: 'unsubscribed-tester@veloura.com', reason: 'User opt-out' });
+
+    // Claim with test recipient filter pointing to unsubscribed tester:
+    const ineligibleClaim = await claimCampaignDispatches(
+      fallbackCampaignKey,
+      'worker-fallback-test',
+      10,
+      'unsubscribed-tester@veloura.com'
+    );
+    assert(ineligibleClaim.length === 0, '15.20 Ineligible/unsubscribed test recipient returns 0 items');
+
+    // Confirm that real-shopper was NOT claimed as fallback:
+    const realShopperCheck = await claimCampaignDispatches(
+      fallbackCampaignKey,
+      'worker-check',
+      10
+    );
+    assert(realShopperCheck.length === 1, '15.21 Real customer remained pending and was never claimed as fallback');
+    assert(
+      realShopperCheck[0].email.toLowerCase() === 'real-shopper@veloura.com',
+      '15.22 Real customer is claimed only when explicitly requested without fallback corruption'
+    );
+
+    // 15.23 - 15.27: Migration file static verification
+    const newMigrationPath = path.join(
+      process.cwd(),
+      'supabase',
+      'migrations',
+      '20261020000001_marketing_campaign_test_recipient_isolation.sql'
+    );
+    assert(fs.existsSync(newMigrationPath), '15.23 Forward-only migration file exists');
+    const newMigrationSql = fs.readFileSync(newMigrationPath, 'utf-8');
+    assert(
+      newMigrationSql.includes('p_target_email VARCHAR DEFAULT NULL'),
+      '15.24 Migration declares p_target_email optional filter'
+    );
+    assert(
+      newMigrationSql.includes('LOWER(cd.email) = LOWER(TRIM(p_target_email))'),
+      '15.25 Migration applies case-insensitive email filtering in locked_rows CTE'
+    );
+    assert(
+      newMigrationSql.includes('FOR UPDATE OF cd SKIP LOCKED'),
+      '15.26 Migration preserves FOR UPDATE OF cd SKIP LOCKED concurrency safety'
+    );
+    assert(
+      newMigrationSql.includes('REVOKE ALL ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT, VARCHAR) FROM PUBLIC;'),
+      '15.27 Migration restricts permissions on new function signature'
+    );
+  } catch (err: any) {
+    assert(false, `15.x Error in test-recipient isolation verification: ${err.message}`);
+  } finally {
+    marketingCampaignService.createOrGetCampaign = spiedCreate;
+    marketingCampaignService.populateCampaignDispatches = spiedPopulate;
+    marketingCampaignService.claimCampaignDispatches = spiedClaim;
+    process.env.MARKETING_API_KEY = origIsoApiKey;
+    process.env.N8N_MARKETING_KEY = origIsoN8nKey;
+    process.env.MARKETING_TEST_ALLOWLIST = origIsoAllowlist;
+    (process.env as any).NODE_ENV = origIsoNodeEnv;
+  }
+
   console.log('\n===========================================================');
   console.log(`📊 MARKETING CONSENT & CAMPAIGN SAFETY SUMMARY:`);
   console.log(`   ✓ Passed: ${passed}`);

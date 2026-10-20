@@ -1071,7 +1071,8 @@ $$;
 CREATE OR REPLACE FUNCTION claim_campaign_dispatches(
     p_campaign_key VARCHAR,
     p_worker_id VARCHAR,
-    p_batch_size INT DEFAULT 50
+    p_batch_size INT DEFAULT 50,
+    p_target_email VARCHAR DEFAULT NULL
 )
 RETURNS TABLE (
     dispatch_id UUID,
@@ -1097,6 +1098,7 @@ BEGIN
           AND cmc.is_opted_in = TRUE
           AND cmc.unsubscribed_at IS NULL
           AND cd.attempts < cd.max_attempts
+          AND (p_target_email IS NULL OR TRIM(p_target_email) = '' OR LOWER(cd.email) = LOWER(TRIM(p_target_email)))
         ORDER BY cd.created_at ASC
         LIMIT p_batch_size
         FOR UPDATE OF cd SKIP LOCKED
@@ -1123,6 +1125,29 @@ BEGIN
     FROM updated u
     LEFT JOIN profiles p ON p.user_id = u.user_id
     LEFT JOIN customer_marketing_consents cmc ON LOWER(cmc.email) = LOWER(u.email);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION claim_campaign_dispatches(
+    p_campaign_key VARCHAR,
+    p_worker_id VARCHAR,
+    p_batch_size INT DEFAULT 50
+)
+RETURNS TABLE (
+    dispatch_id UUID,
+    campaign_id UUID,
+    campaign_key VARCHAR,
+    email VARCHAR,
+    first_name VARCHAR,
+    last_name VARCHAR,
+    unsubscribe_token VARCHAR
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+    RETURN QUERY SELECT * FROM claim_campaign_dispatches(p_campaign_key, p_worker_id, p_batch_size, NULL::VARCHAR);
 END;
 $$;
 
@@ -1251,6 +1276,7 @@ END $$;
 -- 5. Revoke function execution from PUBLIC, anon, and authenticated
 REVOKE ALL ON FUNCTION populate_campaign_dispatches(VARCHAR) FROM PUBLIC;
 REVOKE ALL ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT, VARCHAR) FROM PUBLIC;
 REVOKE ALL ON FUNCTION unsubscribe_customer_by_token(VARCHAR, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION unsubscribe_customer_by_email(VARCHAR, TEXT) FROM PUBLIC;
 
@@ -1258,6 +1284,7 @@ DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
         REVOKE ALL ON FUNCTION populate_campaign_dispatches(VARCHAR) FROM anon;
         REVOKE ALL ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT) FROM anon;
+        REVOKE ALL ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT, VARCHAR) FROM anon;
         REVOKE ALL ON FUNCTION unsubscribe_customer_by_token(VARCHAR, TEXT) FROM anon;
         REVOKE ALL ON FUNCTION unsubscribe_customer_by_email(VARCHAR, TEXT) FROM anon;
     END IF;
@@ -1265,6 +1292,7 @@ DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
         REVOKE ALL ON FUNCTION populate_campaign_dispatches(VARCHAR) FROM authenticated;
         REVOKE ALL ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT) FROM authenticated;
+        REVOKE ALL ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT, VARCHAR) FROM authenticated;
         REVOKE ALL ON FUNCTION unsubscribe_customer_by_token(VARCHAR, TEXT) FROM authenticated;
         REVOKE ALL ON FUNCTION unsubscribe_customer_by_email(VARCHAR, TEXT) FROM authenticated;
     END IF;
@@ -1272,6 +1300,7 @@ DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
         GRANT EXECUTE ON FUNCTION populate_campaign_dispatches(VARCHAR) TO service_role;
         GRANT EXECUTE ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT) TO service_role;
+        GRANT EXECUTE ON FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT, VARCHAR) TO service_role;
         GRANT EXECUTE ON FUNCTION unsubscribe_customer_by_token(VARCHAR, TEXT) TO service_role;
         GRANT EXECUTE ON FUNCTION unsubscribe_customer_by_email(VARCHAR, TEXT) TO service_role;
     END IF;
@@ -1280,6 +1309,7 @@ END $$;
 -- 6. Apply explicit search_path to functions to defend against CWE-426 search_path hijacking
 ALTER FUNCTION populate_campaign_dispatches(VARCHAR) SET search_path = public, pg_temp;
 ALTER FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT) SET search_path = public, pg_temp;
+ALTER FUNCTION claim_campaign_dispatches(VARCHAR, VARCHAR, INT, VARCHAR) SET search_path = public, pg_temp;
 ALTER FUNCTION unsubscribe_customer_by_token(VARCHAR, TEXT) SET search_path = public, pg_temp;
 ALTER FUNCTION unsubscribe_customer_by_email(VARCHAR, TEXT) SET search_path = public, pg_temp;
 

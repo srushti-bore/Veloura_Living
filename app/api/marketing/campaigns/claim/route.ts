@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 import { successResponse } from '@/lib/api/response';
-import { handleApiError, UnauthorizedError, ValidationError } from '@/lib/api/errorHandler';
+import { handleApiError, UnauthorizedError, ValidationError, ForbiddenError } from '@/lib/api/errorHandler';
 import { getSession } from '@/lib/auth/session';
 import { marketingCampaignService } from '@/lib/data/marketingStore';
+
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,10 +31,35 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { campaignKey, workerId, batchSize, title, subject } = body;
+    const { campaignKey, workerId, batchSize, title, subject, testRecipientEmail } = body;
 
     if (!campaignKey || typeof campaignKey !== 'string') {
       throw new ValidationError('campaignKey is required.');
+    }
+
+    let normalizedTestEmail: string | undefined = undefined;
+    if (testRecipientEmail !== undefined && testRecipientEmail !== null) {
+      if (typeof testRecipientEmail !== 'string') {
+        throw new ValidationError('testRecipientEmail must be a string.');
+      }
+      const trimmed = testRecipientEmail.trim().toLowerCase();
+      if (!trimmed || trimmed.length < 5 || trimmed.length > 254 || !EMAIL_REGEX.test(trimmed)) {
+        throw new ValidationError('testRecipientEmail must be a valid email address.');
+      }
+
+      const allowlistRaw = process.env.MARKETING_TEST_ALLOWLIST || '';
+      const allowedEmails = allowlistRaw
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      if (allowedEmails.length === 0 || !allowedEmails.includes(trimmed)) {
+        throw new ForbiddenError(
+          'testRecipientEmail is not permitted by server MARKETING_TEST_ALLOWLIST.'
+        );
+      }
+
+      normalizedTestEmail = trimmed;
     }
 
     const worker = workerId || `n8n-worker-${Math.random().toString(36).slice(2, 8)}`;
@@ -48,8 +75,13 @@ export async function POST(request: NextRequest) {
     // Populate eligible dispatches idempotently (ON CONFLICT DO NOTHING)
     await marketingCampaignService.populateCampaignDispatches(campaignKey);
 
-    // Atomically claim next available pending batch (FOR UPDATE SKIP LOCKED)
-    const claimedItems = await marketingCampaignService.claimCampaignDispatches(campaignKey, worker, limit);
+    // Atomically claim next available pending batch (FOR UPDATE SKIP LOCKED) with optional targetEmail
+    const claimedItems = await marketingCampaignService.claimCampaignDispatches(
+      campaignKey,
+      worker,
+      limit,
+      normalizedTestEmail
+    );
 
     return successResponse(
       {
@@ -57,6 +89,7 @@ export async function POST(request: NextRequest) {
         claimedBy: worker,
         count: claimedItems.length,
         items: claimedItems,
+        ...(normalizedTestEmail ? { testRecipientEmail: normalizedTestEmail } : {}),
       },
       200
     );

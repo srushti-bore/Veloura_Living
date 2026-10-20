@@ -91,3 +91,12 @@ export interface CampaignDispatchResultInput {
   providerMessageId?: string;
   failureReason?: string;
 }
+
+export interface CampaignClaimInput {
+  campaignKey: string;
+  workerId?: string;
+  batchSize?: number;
+  title?: string;
+  subject?: string;
+  testRecipientEmail?: string;
+}
