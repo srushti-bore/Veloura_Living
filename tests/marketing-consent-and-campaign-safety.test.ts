@@ -16,12 +16,14 @@ import {
   populateCampaignDispatches,
   claimCampaignDispatches,
   recordDispatchResult,
+  marketingCampaignService,
 } from '../lib/data/marketingStore';
 import { POST as consentPostHandler } from '../app/api/marketing/consent/route';
 import { POST as newsletterPostHandler } from '../app/api/marketing/newsletter/route';
 import { POST as unsubscribePostHandler } from '../app/api/marketing/unsubscribe/route';
 import { POST as webhookPostHandler } from '../app/api/marketing/brevo-webhook/route';
 import { POST as eligiblePostHandler, GET as eligibleGetHandler } from '../app/api/marketing/campaigns/eligible/route';
+import { POST as claimPostHandler } from '../app/api/marketing/campaigns/claim/route';
 import { signToken } from '../lib/auth/jwt';
 import { AUTH_COOKIE_NAME } from '../lib/auth/session';
 import { initUserRepository } from '../lib/data/userRepository';
@@ -532,6 +534,178 @@ export async function runMarketingConsentTestSuite(): Promise<{
   } finally {
     process.env.MARKETING_API_KEY = originalApiKey;
     (process.env as any).NODE_ENV = originalNodeEnv;
+  }
+
+  // -------------------------------------------------------------
+  // 14. Campaign Claim POST Endpoint Security & Validation (/api/marketing/campaigns/claim)
+  // -------------------------------------------------------------
+  console.log('\n--- 14. Campaign Claim POST Endpoint Security & Validation ---');
+  const originalClaimApiKey = process.env.MARKETING_API_KEY;
+  const originalClaimN8nKey = process.env.N8N_MARKETING_KEY;
+  const originalClaimNodeEnv = process.env.NODE_ENV;
+
+  // Preserve original service methods for clean restoration
+  const originalCreateOrGetCampaign = marketingCampaignService.createOrGetCampaign;
+  const originalPopulateCampaignDispatches = marketingCampaignService.populateCampaignDispatches;
+  const originalClaimCampaignDispatches = marketingCampaignService.claimCampaignDispatches;
+
+  let createOrGetCalls = 0;
+  let populateCalls = 0;
+  let claimCalls = 0;
+
+  // Mock campaign store mutation dependencies
+  marketingCampaignService.createOrGetCampaign = async (campaign) => {
+    createOrGetCalls++;
+    return {
+      id: 'mock-campaign-id',
+      campaign_key: campaign.campaignKey,
+      title: campaign.title,
+      subject: campaign.subject,
+      status: 'ACTIVE',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any;
+  };
+
+  marketingCampaignService.populateCampaignDispatches = async (_campaignKey) => {
+    populateCalls++;
+    return 10;
+  };
+
+  marketingCampaignService.claimCampaignDispatches = async (_campaignKey, worker, limit) => {
+    claimCalls++;
+    return [
+      {
+        id: 'mock-dispatch-1',
+        campaign_id: 'mock-campaign-id',
+        email: 'mock-recipient@veloura.com',
+        first_name: 'Aria',
+        last_name: 'Vance',
+        unsubscribe_token: 'mock-token-abc',
+        status: 'CLAIMED',
+      },
+    ] as any;
+  };
+
+  try {
+    delete process.env.N8N_MARKETING_KEY;
+    process.env.MARKETING_API_KEY = 'test-marketing-key';
+    (process.env as any).NODE_ENV = 'production';
+
+    // 14.1 - 14.7: Authenticated request with empty JSON body {}
+    createOrGetCalls = 0;
+    populateCalls = 0;
+    claimCalls = 0;
+
+    const emptyBodyReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: {},
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const emptyRes = await claimPostHandler(emptyBodyReq);
+    assert(emptyRes.status === 400, '14.1 Authenticated POST with empty body {} returns HTTP 400');
+    const emptyJson = await emptyRes.json();
+    assert(emptyJson.success === false, '14.2 Empty body returns success false');
+    assert(emptyJson.error?.code === 'VALIDATION_ERROR', '14.3 Empty body returns VALIDATION_ERROR code');
+    assert(emptyJson.error?.message === 'campaignKey is required.', '14.4 Empty body returns expected validation error for missing campaignKey');
+    assert(createOrGetCalls === 0, '14.5 createOrGetCampaign is not called on empty body {}');
+    assert(populateCalls === 0, '14.6 populateCampaignDispatches is not called on empty body {}');
+    assert(claimCalls === 0, '14.7 claimCampaignDispatches is not called on empty body {}');
+
+    // 14.8 - 14.11: Missing marketing API key returns HTTP 401 and no mutations called
+    createOrGetCalls = 0;
+    populateCalls = 0;
+    claimCalls = 0;
+
+    const missingKeyReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: { campaignKey: 'diwali-2026-luxury-suite' },
+      headers: {},
+    });
+    const missingKeyRes = await claimPostHandler(missingKeyReq);
+    assert(missingKeyRes.status === 401, '14.8 Missing marketing API key in production returns HTTP 401');
+    const missingKeyJson = await missingKeyRes.json();
+    assert(missingKeyJson.success === false, '14.9 Missing API key returns success false');
+    assert(missingKeyJson.error?.code === 'UNAUTHORIZED', '14.10 Missing API key returns UNAUTHORIZED code');
+    assert(
+      createOrGetCalls === 0 && populateCalls === 0 && claimCalls === 0,
+      '14.11 Zero campaign-store mutation functions called on missing API key'
+    );
+
+    // 14.12 - 14.15: Invalid marketing API key returns HTTP 401 and no mutations called
+    createOrGetCalls = 0;
+    populateCalls = 0;
+    claimCalls = 0;
+
+    const invalidKeyReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: { campaignKey: 'diwali-2026-luxury-suite' },
+      headers: { 'x-marketing-api-key': 'incorrect-api-key' },
+    });
+    const invalidKeyRes = await claimPostHandler(invalidKeyReq);
+    assert(invalidKeyRes.status === 401, '14.12 Invalid marketing API key returns HTTP 401');
+    const invalidKeyJson = await invalidKeyRes.json();
+    assert(invalidKeyJson.success === false, '14.13 Invalid API key returns success false');
+    assert(invalidKeyJson.error?.code === 'UNAUTHORIZED', '14.14 Invalid API key returns UNAUTHORIZED code');
+    assert(
+      createOrGetCalls === 0 && populateCalls === 0 && claimCalls === 0,
+      '14.15 Zero campaign-store mutation functions called on invalid API key'
+    );
+
+    // 14.16 - 14.18: Non-string campaignKey returns HTTP 400 and no mutations called
+    createOrGetCalls = 0;
+    populateCalls = 0;
+    claimCalls = 0;
+
+    const invalidTypeReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: { campaignKey: 12345 },
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const invalidTypeRes = await claimPostHandler(invalidTypeReq);
+    assert(invalidTypeRes.status === 400, '14.16 Non-string campaignKey returns HTTP 400');
+    const invalidTypeJson = await invalidTypeRes.json();
+    assert(invalidTypeJson.error?.code === 'VALIDATION_ERROR', '14.17 Non-string campaignKey returns VALIDATION_ERROR');
+    assert(
+      createOrGetCalls === 0 && populateCalls === 0 && claimCalls === 0,
+      '14.18 Zero campaign-store mutation functions called on non-string campaignKey'
+    );
+
+    // 14.19 - 14.25: Valid authenticated claim executes mutations and returns HTTP 200 with claimed batch
+    createOrGetCalls = 0;
+    populateCalls = 0;
+    claimCalls = 0;
+
+    const validClaimReq = createMockRequest('http://localhost:3000/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: {
+        campaignKey: 'diwali-2026-luxury-suite',
+        workerId: 'test-n8n-worker-01',
+        batchSize: 15,
+      },
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const validClaimRes = await claimPostHandler(validClaimReq);
+    assert(validClaimRes.status === 200, '14.19 Valid authenticated claim returns HTTP 200');
+    const validClaimJson = await validClaimRes.json();
+    assert(validClaimJson.success === true, '14.20 Valid claim returns success true');
+    assert(validClaimJson.data?.campaignKey === 'diwali-2026-luxury-suite', '14.21 Valid claim echoes campaignKey');
+    assert(validClaimJson.data?.claimedBy === 'test-n8n-worker-01', '14.22 Valid claim echoes workerId');
+    assert(validClaimJson.data?.count === 1, '14.23 Valid claim returns expected item count');
+    assert(validClaimJson.data?.items?.length === 1, '14.24 Valid claim returns claimed items array');
+    assert(
+      createOrGetCalls === 1 && populateCalls === 1 && claimCalls === 1,
+      '14.25 createOrGetCampaign, populateCampaignDispatches, and claimCampaignDispatches called exactly once for valid request'
+    );
+  } catch (err: any) {
+    assert(false, `14.x Error in campaign claim POST test: ${err.message}`);
+  } finally {
+    marketingCampaignService.createOrGetCampaign = originalCreateOrGetCampaign;
+    marketingCampaignService.populateCampaignDispatches = originalPopulateCampaignDispatches;
+    marketingCampaignService.claimCampaignDispatches = originalClaimCampaignDispatches;
+    process.env.MARKETING_API_KEY = originalClaimApiKey;
+    process.env.N8N_MARKETING_KEY = originalClaimN8nKey;
+    (process.env as any).NODE_ENV = originalClaimNodeEnv;
   }
 
   console.log('\n===========================================================');

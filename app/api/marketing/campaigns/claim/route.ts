@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { successResponse } from '@/lib/api/response';
 import { handleApiError, UnauthorizedError, ValidationError } from '@/lib/api/errorHandler';
 import { getSession } from '@/lib/auth/session';
-import { claimCampaignDispatches, populateCampaignDispatches, createOrGetCampaign } from '@/lib/data/marketingStore';
+import { marketingCampaignService } from '@/lib/data/marketingStore';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,17 +39,17 @@ export async function POST(request: NextRequest) {
     const limit = Math.min(Math.max(Number(batchSize) || 25, 1), 200);
 
     // Ensure campaign exists in registry
-    await createOrGetCampaign({
+    await marketingCampaignService.createOrGetCampaign({
       campaignKey,
       title: title || `Campaign ${campaignKey}`,
       subject: subject || 'Veloura Living Exclusive Curation',
     });
 
     // Populate eligible dispatches idempotently (ON CONFLICT DO NOTHING)
-    await populateCampaignDispatches(campaignKey);
+    await marketingCampaignService.populateCampaignDispatches(campaignKey);
 
     // Atomically claim next available pending batch (FOR UPDATE SKIP LOCKED)
-    const claimedItems = await claimCampaignDispatches(campaignKey, worker, limit);
+    const claimedItems = await marketingCampaignService.claimCampaignDispatches(campaignKey, worker, limit);
 
     return successResponse(
       {

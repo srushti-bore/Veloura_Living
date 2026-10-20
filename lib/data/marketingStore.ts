@@ -658,3 +658,9 @@ export async function recordDispatchResult(
 
   return undefined;
 }
+
+export const marketingCampaignService = {
+  createOrGetCampaign,
+  populateCampaignDispatches,
+  claimCampaignDispatches,
+};
