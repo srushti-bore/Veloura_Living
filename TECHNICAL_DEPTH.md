@@ -677,6 +677,23 @@ Veloura Living implements a reference-matched OTP verification page (`app/verify
   - Distinguishes between `PENDING`, `CLAIMED`, `ACCEPTED`, `DELIVERED`, `FAILED`, `BOUNCED`, and `TIMEOUT_AMBIGUOUS`.
   - Quarantines gateway timeouts under `TIMEOUT_AMBIGUOUS` with error details, preventing blind retries from producing duplicate marketing emails.
 
+### 🧪 4. Deterministic Test-Recipient Isolation & Server Allowlist Enforcement
+- **Fail-Closed Allowlist Guard:**
+  - `POST /api/marketing/campaigns/claim` accepts an optional `testRecipientEmail` field.
+  - If specified, the email is trimmed, lowercased, regex-validated, and checked against `MARKETING_TEST_ALLOWLIST` (comma-separated).
+  - If the allowlist is missing, empty, or unlisted, the request fails closed immediately with **HTTP 403 Forbidden** (`code: "FORBIDDEN"`).
+  - Crucially, this rejection halts execution **before** `createOrGetCampaign()`, `populateCampaignDispatches()`, or `claimCampaignDispatches()` are called, preventing any persistent database mutation.
+- **Direct Database Query Pre-Lock Filtering:**
+  - Forward-only migration `20261020000001_marketing_campaign_test_recipient_isolation.sql` introduces 4-argument `claim_campaign_dispatches(p_campaign_key, p_worker_id, p_batch_size, p_target_email)`.
+  - Target email filtering (`AND (p_target_email IS NULL OR TRIM(p_target_email) = '' OR LOWER(cd.email) = LOWER(TRIM(p_target_email)))`) is applied within the `locked_rows` CTE **before** row locking (`FOR UPDATE OF cd SKIP LOCKED`).
+  - Rows belonging to other customers are never locked, claimed, or modified.
+- **Zero-Fallback Guarantee:**
+  - If the designated test recipient is unsubscribed, already claimed, or non-existent, `locked_rows` selects 0 rows.
+  - The endpoint returns `count: 0, items: []` and strictly **never** falls back to claiming other pending customer records.
+- **Strict Backward Compatibility:**
+  - Calls omitting `testRecipientEmail` continue executing unrestricted production claiming with standard API key authentication and concurrency safety.
+  - A 3-argument wrapper function delegates with `NULL::VARCHAR` to maintain compatibility with legacy callers.
+
 ---
 
 ## 25. Automated Verification & E2E Validation Matrix
@@ -686,7 +703,7 @@ Veloura Living implements a reference-matched OTP verification page (`app/verify
 | **TypeScript Typecheck** | `npx.cmd tsc --noEmit` | Strict compilation across all 75 App Router routes and backend modules | ✅ **0 Errors** |
 | **Backend Typecheck** | `npx.cmd tsc -p backend/tsconfig.json --noEmit` | Strict compilation of standalone backend microservice | ✅ **0 Errors** |
 | **Production Build** | `npm.cmd run build` | Next.js 16.3.8 production compilation (75/75 routes) | ✅ **Compiled (0 errors)** |
-| **Marketing & Campaign Safety** | `npm.cmd run test:marketing` | 36 consent persistence, unsubscribe, webhook, deduplication & n8n worker claim tests | ✅ **36/36 (100%)** |
+| **Marketing & Campaign Safety** | `npx.cmd tsx tests/marketing-consent-and-campaign-safety.test.ts` | 131 consent persistence, unsubscribe, webhook, deduplication, isolation & allowlist tests | ✅ **131/131 (100%)** |
 | **Single Admin Bootstrap** | `npx.cmd tsx tests/single-admin-bootstrap.test.ts` | 40-scenario single admin invariant, seed removal, RBAC & bypass tests | ✅ **40/40 (100%)** |
 | **Strict Auth Flow Verification** | `npx.cmd tsx tests/strict-auth-flow-verification.test.ts` | 35 strict registration, login OTP, error recovery & role routing tests | ✅ **35/35 (100%)** |
 | **Customer Dashboard Verification** | `npx.cmd tsx tests/customer-dashboard-verification.test.ts` | 10 dynamic identity, data isolation & reference layout tests | ✅ **10/10 (100%)** |
@@ -703,7 +720,7 @@ Veloura Living implements a reference-matched OTP verification page (`app/verify
 | **Phase 12 Notification Suite** | `npm.cmd run test:phase12` | HTML Emails, WhatsApp/SMS Templates, In-App Drawer Ledger, Lifecycle Triggers | ✅ **27/27 (100%)** |
 | **Phase 11 Payment Suite** | `npm.cmd run test:phase11` | FX Engine, COD Safety, OTP Verification, Direct Gateway Refunds & COD Checkout | ✅ **30/30 (100%)** |
 | **Direct REST APIs** | `npm.cmd run test:api:direct` | 39 direct REST API endpoints tested against live Next.js App Router handlers | ✅ **39/39 (100%)** |
-| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | All automated test suites across all SRS requirements | ✅ **350/350 (100%)** |
+| **Master Test Suite** | `npx.cmd tsx tests/run-all-tests.ts` | Complete automated test suite across all 22 test files | ✅ **445/445 (100%)** |
 
 ---
 

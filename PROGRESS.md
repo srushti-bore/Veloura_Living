@@ -678,11 +678,32 @@ docker run -p 5000:5000 veloura-backend
   - **0 TypeScript errors (`tsc --noEmit`)**.
   - **350/350 Master Tests Passing (100%)**.
 
+### 30. Phase 30: Deterministic Test-Recipient Isolation & Campaign Allowlist Safety ✅
+- **Objective & Invariants:**
+  - Designed and implemented deterministic test-recipient isolation on `POST /api/marketing/campaigns/claim` to guarantee that test workflow executions (such as n8n test runs) claim ONLY designated test inboxes without risk to real customers.
+  - Server-side fail-closed allowlist enforcement via `MARKETING_TEST_ALLOWLIST`: If `testRecipientEmail` is specified, it must be normalized and exist in the comma-separated environment variable; otherwise, the request terminates immediately with **HTTP 403 Forbidden** before any database operations.
+  - Direct database query filtering: Target email filtering occurs within the PostgreSQL stored procedure's `locked_rows` CTE **before** row-level locking (`FOR UPDATE OF cd SKIP LOCKED`), ensuring non-matching rows are never locked or claimed.
+  - Zero-fallback guarantee: If the designated test recipient is unsubscribed, already claimed, or exceeds retry limits, the claim query returns exactly 0 items (`count: 0, items: []`) and never falls back to claiming another customer.
+  - Strict backward compatibility: Calls that omit `testRecipientEmail` preserve existing production claiming, API key authentication, and concurrency safety.
+- **Database Migrations (`supabase/migrations/20261020000001_marketing_campaign_test_recipient_isolation.sql` & `supabase/complete_supabase_setup.sql`):**
+  - Added forward-only migration defining 4-argument `claim_campaign_dispatches(p_campaign_key VARCHAR, p_worker_id VARCHAR, p_batch_size INT DEFAULT 50, p_target_email VARCHAR DEFAULT NULL)`.
+  - Filter inside `locked_rows`: `AND (p_target_email IS NULL OR TRIM(p_target_email) = '' OR LOWER(cd.email) = LOWER(TRIM(p_target_email)))`.
+  - Added 3-argument backward compatibility wrapper function delegating with `NULL::VARCHAR`.
+  - Hardened security permissions: `REVOKE ALL FROM PUBLIC, anon, authenticated`, `GRANT EXECUTE TO service_role`, and explicit `SET search_path = public, pg_temp` to prevent search path hijacking (CWE-426).
+- **Backend Implementation:**
+  - `types/marketing.ts`: Added `CampaignClaimInput` interface with optional `testRecipientEmail?: string`.
+  - `app/api/marketing/campaigns/claim/route.ts`: Normalizes email (`.trim().toLowerCase()`), regex format check, validates against `MARKETING_TEST_ALLOWLIST`, throws `ForbiddenError` (403) before store mutations, and forwards `normalizedTestEmail`.
+  - `lib/data/marketingStore.ts`: Updated `claimCampaignDispatches()` to pass `$4` to PostgreSQL function, with memory store parity filter (`dispatch.email.toLowerCase().trim() === normalizedTargetEmail`).
+- **Audit & Production Findings:**
+  - Identified that `populateCampaignDispatches()` inserts `PENDING` records for all opted-in customers for the campaign key, while `claimCampaignDispatches()` strictly isolates the claimed recipient. Recommended non-mutating testing procedures (such as querying `/api/marketing/campaigns/eligible` or sending an unauthorized probe) for zero-mutation verification.
+- **Automated Verification Suite:**
+  - Expanded `tests/marketing-consent-and-campaign-safety.test.ts` to **131 tests (100% pass)**:
+    - Added Section 15 with 27 assertions covering missing allowlist, empty allowlist, unlisted recipient, email format validation, case/whitespace normalization, multi-recipient isolation, unsubscribed zero-fallback, and SQL migration static security.
+  - **Master Test Suite (`tests/run-all-tests.ts`):** **445/445 tests passing (100%)**.
+  - **TypeScript Typecheck (`npx tsc --noEmit`):** **0 Errors**.
+
 ---
 
 👉 **GitHub Repository:** [https://github.com/srushti-bore/Veloura_Living](https://github.com/srushti-bore/Veloura_Living)  
 👉 **Live Frontend Deployment:** Import `Veloura_Living` on [Vercel](https://vercel.com/new) -> Framework Preset `Next.js` -> Deploy.  
 👉 **Live Standalone Backend:** Deploy `backend` subfolder as Web Service on [Render](https://render.com) -> Node / Docker runtime -> Port 10000.
-
-
-
