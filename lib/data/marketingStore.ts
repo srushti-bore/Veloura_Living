@@ -640,12 +640,12 @@ export async function recordDispatchResult(
     try {
       const res = await queryPostgres<DbMarketingCampaignDispatch>(
         `UPDATE marketing_campaign_dispatches
-         SET status = $1,
+         SET status = $1::campaign_dispatch_status_enum,
              sent_at = CASE WHEN $1 = 'ACCEPTED' THEN CURRENT_TIMESTAMP ELSE sent_at END,
              provider_message_id = COALESCE($2, provider_message_id),
              failure_reason = COALESCE($3, failure_reason),
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = $4
+         WHERE id = $4::uuid
          RETURNING *;`,
         [input.status, input.providerMessageId || null, input.failureReason || null, input.dispatchId]
       );

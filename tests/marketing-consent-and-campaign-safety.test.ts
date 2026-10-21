@@ -697,6 +697,20 @@ export async function runMarketingConsentTestSuite(): Promise<{
       createOrGetCalls === 1 && populateCalls === 1 && claimCalls === 1,
       '14.25 createOrGetCampaign, populateCampaignDispatches, and claimCampaignDispatches called exactly once for valid request'
     );
+
+    // 14.26: Test claimedBy alias compatibility
+    const aliasClaimReq = createMockRequest('/api/marketing/campaigns/claim', {
+      method: 'POST',
+      body: {
+        campaignKey: 'diwali-2026-luxury-suite',
+        claimedBy: 'test-n8n-worker-alias',
+        batchSize: 1,
+      },
+      headers: { 'x-marketing-api-key': 'test-marketing-key' },
+    });
+    const aliasClaimRes = await claimPostHandler(aliasClaimReq);
+    const aliasClaimJson = await aliasClaimRes.json();
+    assert(aliasClaimJson.data?.claimedBy === 'test-n8n-worker-alias', '14.26 Valid claim supports claimedBy input property alias');
   } catch (err: any) {
     assert(false, `14.x Error in campaign claim POST test: ${err.message}`);
   } finally {

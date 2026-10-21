@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { campaignKey, workerId, batchSize, title, subject, testRecipientEmail } = body;
+    const { campaignKey, workerId, claimedBy, batchSize, title, subject, testRecipientEmail } = body;
 
     if (!campaignKey || typeof campaignKey !== 'string') {
       throw new ValidationError('campaignKey is required.');
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       normalizedTestEmail = trimmed;
     }
 
-    const worker = workerId || `n8n-worker-${Math.random().toString(36).slice(2, 8)}`;
+    const worker = workerId || claimedBy || `n8n-worker-${Math.random().toString(36).slice(2, 8)}`;
     const limit = Math.min(Math.max(Number(batchSize) || 25, 1), 200);
 
     // Ensure campaign exists in registry

@@ -39,7 +39,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const { dispatchId, status, providerMessageId, failureReason } = body;
 
-    if (!dispatchId || typeof dispatchId !== 'string') {
+    const rawDispatchId = typeof dispatchId === 'string' ? dispatchId.trim() : '';
+
+    if (!rawDispatchId) {
       throw new ValidationError('dispatchId is required.');
     }
 
@@ -48,14 +50,14 @@ export async function POST(request: NextRequest) {
     }
 
     const updated = await recordDispatchResult({
-      dispatchId,
+      dispatchId: rawDispatchId,
       status,
       providerMessageId,
       failureReason,
     });
 
     if (!updated) {
-      throw new NotFoundError(`Dispatch record not found for id: ${dispatchId}`);
+      throw new NotFoundError(`Dispatch record not found for id: ${rawDispatchId}`);
     }
 
     return successResponse(

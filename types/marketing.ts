@@ -95,6 +95,7 @@ export interface CampaignDispatchResultInput {
 export interface CampaignClaimInput {
   campaignKey: string;
   workerId?: string;
+  claimedBy?: string;
   batchSize?: number;
   title?: string;
   subject?: string;
